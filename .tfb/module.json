@@ -11,80 +11,136 @@
     "ar": "المطبخ"
   },
   "description": {
-    "fr": "L'app de la cuisine du magasin : production du jour, checklists, fiches techniques.",
-    "en": "The store kitchen's app: today's production, checklists, technical sheets.",
-    "ar": "تطبيق مطبخ الفرع: إنتاج اليوم، وقوائم المهام، والبطاقات الفنية."
+    "fr": "La tablette du magasin : ce qu'il y a à préparer, à contrôler et à remettre au client.",
+    "en": "The store's tablet: what to prepare, what to check, what to hand over.",
+    "ar": "لوح الفرع: ما يجب تحضيره ومراقبته وتسليمه للعميل."
   },
   "overview": {
-    "fr": "Une application installable, tenue à une main derrière le plan de travail. Elle dit à l'équipe ce qu'il faut produire aujourd'hui, dans quel ordre, avec les fiches produit et les recettes à portée. Les checklists remplacent les feuilles plastifiées, et les réclamations client remontent depuis le poste où le problème a été vu.",
-    "en": "An installable app, held one-handed behind the worktop. It tells the team what to produce today and in what order, with product sheets and recipes within reach. Checklists replace laminated sheets, and customer complaints are raised from the station where the problem was seen."
+    "fr": "L'écran du passe, tenu à une main. Il ouvre sur les tâches du jour, agrégées depuis les checklists actives : chaque case cochée porte le nom de l'équipier et l'heure réelle, pas une supposition. Les fiches produit donnent au poste le stockage, les allergènes, la recette et ses quantités — ce que personne ne devrait retenir de mémoire. Les commandes clients se prennent et se remettent depuis le même écran, et une livraison non conforme se réclame avec ses photos, le jour même.",
+    "en": "The pass screen, held one-handed. It opens on today's tasks, gathered from the active checklists: every ticked box carries the team member's name and the actual time, not an assumption. Product sheets give storage, allergens, the recipe and its quantities right at the station — what nobody should have to remember. Customer orders are taken and handed over from the same screen, and a non-conforming delivery is claimed with its photos, the same day."
   },
   "metric": {
     "value": "0",
-    "label": { "fr": "feuille plastifiée au mur", "en": "laminated sheet on the wall" }
+    "label": {
+      "fr": "feuille plastifiée au mur",
+      "en": "laminated sheet on the wall"
+    }
   },
   "features": [
     {
-      "key": "production",
-      "icon": "list-checks",
-      "name": { "fr": "Production du jour", "en": "Today's production" },
+      "key": "dashboard",
+      "icon": "layout-dashboard",
+      "name": {
+        "fr": "Tableau de bord du jour",
+        "en": "Today's board"
+      },
       "description": {
-        "fr": "Ce qu'il y a à faire aujourd'hui, avec l'avancement par tâche : à faire, en cours, terminé. Le tableau de bord ouvre sur cet état, pas sur un menu.",
-        "en": "What has to be made today, with per-task progress: to do, in progress, done. The dashboard opens on that state, not on a menu."
+        "fr": "L'ouverture : les tâches à faire et celles terminées aujourd'hui, agrégées depuis les checklists actives, avec les accès rapides vers les fiches, les listes et les commandes.",
+        "en": "The opening screen: today's tasks done and outstanding, gathered from the active checklists, with shortcuts to sheets, lists and orders."
       }
     },
     {
       "key": "checklists",
       "icon": "clipboard-check",
-      "name": { "fr": "Checklists de poste", "en": "Station checklists" },
+      "name": {
+        "fr": "Listes de contrôle",
+        "en": "Control lists"
+      },
       "description": {
-        "fr": "Les contrôles d'ouverture, de service et de fermeture cochés dans l'app, horodatés et attribués. Ce qui a été fait est prouvable sans classeur.",
-        "en": "Opening, service and closing checks ticked in the app, timestamped and attributed. What was done is provable without a binder."
+        "fr": "Les checklists actives du magasin pour une date : chaque tâche avec son heure prévue, son heure réelle, son état, la note et l'équipier qui l'a réalisée. Cocher ouvre la saisie du code à quatre chiffres.",
+        "en": "The store's active checklists for a date: each task with its planned time, actual time, status, rating and the team member who did it. Ticking opens the four-digit code entry."
       }
     },
     {
-      "key": "fiches",
+      "key": "produits",
       "icon": "book-open",
-      "name": { "fr": "Produits et recettes", "en": "Products and recipes" },
+      "name": {
+        "fr": "Produits et fiches techniques",
+        "en": "Products and technical sheets"
+      },
       "description": {
-        "fr": "La base de connaissances de la cuisine : fiche produit, recette, fiche technique. Le même contenu que celui tenu par le fournisseur, consulté au poste de travail.",
-        "en": "The kitchen's knowledge base: product sheet, recipe, technical sheet. The same content the supplier maintains, read at the workstation."
+        "fr": "Le catalogue des produits à la vente du magasin, avec recherche et filtre par catégorie. Chaque fiche donne le stockage, la durée de vie, le réchauffage, les allergènes, les compétences requises, la recette et ses quantités, les étapes et l'emballage.",
+        "en": "The store's catalogue of products for sale, searchable and filterable by category. Each sheet gives storage, shelf life, reheating, allergens, required skills, the recipe and its quantities, the steps and the packaging."
       }
     },
     {
       "key": "commandes",
-      "icon": "receipt",
-      "name": { "fr": "Commandes à produire", "en": "Orders to produce" },
+      "icon": "package",
+      "name": {
+        "fr": "Commandes clients",
+        "en": "Customer orders"
+      },
       "description": {
-        "fr": "Les commandes qui concernent la cuisine, avec leur détail. La cuisine travaille sur la commande réelle du client, pas sur une recopie.",
-        "en": "The orders that concern the kitchen, in detail. The kitchen works from the customer's real order, not a transcription."
+        "fr": "Les commandes à préparer pour une date de retrait, filtrables par client : type, valeur, qui a accepté, qui a remis, statut du retrait et raison de non-retrait.",
+        "en": "Orders to prepare for a collection date, filterable by customer: type, value, who accepted, who handed over, collection status and reason for non-collection."
       }
     },
     {
-      "key": "clients",
-      "icon": "users",
-      "name": { "fr": "Clients servis", "en": "Customers served" },
+      "key": "nouvelle-commande",
+      "icon": "plus",
+      "name": {
+        "fr": "Prise de commande",
+        "en": "Taking an order"
+      },
       "description": {
-        "fr": "Qui est livré, avec quelles particularités. Utile quand une commande B2B revient chaque semaine avec ses contraintes.",
-        "en": "Who is being served, with what particulars. Useful when a B2B order comes back every week with its constraints."
+        "fr": "La saisie d'une commande depuis la cuisine : client existant ou créé sur place, heure de retrait, articles et montants.",
+        "en": "Entering an order from the kitchen: an existing customer or one created on the spot, collection time, items and amounts."
       }
     },
     {
       "key": "reclamations",
-      "icon": "message-square",
-      "name": { "fr": "Réclamations", "en": "Complaints" },
+      "icon": "triangle-alert",
+      "name": {
+        "fr": "Réclamations fournisseur",
+        "en": "Supplier claims"
+      },
       "description": {
-        "fr": "Un problème constaté en production se déclare sur place, avec son motif. Il part vers le fournisseur ou le siège au lieu de rester dans un carnet.",
-        "en": "A problem seen in production is raised on the spot, with its reason. It travels to the supplier or head office instead of staying in a notebook."
+        "fr": "Une réclamation sur une livraison reçue : commande d'origine, produit, motif codifié, quantité, description et photos. Le suivi montre la réponse et la compensation accordée.",
+        "en": "A claim on a received delivery: originating order, product, coded reason, quantity, description and photos. The follow-up shows the reply and the compensation granted."
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "docs/landing/cuisine-dashboard.png",
+      "alt": {
+        "fr": "Tableau de bord du jour",
+        "en": "Today's board"
       }
     },
     {
-      "key": "hors-ligne",
-      "icon": "smartphone",
-      "name": { "fr": "Installable et hors ligne", "en": "Installable and offline" },
-      "description": {
-        "fr": "L'app s'installe sur le téléphone ou la tablette de la cuisine depuis le navigateur, sans boutique d'applications ni intervention IT, et supporte les coupures réseau du magasin.",
-        "en": "The app installs on the kitchen's phone or tablet straight from the browser — no app store, no IT visit — and copes with the store's network dropouts."
+      "file": "docs/landing/cuisine-checklists.png",
+      "alt": {
+        "fr": "Listes de contrôle",
+        "en": "Control lists"
+      }
+    },
+    {
+      "file": "docs/landing/cuisine-produits.png",
+      "alt": {
+        "fr": "Produits et fiches techniques",
+        "en": "Products and technical sheets"
+      }
+    },
+    {
+      "file": "docs/landing/cuisine-commandes.png",
+      "alt": {
+        "fr": "Commandes clients",
+        "en": "Customer orders"
+      }
+    },
+    {
+      "file": "docs/landing/cuisine-nouvelle-commande.png",
+      "alt": {
+        "fr": "Prise de commande",
+        "en": "Taking an order"
+      }
+    },
+    {
+      "file": "docs/landing/cuisine-reclamations.png",
+      "alt": {
+        "fr": "Réclamations fournisseur",
+        "en": "Supplier claims"
       }
     }
   ]
