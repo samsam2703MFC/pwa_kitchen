@@ -4,8 +4,8 @@
 
 {% block title %}
     {{ isEditMode
-        ? translations.edit_client_order | default('Edycja zamówienia')
-        : translations.new_client_order | default('Nowe zamówienie')
+        ? translations.edit_client_order | default("Modification de la commande")
+        : translations.new_client_order | default("Nouvelle commande")
     }}
 {% endblock %}
 
@@ -149,14 +149,14 @@
     <div class="page-heading">
         <h3>
             {{ isEditMode
-                ? translations.edit_client_order | default('Edycja zamówienia')
-                : translations.new_client_order | default('Nowe zamówienie')
+                ? translations.edit_client_order | default("Modification de la commande")
+                : translations.new_client_order | default("Nouvelle commande")
             }}
         </h3>
         <p class="text-subtitle text-muted">
             {{ isEditMode
-                ? translations.edit_client_order_subtitle | default('Zmień dane zamówienia i zapisz poprawki.')
-                : translations.client_order_subtitle | default('Dodaj klienta i od razu złoż zamówienie na tablecie kuchennym.')
+                ? translations.edit_client_order_subtitle | default("Modifiez les données de la commande et enregistrez les changements.")
+                : translations.client_order_subtitle | default("Ajoutez un client et passez immédiatement une commande depuis l'écran cuisine.")
             }}
         </p>
     </div>
@@ -171,7 +171,7 @@
                     <span class="ac-ic"><i class="bi bi-person-plus"></i></span>
                     <div class="ac-txt">
                         <div class="ac-title">{{ translations.quick_add_client | default('Szybkie dodanie klienta') }}</div>
-                        <div class="ac-sub">{{ translations.quick_add_client_hint | default('Wpisz telefon i e-mail. Pozostałe pola zostaną zapisane jako puste wartości.') }}</div>
+                        <div class="ac-sub">{{ translations.quick_add_client_hint | default("Saisissez le téléphone et l'e-mail facultatif. Les autres champs seront enregistrés vides.") }}</div>
                     </div>
                 </div>
             </div>
@@ -210,17 +210,17 @@
                     <div class="ac-head">
                         <span class="ac-ic"><i class="bi bi-bag"></i></span>
                         <div class="ac-txt">
-                            <div class="ac-title">{{ translations.order_details | default('Szczegóły zamówienia') }}</div>
+                            <div class="ac-title">{{ translations.order_details | default("Détails de la commande") }}</div>
                             <div class="ac-sub">
                                 {{ isEditMode
-                                    ? translations.order_edit_details_subtitle | default('Zmień klienta, termin, komentarz lub pozycje zamówienia.')
+                                    ? translations.order_edit_details_subtitle | default("Modifiez le client, la date, le commentaire ou les articles de la commande.")
                                     : translations.order_details_subtitle | default('Wybierz klienta, ustaw termin i dodaj pozycje.')
                                 }}
                             </div>
                         </div>
                     </div>
                     <a href="{{ ROOT }}/orders" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-arrow-left me-1"></i>{{ translations.back_to_orders | default('Wróć do zamówień') }}
+                        <i class="bi bi-arrow-left me-1"></i>{{ translations.back_to_orders | default("Retour aux commandes") }}
                     </a>
                 </div>
             </div>
@@ -239,21 +239,21 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold" for="orderComment">{{ translations.comment | default('Komentarz') }}</label>
-                            <textarea class="form-control" name="comment" rows="2" id="orderComment" placeholder="{{ translations.comment_placeholder | default('Opcjonalny komentarz do zamówienia') }}"></textarea>
+                            <textarea class="form-control" name="comment" rows="2" id="orderComment" placeholder="{{ translations.comment_placeholder | default("Commentaire facultatif sur la commande") }}"></textarea>
                         </div>
                     </div>
 
                     <div class="soft-panel p-3 mb-3 products-panel">
                         <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
                             <div class="fw-bold">{{ translations.products | default('Produkty') }}</div>
-                            <div class="text-muted small">{{ translations.order_value | default('Wartość zamówienia') }}: <span id="orderTotal">0.00</span> {{ constant('APP_CURRENCY_SYMBOL') }}</div>
+                            <div class="text-muted small">{{ translations.order_value | default("Valeur de la commande") }}: <span id="orderTotal">0.00</span> {{ constant('APP_CURRENCY_SYMBOL') }}</div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-bordered align-middle mb-0" id="productsTable">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width: 36%">{{ translations.product | default('Produkt') }}</th>
-                                        <th style="width: 16%">{{ translations.quantity | default('Ilość') }}</th>
+                                        <th style="width: 16%">{{ translations.quantity | default("Quantité") }}</th>
                                         <th style="width: 16%">{{ translations.unit_price_short | default('Cena jedn.') }}</th>
                                         <th style="width: 16%">{{ translations.total_price_short | default('Razem') }}</th>
                                         <th style="width: 16%"></th>
@@ -293,7 +293,7 @@
                             <i class="bi bi-send me-1"></i>
                             {{ isEditMode
                                 ? translations.save_changes | default('Zapisz zmiany')
-                                : translations.submit_order | default('Zapisz zamówienie')
+                                : translations.submit_order | default("Enregistrer la commande")
                             }}
                         </button>
                     </div>
@@ -662,13 +662,13 @@
         });
 
         if (!response.ok || response.status !== 'success') {
-            showMessage(clientFormMessage, 'danger', response.description || response.message || '{{ translations.client_add_error | default("Nie udało się dodać klienta.") }}');
+            showMessage(clientFormMessage, 'danger', response.description || response.message || '{{ translations.client_add_error | default("Impossible d'ajouter le client.") }}');
             return;
         }
 
         const insertedId = response.inserted_id ?? response.data?.inserted_id ?? response.data?.insertedId;
         if (insertedId === null || insertedId === undefined) {
-            showMessage(clientFormMessage, 'warning', '{{ translations.client_add_warning | default("Klient został zapisany, ale nie udało się pobrać jego ID.") }}');
+            showMessage(clientFormMessage, 'warning', '{{ translations.client_add_warning | default("Le client a été enregistré, mais son identifiant n'a pas pu être récupéré.") }}');
             return;
         }
 
@@ -687,7 +687,7 @@
         document.getElementById('clientEmail').value = '';
         initClientChoices(String(insertedId));
 
-        showMessage(clientFormMessage, 'success', '{{ translations.client_add_success | default("Klient został dodany i wybrany do zamówienia.") }}');
+        showMessage(clientFormMessage, 'success', '{{ translations.client_add_success | default("Le client a été ajouté et sélectionné pour la commande.") }}');
     });
 
     orderForm.addEventListener('submit', async function (e) {
@@ -744,7 +744,7 @@
         });
 
         if (!response.ok || response.status !== 'success') {
-            showMessage(orderFormMessage, 'danger', response.description || response.message || '{{ translations.order_add_error | default("Nie udało się zapisać zamówienia.") }}');
+            showMessage(orderFormMessage, 'danger', response.description || response.message || '{{ translations.order_add_error | default("Impossible d'enregistrer la commande.") }}');
             return;
         }
 

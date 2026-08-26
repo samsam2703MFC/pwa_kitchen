@@ -484,10 +484,10 @@ function downloadAttachment(id) {
                 a.click();
                 document.body.removeChild(a);
             } else {
-                showSnack(false, 'Błąd pobierania pliku');
+                showSnack(false, {{ (translations.file_download_error | default("Le fichier n'a pas pu être téléchargé.")) | json_encode | raw }});
             }
         })
-        .catch(() => showSnack(false, 'Błąd połączenia'));
+        .catch(() => showSnack(false, {{ (translations.connection_error | default("Erreur de connexion.")) | json_encode | raw }}));
 }
 </script>
 {% endblock %}

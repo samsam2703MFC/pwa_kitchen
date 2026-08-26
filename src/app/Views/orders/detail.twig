@@ -1,7 +1,7 @@
 {% extends "layouts/base.twig" %}
 
 {% block title %}
-    {{ translations.order_details | default('Szczegóły zamówienia') }}
+    {{ translations.order_details | default("Détails de la commande") }}
     {% if order.getPoHash() %} – #{{ order.getPoHash() }}{% endif %}
 {% endblock %}
 
@@ -62,26 +62,26 @@
             <a href="{{ ROOT }}/orders{% if order.getPickUpDatetime() %}?date={{ order.getPickUpDatetime() | date('Y-m-d') }}{% endif %}"
                class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i>
-                {{ translations.back_to_orders | default('Wróć do listy zamówień') }}
+                {{ translations.back_to_orders | default("Retour à la liste des commandes") }}
             </a>
             <div>
-                <h3 class="mb-0">{{ translations.order_details | default('Szczegóły zamówienia') }}</h3>
+                <h3 class="mb-0">{{ translations.order_details | default("Détails de la commande") }}</h3>
                 <p class="text-subtitle text-muted mb-0">
-                    {{ translations.order_details_subtitle | default('Pełne informacje o zamówieniu z perspektywy kuchni.') }}
+                    {{ translations.order_details_subtitle | default("Informations complètes sur la commande du point de vue de la cuisine.") }}
                 </p>
             </div>
         </div>
         <div class="d-flex flex-wrap gap-2 mt-3">
             <a href="{{ ROOT }}/orders/{{ order.getId() }}/edit" class="btn btn-primary btn-sm">
                 <i class="bi bi-pencil-square me-1"></i>
-                {{ translations.edit_order | default('Edytuj zamówienie') }}
+                {{ translations.edit_order | default("Modifier la commande") }}
             </a>
             <button type="button"
                     class="btn btn-outline-danger btn-sm"
                     id="cancelOrderBtn"
                     data-order-id="{{ order.getId() }}">
                 <i class="bi bi-trash me-1"></i>
-                {{ translations.cancel_order | default('Anuluj zamówienie') }}
+                {{ translations.cancel_order | default("Annuler la commande") }}
             </button>
         </div>
     </div>
@@ -118,7 +118,7 @@
     {# Wartość #}
     <div class="col-6 col-md-3">
         <div class="card section-card h-100 p-3 text-center shadow-sm">
-            <div class="detail-label mb-1">{{ translations.order_total_value | default('Wartość') }}</div>
+            <div class="detail-label mb-1">{{ translations.order_total_value | default("Valeur de la commande") }}</div>
             <div class="fw-bold fs-5 text-success">
                 {{ order.getTotalValue() | number_format(2, ',', ' ') }}
                 {{ constant('APP_CURRENCY_SYMBOL') }}
@@ -129,7 +129,7 @@
     {# Nr zamówienia #}
     <div class="col-6 col-md-3">
         <div class="card section-card h-100 p-3 text-center shadow-sm">
-            <div class="detail-label mb-1">{{ translations.order_id | default('ID zamówienia') }}</div>
+            <div class="detail-label mb-1">{{ translations.order_id | default("ID de commande") }}</div>
             <div class="fw-bold fs-5">#{{ order.getId() }}</div>
             {% if order.getPoHash() %}
                 <div class="text-muted small font-monospace">{{ order.getPoHash() }}</div>
@@ -198,14 +198,14 @@
 
                 {% if order.getClientCity() %}
                 <div class="mb-3">
-                    <div class="detail-label">{{ translations.client_city | default('Miejscowość') }}</div>
+                    <div class="detail-label">{{ translations.client_city | default("Ville") }}</div>
                     <div class="detail-value">{{ order.getClientCity() }}</div>
                 </div>
                 {% endif %}
 
                 {% if order.getClientPaymentTerms() %}
                 <div class="mb-3">
-                    <div class="detail-label">{{ translations.client_payment_terms | default('Warunki płatności') }}</div>
+                    <div class="detail-label">{{ translations.client_payment_terms | default("Conditions de paiement") }}</div>
                     <div class="detail-value">{{ order.getClientPaymentTerms() }}</div>
                 </div>
                 {% endif %}
@@ -230,7 +230,7 @@
         {# Obsługa zamówienia #}
         <div class="card section-card shadow-sm">
             <div class="card-header bg-light fw-semibold">
-                <i class="bi bi-people me-2"></i>{{ translations.section_employee | default('Obsługa zamówienia') }}
+                <i class="bi bi-people me-2"></i>{{ translations.section_employee | default("Gestion de la commande") }}
             </div>
             <div class="card-body">
 
@@ -238,7 +238,7 @@
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <div class="initials-lg">{{ order.getAcceptingEmployeeInitials() ?? '?' }}</div>
                     <div>
-                        <div class="detail-label">{{ translations.accepting_employee | default('Przyjął zamówienie') }}</div>
+                        <div class="detail-label">{{ translations.accepting_employee | default("Accepté par") }}</div>
                         <div class="detail-value">
                             {{ order.getAcceptingEmployeeDisplayName() ?? translations.not_available | default('—') }}
                         </div>
@@ -255,7 +255,7 @@
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <div class="initials-lg bg-success-subtle text-success">{{ order.getIssuingEmployeeInitials() ?? '?' }}</div>
                     <div>
-                        <div class="detail-label">{{ translations.issuing_employee | default('Wydał zamówienie') }}</div>
+                        <div class="detail-label">{{ translations.issuing_employee | default("Remis par") }}</div>
                         <div class="detail-value">
                             {{ order.getIssuingEmployeeDisplayName() ?? translations.not_available | default('—') }}
                         </div>
@@ -294,7 +294,7 @@
         {% if order.getNonCollectionIdReason() or order.getNonCollectionComment() %}
         <div class="card section-card border-danger shadow-sm">
             <div class="card-header bg-danger text-white fw-semibold">
-                <i class="bi bi-exclamation-triangle me-2"></i>{{ translations.non_collection_reason | default('Powód nieodebrania') }}
+                <i class="bi bi-exclamation-triangle me-2"></i>{{ translations.non_collection_reason | default("Raison de non-retrait") }}
             </div>
             <div class="card-body">
                 {% if order.getNonCollectionComment() %}
@@ -311,7 +311,7 @@
         <div class="card section-card shadow-sm">
             <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
                 <span>
-                    <i class="bi bi-cart3 me-2"></i>{{ translations.section_products | default('Pozycje zamówienia') }}
+                    <i class="bi bi-cart3 me-2"></i>{{ translations.section_products | default("Articles de la commande") }}
                 </span>
                 <span class="badge bg-primary">{{ order.getProducts() | length }}</span>
             </div>
@@ -323,7 +323,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>{{ translations.product_name | default('Produkt') }}</th>
-                                <th class="text-end">{{ translations.product_quantity | default('Ilość') }}</th>
+                                <th class="text-end">{{ translations.product_quantity | default("Qté") }}</th>
                                 <th class="text-end">{{ translations.product_unit_price | default('Cena jedn.') }}</th>
                                 <th class="text-end">{{ translations.product_tax | default('VAT') }}</th>
                                 <th class="text-end">{{ translations.product_discount | default('Rabat') }}</th>
@@ -390,7 +390,7 @@
                         <tfoot>
                             <tr class="total-row">
                                 <td colspan="5" class="text-end">
-                                    {{ translations.order_total_value | default('Wartość zamówienia') }}
+                                    {{ translations.order_total_value | default("Valeur de la commande") }}
                                 </td>
                                 <td class="text-end text-success">
                                     {{ order.getTotalValue() | number_format(2, ',', ' ') }}
@@ -403,7 +403,7 @@
                 {% else %}
                     <div class="p-4 text-center text-muted">
                         <i class="bi bi-cart-x fs-3 d-block mb-2"></i>
-                        {{ translations.no_products | default('Brak pozycji w zamówieniu.') }}
+                        {{ translations.no_products | default("Aucun article dans cette commande.") }}
                     </div>
                 {% endif %}
 
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const confirmed = window.confirm('{{ translations.cancel_order_confirm | default("Na pewno anulować to zamówienie?") }}');
+        const confirmed = window.confirm('{{ translations.cancel_order_confirm | default("Voulez-vous vraiment annuler cette commande ?") }}');
         if (!confirmed) {
             return;
         }
@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         if (!response.ok || response.status !== 'success') {
-            window.alert(response.description || response.message || '{{ translations.cancel_order_failed | default("Nie udało się anulować zamówienia.") }}');
+            window.alert(response.description || response.message || '{{ translations.cancel_order_failed | default("Impossible d'annuler la commande.") }}');
             return;
         }
 

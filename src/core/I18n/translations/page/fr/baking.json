@@ -67,5 +67,11 @@
   "staff_not_served": "L'équipe n'est pas encore servie par l'API : l'ordre peut être validé sans nom.",
   "stage_cook": "Cuisson",
   "stage_finish": "Finition",
-  "stage_prep": "Préparation"
+  "stage_prep": "Préparation",
+  "fil_then_shelf": "puis en magasin",
+  "reserve_title": "En réserve — pas encore en vente",
+  "reserve_go": "Mettre en magasin",
+  "shelf_step_later_hint": "le produit ne sera pas en vente — rappel gardé en haut de l'atelier",
+  "shelf_error": "La mise en rayon n'a pas pu être enregistrée.",
+  "shelf_success": "Mis en rayon : les produits sont en vente."
 }

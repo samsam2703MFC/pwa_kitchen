@@ -67,5 +67,11 @@
   "staff_not_served": "API nie podaje jeszcze zespołu: polecenie można zatwierdzić bez nazwiska.",
   "stage_cook": "Wypiek",
   "stage_finish": "Wykończenie",
-  "stage_prep": "Przygotowanie"
+  "stage_prep": "Przygotowanie",
+  "fil_then_shelf": "potem na sklep",
+  "reserve_title": "W rezerwie — jeszcze nie w sprzedaży",
+  "reserve_go": "Wystaw na sklep",
+  "shelf_step_later_hint": "produkt nie trafi do sprzedaży — przypomnienie zostaje na górze",
+  "shelf_error": "Nie udało się zapisać wystawienia na sklep.",
+  "shelf_success": "Wystawione: produkty są w sprzedaży."
 }

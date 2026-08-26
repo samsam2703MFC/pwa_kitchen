@@ -483,7 +483,7 @@
        mains. En pied de page, il fallait parcourir toute la fiche. #}
     <a href="{{ ROOT }}/knowledge/products" class="fiche-back">
         <i class="bi bi-arrow-left"></i>
-        <span>{{ translations.back_to_products|default('Wróć do listy produktów') }}</span>
+        <span>{{ translations.back_to_products|default("Retour à la liste des produits") }}</span>
     </a>
 {% endblock %}
 
@@ -520,7 +520,7 @@
             {% else %}
                 <div class="fiche-hero-empty">
                     <i class="bi bi-box-seam"></i>
-                    <span>{{ translations.no_photo|default('Brak zdjęcia') }}</span>
+                    <span>{{ translations.no_photo|default("Pas de photo") }}</span>
                 </div>
             {% endif %}
         </div>
@@ -566,12 +566,12 @@
                         {% endif %}
                         {% if obj.getIsVegetarian() %}
                             <span class="fiche-badge fiche-badge-veg">
-                                <i class="bi bi-leaf me-1"></i>{{ translations.vegetarian|default('Wegetariańskie') }}
+                                <i class="bi bi-leaf me-1"></i>{{ translations.vegetarian|default("Végétarien") }}
                             </span>
                         {% endif %}
                         {% if obj.getIsPreparedBeforeSales() %}
                             <span class="fiche-badge fiche-badge-prep">
-                                <i class="bi bi-clock-history me-1"></i>{{ translations.prepared_before|default('Przygotowane wcześniej') }}
+                                <i class="bi bi-clock-history me-1"></i>{{ translations.prepared_before|default("Préparé à l'avance") }}
                             </span>
                         {% endif %}
                         {% if obj.getNutriscore() %}
@@ -594,7 +594,7 @@
 
                 {# SKŁAD (składniki jako chipy) #}
                 <h4 class="fiche-section-title">
-                    <i class="bi bi-journal-text me-1"></i>{{ translations.composition|default('Skład') }}
+                    <i class="bi bi-journal-text me-1"></i>{{ translations.composition|default("Composition") }}
                 </h4>
                 {% if recipe and recipe.hasElements() %}
                     <div class="ingredient-chips">
@@ -635,9 +635,9 @@
                             <span class="allergen-chip">{{ allergen }}</span>
                         {% endfor %}
                     </div>
-                    <p class="allergen-note">→ {{ translations.allergens_check|default('Sprawdź skład przed podaniem osobom uczulonym') }}</p>
+                    <p class="allergen-note">→ {{ translations.allergens_check|default("Vérifier les ingrédients avant de servir aux personnes allergiques") }}</p>
                 {% else %}
-                    <p class="text-muted small">{{ translations.no_allergens|default('Brak zidentyfikowanych alergenów') }}</p>
+                    <p class="text-muted small">{{ translations.no_allergens|default("Aucun allergène identifié") }}</p>
                 {% endif %}
 
                 {# PRZECHOWYWANIE #}
@@ -669,7 +669,7 @@
 
                 {# INFORMACJE DODATKOWE #}
                 <h4 class="fiche-section-title mt-3">
-                    <i class="bi bi-info-circle me-1"></i>{{ translations.product_details|default('Szczegóły produktu') }}
+                    <i class="bi bi-info-circle me-1"></i>{{ translations.product_details|default("Détails du produit") }}
                 </h4>
                 {% if obj.getSingleWeight() %}
                     <div class="fiche-info-row">
@@ -679,7 +679,7 @@
                 {% endif %}
                 {% if recipe and recipe.getYieldQuantity() %}
                     <div class="fiche-info-row">
-                        <span class="fiche-info-label">{{ translations.yield|default('Wydajność receptury') }}</span>
+                        <span class="fiche-info-label">{{ translations.yield|default("Rendement") }}</span>
                         <span class="fiche-info-value">{{ recipe.getYieldQuantity() }} pcs</span>
                     </div>
                 {% endif %}
@@ -692,7 +692,7 @@
                         <summary>{{ translations.admin_data|default('Données de gestion') }}</summary>
                         {% if obj.getQuantityPerLabel() %}
                             <div class="fiche-info-row">
-                                <span class="fiche-info-label">{{ translations.quantity_per_label|default('Ilość na etykiecie') }}</span>
+                                <span class="fiche-info-label">{{ translations.quantity_per_label|default("Quantité par étiquette") }}</span>
                                 <span class="fiche-info-value">{{ obj.getQuantityPerLabel() }}</span>
                             </div>
                         {% endif %}
@@ -834,7 +834,7 @@
                 {# RECEPTURA SZCZEGÓŁOWA (drzewo składników z ilościami) #}
                 {% if recipe and recipe.hasElements() %}
                     <h4 class="fiche-section-title">
-                        <i class="bi bi-diagram-3 me-1"></i>{{ translations.recipe_quantities|default('Ilości składników') }}
+                        <i class="bi bi-diagram-3 me-1"></i>{{ translations.recipe_quantities|default("Quantités des ingrédients") }}
                     </h4>
                     {% for element in recipe.getElements() %}
                         {% if element.getType() == 'ingredient' %}
@@ -906,14 +906,14 @@
                     <div class="plano-photo" style="height:120px; flex-direction:column; gap:6px;">
                         <i class="bi bi-easel" style="font-size:1.8rem; color:#ced4da"></i>
                         <span style="font-size:0.78rem; color:#adb5bd">{{ translations.photo_presentation|default('Prezentacja') }}</span>
-                        <span style="font-size:0.68rem; color:#ced4da; font-style:italic">{{ translations.coming_soon|default('Wkrótce') }}</span>
+                        <span style="font-size:0.68rem; color:#ced4da; font-style:italic">{{ translations.coming_soon|default("Bientôt disponible") }}</span>
                     </div>
                 </div>
                 <div class="col-12 col-md-6">
                     <div class="plano-photo" style="height:120px; flex-direction:column; gap:6px;">
                         <i class="bi bi-layout-wtf" style="font-size:1.8rem; color:#ced4da"></i>
                         <span style="font-size:0.78rem; color:#adb5bd">{{ translations.photo_display|default('Ekspozycja') }}</span>
-                        <span style="font-size:0.68rem; color:#ced4da; font-style:italic">{{ translations.coming_soon|default('Wkrótce') }}</span>
+                        <span style="font-size:0.68rem; color:#ced4da; font-style:italic">{{ translations.coming_soon|default("Bientôt disponible") }}</span>
                     </div>
                 </div>
 
@@ -921,13 +921,13 @@
                 {% if package and package.hasMaterials() %}
                     <div class="col-12">
                         <h6 class="fiche-section-title mb-2" style="margin-top:0">
-                            <i class="bi bi-box me-1"></i>{{ translations.packaging_materials|default('Materiały opakowaniowe') }}
+                            <i class="bi bi-box me-1"></i>{{ translations.packaging_materials|default("Matériaux d'emballage") }}
                         </h6>
                         <table class="table table-sm table-hover package-materials-table mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>{{ translations.material_name|default('Materiał') }}</th>
-                                    <th class="text-center">{{ translations.quantity|default('Ilość') }}</th>
+                                    <th>{{ translations.material_name|default("Matériau") }}</th>
+                                    <th class="text-center">{{ translations.quantity|default("Qté") }}</th>
                                     <th class="text-center">{{ translations.unit|default('Jedn.') }}</th>
                                     <th class="text-end">{{ translations.price_gross|default('Cena brutto') }}</th>
                                 </tr>
@@ -950,7 +950,7 @@
                 {% if not package or not package.hasMaterials() %}
                     <div class="col-12 text-center text-muted py-3">
                         <i class="bi bi-image" style="font-size:2rem"></i>
-                        <p class="mt-2 small">{{ translations.no_media|default('Brak zdjęć i materiałów opakowaniowych') }}</p>
+                        <p class="mt-2 small">{{ translations.no_media|default("Pas de photos ni de matériaux d'emballage disponibles") }}</p>
                     </div>
                 {% endif %}
 

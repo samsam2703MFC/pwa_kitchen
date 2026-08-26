@@ -130,21 +130,21 @@
                         <div class="dropdown">
                             <button type="button" class="badge rounded-pill app-shift-status app-shift-status--active border-0"
                                     data-bs-toggle="dropdown" aria-expanded="false"
-                                    title="{{ translations.shift_signing | default('Aktywny pracownik') }}">
+                                    title="{{ translations.shift_signing | default('Personne active') }}">
                                 <i class="bi bi-person-workspace" aria-hidden="true"></i>
                                 {{ checklist_identity.initials }} · {{ checklist_identity.name }}
                                 <i class="bi bi-chevron-down app-shift-status-chevron" aria-hidden="true"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><button type="button" class="dropdown-item" data-shift-action="change">{{ translations.shift_change | default('Zmień użytkownika') }}</button></li>
+                                <li><button type="button" class="dropdown-item" data-shift-action="change">{{ translations.shift_change | default('Changer de personne') }}</button></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><button type="button" class="dropdown-item text-danger" data-shift-action="logout">{{ translations.shift_logout | default('Wyloguj pracownika') }}</button></li>
+                                <li><button type="button" class="dropdown-item text-danger" data-shift-action="logout">{{ translations.shift_logout | default('Fermer la session') }}</button></li>
                             </ul>
                         </div>
                     {% else %}
                         <button type="button" class="badge rounded-pill app-shift-status app-shift-status--anonymous border-0" data-shift-action="login">
                             <i class="bi bi-person-plus" aria-hidden="true"></i>
-                            {{ translations.shift_anonymous | default('Tryb anonimowy') }}
+                            {{ translations.shift_anonymous | default('Mode anonyme') }}
                             <i class="bi bi-chevron-right app-shift-status-chevron" aria-hidden="true"></i>
                         </button>
                     {% endif %}
@@ -165,17 +165,17 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="tabletWorkerModalTitle">Kto obsługuje tablet?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                <h5 class="modal-title" id="tabletWorkerModalTitle">{{ translations.tablet_who_title | default("Qui utilise la tablette ?") }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translations.close | default('Fermer') }}"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">Wybierz osobę z dzisiejszego grafiku i potwierdź PIN-em.</p>
+                <p class="text-muted small mb-3">{{ translations.tablet_pick_hint | default("Choisissez une personne du planning du jour, puis confirmez par son code.") }}</p>
                 <div id="tabletWorkerError" class="alert alert-danger d-none" role="alert"></div>
                 <div id="tabletWorkerList" class="tablet-worker-grid mb-3"></div>
-                <div id="tabletWorkerEmpty" class="text-muted d-none">Brak pracowników w dzisiejszym grafiku.</div>
+                <div id="tabletWorkerEmpty" class="text-muted d-none">{{ translations.tablet_no_staff | default("Personne n'est au planning aujourd'hui.") }}</div>
                 <input type="hidden" id="tabletWorkerId">
                 <div id="tabletWorkerPinGroup" class="d-none">
-                    <label class="form-label">PIN wybranego pracownika</label>
+                    <label class="form-label">{{ translations.tablet_pin_label | default("Code de la personne choisie") }}</label>
                     <div class="tablet-pin-boxes" id="tabletWorkerPinBoxes">
                         {% for i in 1..4 %}
                             <input type="password" class="tablet-pin-box" inputmode="numeric" pattern="[0-9]*"
@@ -186,8 +186,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
-                <button type="button" class="btn btn-primary" id="tabletWorkerStart" disabled>Rozpocznij obsługę</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ translations.cancel | default('Annuler') }}</button>
+                <button type="button" class="btn btn-primary" id="tabletWorkerStart" disabled>{{ translations.tablet_start | default("Commencer le service") }}</button>
             </div>
         </div>
     </div>
@@ -391,7 +391,7 @@
     async function openWorkerModal() {
         if (!workerModal) return;
         clearWorkerError();
-        list.innerHTML = '<div class="text-muted">Ładowanie pracowników…</div>';
+        list.innerHTML = '<div class="text-muted">' + {{ (translations.tablet_loading | default('Chargement du personnel…')) | json_encode | raw }} + '</div>';
         empty.classList.add('d-none');
         employeeId.value = '';
         pinBoxes.forEach(function (box) { box.value = ''; });
@@ -404,7 +404,7 @@
             var response = await fetch(ROOT + '/ajax/tablet-worker/roster', { credentials: 'same-origin' });
             var data = await response.json();
             if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Nie można pobrać grafiku.');
+                throw new Error(data.message || {{ (translations.tablet_schedule_error | default("Le planning n'a pas pu être chargé.")) | json_encode | raw }});
             }
             list.innerHTML = '';
             (data.employees || []).forEach(function (employee) {
@@ -423,13 +423,13 @@
             empty.classList.toggle('d-none', list.children.length > 0);
         } catch (err) {
             list.innerHTML = '';
-            showWorkerError(err.message || 'Nie można pobrać grafiku.');
+            showWorkerError(err.message || {{ (translations.tablet_schedule_error | default("Le planning n'a pas pu être chargé.")) | json_encode | raw }});
         }
     }
 
     start.addEventListener('click', async function () {
         if (!employeeId.value || pin.value.length !== 4) {
-            showWorkerError('Wybierz pracownika i wpisz PIN.');
+            showWorkerError({{ (translations.tablet_pick_first | default('Choisissez une personne et saisissez son code.')) | json_encode | raw }});
             return;
         }
         start.disabled = true;
@@ -442,12 +442,12 @@
             });
             var data = await response.json();
             if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Nie udało się rozpocząć obsługi.');
+                throw new Error(data.message || {{ (translations.tablet_start_error | default("Le service n'a pas pu être ouvert.")) | json_encode | raw }});
             }
             workerModal.hide();
             window.location.reload();
         } catch (err) {
-            showWorkerError(err.message || 'Nie udało się rozpocząć obsługi.');
+            showWorkerError(err.message || {{ (translations.tablet_start_error | default("Le service n'a pas pu être ouvert.")) | json_encode | raw }});
             start.disabled = false;
         }
     });

@@ -139,7 +139,7 @@ class OrderController extends Controller
         );
 
         if ($order === null) {
-            $this->errors[] = 'Zamówienie nie zostało znalezione.';
+            $this->errors[] = 'error_order_not_found';
             $this->view('errors/404', []);
             return;
         }
@@ -189,7 +189,7 @@ class OrderController extends Controller
         );
 
         if ($order === null) {
-            $this->errors[] = 'Zamówienie nie zostało znalezione.';
+            $this->errors[] = 'error_order_not_found';
             $this->view('errors/404', []);
             return;
         }
@@ -206,7 +206,7 @@ class OrderController extends Controller
         $data = $this->getJson($request);
 
         if (empty($data)) {
-            $response = $this->json(['status' => 'error', 'description' => 'Brak danych zamówienia.'], 400);
+            $response = $this->json(['status' => 'error', 'description' => 'Données de commande absentes.'], 400);
             $response->send();
             exit;
         }
@@ -226,7 +226,7 @@ class OrderController extends Controller
         $data = $this->getJson($request);
 
         if (empty($data)) {
-            $response = $this->json(['status' => 'error', 'description' => 'Brak danych zamówienia.'], 400);
+            $response = $this->json(['status' => 'error', 'description' => 'Données de commande absentes.'], 400);
             $response->send();
             exit;
         }

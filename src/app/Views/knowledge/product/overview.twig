@@ -160,7 +160,7 @@
 {% block page_heading %}
     <div class="page-heading">
         <h3>{{ translations.products|default('Products') }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.products_overview_subtitle|default('Znajdź produkt i przeglądaj jego kartę techniczną') }}</p>
+        <p class="text-subtitle text-muted">{{ translations.products_overview_subtitle|default("Trouvez un produit et consultez sa fiche technique") }}</p>
 
         {# Breadcrumb to show user's location #}
     </div>
@@ -209,15 +209,15 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="card-title mb-0">{{ translations.products_list|default('Lista produktów') }}</h4>
-                    <span class="badge bg-primary" id="productCount">{{ products|length }} {{ translations.products_total|default('produktów') }}</span>
+                    <h4 class="card-title mb-0">{{ translations.products_list|default("Liste des produits") }}</h4>
+                    <span class="badge bg-primary" id="productCount">{{ products|length }} {{ translations.products_total|default("produits") }}</span>
                 </div>
                 <div class="card-body">
 
                     {# No results message #}
                     <div id="noResults" class="alert alert-info d-none" role="alert">
                         <i class="bi bi-info-circle me-2"></i>
-                        {{ translations.no_products_found|default('Nie znaleziono produktów pasujących do wyszukiwania') }}
+                        {{ translations.no_products_found|default("Aucun produit trouvé correspondant à la recherche") }}
                     </div>
 
                     {# Products grid #}
@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Update count and show/hide no results message
-        productCount.textContent = visibleCount + ' {{ translations.products_total|default("produktów") }}';
+        productCount.textContent = visibleCount + ' {{ translations.products_total|default("produits") }}';
 
         if (visibleCount === 0) {
             noResults.classList.remove('d-none');

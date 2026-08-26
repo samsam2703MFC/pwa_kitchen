@@ -67,5 +67,11 @@
   "staff_not_served": "The team is not served by the API yet: the order can be confirmed without a name.",
   "stage_cook": "Baking",
   "stage_finish": "Finishing",
-  "stage_prep": "Preparation"
+  "stage_prep": "Preparation",
+  "fil_then_shelf": "then to the shop",
+  "reserve_title": "In reserve — not on sale yet",
+  "reserve_go": "Put on the shelf",
+  "shelf_step_later_hint": "the product will not be on sale — reminder kept at the top",
+  "shelf_error": "Putting it on the shelf could not be recorded.",
+  "shelf_success": "On the shelf: the products are on sale."
 }

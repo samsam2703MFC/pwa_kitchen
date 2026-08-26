@@ -66,7 +66,7 @@ class App {
                     $controller = $container->get($controllerFQCN);
                 } catch (Exception $e) {
                     http_response_code(500);
-                    echo "Błąd DI: " . $e->getMessage();
+                    echo "Erreur d'injection de dépendances : " . $e->getMessage();
                     exit;
                 }
 

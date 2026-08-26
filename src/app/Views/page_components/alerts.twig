@@ -1,3 +1,10 @@
+{# ── Un message peut être une CLÉ de traduction ──
+   Les contrôleurs empilaient des phrases toutes faites, en polonais, qui
+   arrivaient telles quelles à l'écran quelle que soit la langue réglée sur la
+   tablette. Ils poussent maintenant une clé — « error_product_not_found » — et
+   c'est ici qu'elle devient une phrase. Une chaîne qui n'est pas une clé
+   connue s'affiche telle quelle : les messages venus de l'API, eux, sont déjà
+   des phrases. #}
 {% set information = information is iterable ? information : (information is empty ? [] : [information]) %}
 {% set messages    = messages    is iterable ? messages    : (messages    is empty ? [] : [messages]) %}
 {% set warnings    = warnings    is iterable ? warnings    : (warnings    is empty ? [] : [warnings]) %}
@@ -13,7 +20,7 @@
     <div class="row justify-content-center mb-2">
         <div class="col-12 col-md-6">
             {% for it in info %}
-                <div class="alert alert-info text-center" role="alert">{{ it }}</div>
+                <div class="alert alert-info text-center" role="alert">{{ translations[it] | default(it) }}</div>
             {% endfor %}
         </div>
     </div>
@@ -24,7 +31,7 @@
     <div class="row justify-content-center mb-2">
         <div class="col-12 col-md-6">
             {% for m in msgs %}
-                <div class="alert alert-success text-center" role="alert">{{ m }}</div>
+                <div class="alert alert-success text-center" role="alert">{{ translations[m] | default(m) }}</div>
             {% endfor %}
         </div>
     </div>
@@ -35,7 +42,7 @@
     <div class="row justify-content-center mb-2">
         <div class="col-12 col-md-6">
             {% for w in warns %}
-                <div class="alert alert-warning text-center" role="alert">{{ w }}</div>
+                <div class="alert alert-warning text-center" role="alert">{{ translations[w] | default(w) }}</div>
             {% endfor %}
         </div>
     </div>
@@ -46,7 +53,7 @@
     <div class="row justify-content-center mb-2">
         <div class="col-12 col-md-6">
             {% for e in errs %}
-                <div class="alert alert-danger text-center" role="alert">{{ e }}</div>
+                <div class="alert alert-danger text-center" role="alert">{{ translations[e] | default(e) }}</div>
             {% endfor %}
         </div>
     </div>

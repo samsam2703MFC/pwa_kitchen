@@ -67,5 +67,11 @@
   "staff_not_served": "Het team wordt nog niet door de API geleverd: de opdracht kan zonder naam bevestigd worden.",
   "stage_cook": "Bakken",
   "stage_finish": "Afwerking",
-  "stage_prep": "Voorbereiding"
+  "stage_prep": "Voorbereiding",
+  "fil_then_shelf": "daarna de winkel in",
+  "reserve_title": "In reserve — nog niet te koop",
+  "reserve_go": "In de winkel zetten",
+  "shelf_step_later_hint": "het product komt niet in de verkoop — herinnering blijft bovenaan",
+  "shelf_error": "Het uitstallen kon niet opgeslagen worden.",
+  "shelf_success": "Uitgestald: de producten zijn te koop."
 }

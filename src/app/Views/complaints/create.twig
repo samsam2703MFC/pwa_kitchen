@@ -375,7 +375,7 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                                     <div class="modal-content">
                                         <div class="modal-header">
                                             <h5 class="modal-title" id="cameraModalLabel">
-                                                <i class="bi bi-camera me-2"></i>{{ translations.take_photo ?? 'Zrób zdjęcie' }}
+                                                <i class="bi bi-camera me-2"></i>{{ translations.take_photo | default("Prendre la photo") }}
                                             </h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
@@ -392,10 +392,10 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                                         </div>
                                         <div class="modal-footer justify-content-center">
                                             <button type="button" class="btn btn-outline-secondary" id="switchCameraBtn" style="display:none;">
-                                                <i class="bi bi-arrow-repeat me-1"></i>{{ translations.switch_camera ?? 'Przełącz kamerę' }}
+                                                <i class="bi bi-arrow-repeat me-1"></i>{{ translations.switch_camera | default("Changer de caméra") }}
                                             </button>
                                             <button type="button" class="btn btn-primary px-5" id="capturePhotoBtn">
-                                                <i class="bi bi-circle-fill me-1"></i>{{ translations.capture ?? 'Zrób zdjęcie' }}
+                                                <i class="bi bi-circle-fill me-1"></i>{{ translations.capture | default("Déclencher") }}
                                             </button>
                                         </div>
                                     </div>
@@ -563,7 +563,7 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                 if (deviceSelect) deviceSelect.value = deviceIndex;
             } catch (err) {
                 cameraError.style.display = '';
-                cameraError.textContent = 'Brak dostępu do kamery: ' + err.message;
+                cameraError.textContent = {{ (translations.camera_denied | default("Caméra inaccessible : ")) | json_encode | raw }} + err.message;
             }
         }
 

@@ -234,7 +234,7 @@
             <span class="dash-action-ic ic-ruby">{{ icons.svg('notebook', 22) }}</span>
             <div class="dash-kb-txt">
                 <div class="dash-kb-title">{{ translations.knowledge|default('Baza wiedzy') }}</div>
-                <div class="dash-kb-sub">{{ translations.knowledge_overview_subtitle|default('Karty techniczne produktów i przepisy') }}</div>
+                <div class="dash-kb-sub">{{ translations.knowledge_overview_subtitle|default("Fiches techniques produits et recettes") }}</div>
             </div>
         </div>
         <div class="dash-kb-actions">
@@ -250,16 +250,16 @@
     <div class="modal fade" id="dashboardShiftEntryModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Kto obsługuje tablet?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                <h5 class="modal-title">{{ translations.tablet_who_title | default("Qui utilise la tablette ?") }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translations.close | default('Fermer') }}"></button>
             </div>
             <div class="modal-body">
                 <div class="form-check form-switch mb-3">
                     <input class="form-check-input" type="checkbox" role="switch" id="dashboardGuestSwitch" checked>
-                    <label class="form-check-label" for="dashboardGuestSwitch">Przejdź anonimowo</label>
+                    <label class="form-check-label" for="dashboardGuestSwitch">{{ translations.tablet_anonymous | default("Continuer sans m'identifier") }}</label>
                 </div>
                 <div id="dashboardEmployeeLogin" class="d-none">
-                    <p class="text-muted small">Wybierz siebie z grafiku i podaj PIN.</p>
+                    <p class="text-muted small">{{ translations.tablet_pick_self | default("Choisissez-vous dans le planning, puis saisissez votre code.") }}</p>
                     <div class="tablet-worker-grid mb-3" id="dashboardEntryEmployees">
                         {% for employee in entry_employees %}
                             <button type="button" class="tablet-worker-badge" data-employee-id="{{ employee.id }}">
@@ -271,7 +271,7 @@
                     <input type="hidden" id="dashboardEmployeeId">
                     <input type="hidden" id="dashboardEmployeePin">
                     <div id="dashboardPinGroup" class="d-none">
-                        <label class="form-label">PIN wybranego pracownika</label>
+                        <label class="form-label">{{ translations.tablet_pin_label | default("Code de la personne choisie") }}</label>
                         <div class="tablet-pin-boxes" id="dashboardPinBoxes">
                             {% for i in 1..4 %}
                                 <input type="password" class="tablet-pin-box dashboard-pin-box" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="PIN {{ i }}">
@@ -282,8 +282,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
-                <button type="button" class="btn btn-success" id="dashboardEntryContinue">Kontynuuj</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ translations.cancel | default('Annuler') }}</button>
+                <button type="button" class="btn btn-success" id="dashboardEntryContinue">{{ translations.continue_ | default('Continuer') }}</button>
             </div>
         </div></div>
     </div>
@@ -370,7 +370,7 @@
             return;
         }
         if (!employeeId.value || pin.value.length !== 4) {
-            alert.textContent = 'Wybierz pracownika i podaj PIN.';
+            alert.textContent = {{ (translations.tablet_pick_first | default('Choisissez une personne et saisissez son code.')) | json_encode | raw }};
             alert.classList.remove('d-none');
             return;
         }
@@ -382,7 +382,7 @@
                 body: new URLSearchParams({employee_id: employeeId.value, pin: pin.value.trim()}),
             });
             const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || 'Nie udało się zalogować pracownika.');
+            if (!response.ok || !data.success) throw new Error(data.message || {{ (translations.tablet_login_error | default("La personne n'a pas pu être identifiée.")) | json_encode | raw }});
             window.location.assign(destination || '{{ ROOT }}/dashboard');
         } catch (error) {
             alert.textContent = error.message;

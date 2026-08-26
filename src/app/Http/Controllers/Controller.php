@@ -48,7 +48,10 @@ class Controller
             $errors[] = $e->getMessage();
             return $default;
         } catch (Exception $e) {
-            $errors[] = "Nieoczekiwany błąd: " . $e->getMessage();
+            // Une clé, pas une phrase : alerts.twig la rend dans la langue de
+            // la tablette. Le détail technique reste au journal — il ne dit
+            // rien à qui travaille en atelier, et il n'est pas traduisible.
+            $errors[] = DEBUG ? ('Erreur inattendue : ' . $e->getMessage()) : 'error_unexpected';
             error_log($e->getMessage());
             return $default;
         } catch (\Throwable $e) {
@@ -58,7 +61,10 @@ class Controller
             // C'est ainsi que « Nouvelle réclamation » rendait un 500 muet.
             // L'erreur reste journalisée — on cesse seulement de la laisser
             // remonter jusqu'à l'écran.
-            $errors[] = "Nieoczekiwany błąd: " . $e->getMessage();
+            // Une clé, pas une phrase : alerts.twig la rend dans la langue de
+            // la tablette. Le détail technique reste au journal — il ne dit
+            // rien à qui travaille en atelier, et il n'est pas traduisible.
+            $errors[] = DEBUG ? ('Erreur inattendue : ' . $e->getMessage()) : 'error_unexpected';
             error_log($e->getMessage());
             return $default;
         }

@@ -67,5 +67,11 @@
   "staff_not_served": "L'API non fornisce ancora la squadra: l'ordine può essere confermato senza nome.",
   "stage_cook": "Cottura",
   "stage_finish": "Rifinitura",
-  "stage_prep": "Preparazione"
+  "stage_prep": "Preparazione",
+  "fil_then_shelf": "poi in negozio",
+  "reserve_title": "In riserva — non ancora in vendita",
+  "reserve_go": "Metti in negozio",
+  "shelf_step_later_hint": "il prodotto non sarà in vendita — promemoria in alto",
+  "shelf_error": "Non è stato possibile registrare la messa in vendita.",
+  "shelf_success": "In vendita: i prodotti sono esposti."
 }

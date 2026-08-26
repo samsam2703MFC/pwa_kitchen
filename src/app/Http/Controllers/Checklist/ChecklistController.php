@@ -52,7 +52,7 @@ class ChecklistController extends Controller
             // query stringu: /employees/{employeeId}/tasks?date={date}.
             $taskIds = $this->checklistService->getTaskIdsForEmployee((int)$activeWorker['id'], $date);
             if ($taskIds === null) {
-                $this->errors[] = 'Nie można pobrać zadań przypisanych do pracownika.';
+                $this->errors[] = 'error_tasks_unavailable';
                 $checklists = [];
             } else {
                 $allowed = array_fill_keys($taskIds, true);

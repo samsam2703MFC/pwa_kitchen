@@ -1,6 +1,6 @@
 {% extends "layouts/base.twig" %}
 
-{% block title %}{{ translations.orders_title | default('Zamówienia klientów') }}{% endblock %}
+{% block title %}{{ translations.orders_title | default("Commandes clients") }}{% endblock %}
 
 {% block head %}
 <style>
@@ -99,8 +99,8 @@
 
 {% block page_heading %}
     <div class="page-heading">
-        <h3>{{ translations.orders_title | default('Zamówienia klientów') }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.orders_subtitle | default('Przeglądaj zamówienia klientów oczekujące na realizację.') }}</p>
+        <h3>{{ translations.orders_title | default("Commandes clients") }}</h3>
+        <p class="text-subtitle text-muted">{{ translations.orders_subtitle | default("Parcourez les commandes clients en attente de traitement.") }}</p>
     </div>
 {% endblock %}
 
@@ -115,7 +115,7 @@
             <div class="col-12 col-sm-6 col-lg-3">
                 <label class="form-label fw-semibold small" for="filterDate">
                     <i class="bi bi-calendar3"></i>
-                    {{ translations.filter_date | default('Dzień odbioru') }}
+                    {{ translations.filter_date | default("Date de retrait") }}
                 </label>
                 <input type="date"
                        class="form-control"
@@ -151,7 +151,7 @@
                            id="filterPendingOnly"
                            {{ pending_only ? 'checked' : '' }}>
                     <label class="form-check-label small fw-semibold" for="filterPendingOnly">
-                        {{ translations.filter_pending_only | default('Tylko oczekujące') }}
+                        {{ translations.filter_pending_only | default("En attente uniquement") }}
                     </label>
                 </div>
             </div>
@@ -209,16 +209,16 @@
     <div class="card-header d-flex justify-content-between align-items-center py-2">
         <span class="fw-semibold">
             <i class="bi bi-list-ul me-1"></i>
-            {{ translations.orders | default('Zamówienia') }}
+            {{ translations.orders | default("Commandes") }}
             —
             <span class="text-primary">{{ date | date('d.m.Y') }}</span>
         </span>
         <div class="d-flex align-items-center gap-2">
             <span class="badge bg-primary">
-                {{ orders | length }} {{ translations.orders_count | default('zamówień') }}
+                {{ orders | length }} {{ translations.orders_count | default("commandes") }}
             </span>
             <a href="{{ ROOT }}/orders/new" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-circle me-1"></i>{{ translations.new_order | default('Nowe zamówienie') }}
+                <i class="bi bi-plus-circle me-1"></i>{{ translations.new_order | default("Nouvelle commande") }}
             </a>
         </div>
     </div>
@@ -232,8 +232,8 @@
                         <th>{{ translations.col_type | default('Typ') }}</th>
                         <th>{{ translations.fulfilment }}</th>
                         <th>{{ translations.col_pickup | default('Data odbioru') }}</th>
-                        <th class="value-col">{{ translations.col_value | default('Wartość') }}</th>
-                        <th class="text-center">{{ translations.col_accepted_by | default('Przyjął') }}</th>
+                        <th class="value-col">{{ translations.col_value | default("Valeur") }}</th>
+                        <th class="text-center">{{ translations.col_accepted_by | default("Accepté par") }}</th>
                         <th>{{ translations.col_status | default('Status') }}</th>
                         <th></th>
                     </tr>
@@ -328,7 +328,7 @@
                                 </a>
                                 <a href="{{ ROOT }}/orders/{{ order.getId() }}"
                                    class="btn btn-sm btn-outline-primary"
-                                   title="{{ translations.view_details | default('Szczegóły') }}">
+                                   title="{{ translations.view_details | default("Détails") }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>
@@ -338,9 +338,9 @@
                         <tr>
                             <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                                {{ translations.no_orders | default('Brak zamówień spełniających kryteria wyszukiwania.') }}
+                                {{ translations.no_orders | default("Aucune commande ne correspond aux critères de recherche.") }}
                                 <div class="small mt-1">
-                                    {{ translations.no_orders_hint | default('Zmień dzień odbioru lub usuń filtr nazwy klienta.') }}
+                                    {{ translations.no_orders_hint | default('Changez le jour de retrait, ou retirez le filtre sur le nom du client.') }}
                                 </div>
                             </td>
                         </tr>

@@ -22,7 +22,7 @@ class TechnicalSheetController extends Controller
         $product = $this->technicalSheetService->getById($id);
 
         if ($product === null) {
-            $this->errors[] = 'Produkt nie został znaleziony.';
+            $this->errors[] = 'error_product_not_found';
             $this->view("errors/404", []);
             return;
         }
