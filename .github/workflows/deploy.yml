@@ -204,8 +204,33 @@ jobs:
           fi
 
           if [ "$USE" != "true" ]; then
-            echo "USE_MOCK_API != true — bouchon arrêté, .htaccess du dépôt conservé."
+            # On ne se contente plus de « conserver le .htaccess du dépôt ».
+            # public/.htaccess est suivi par Git et le rsync l'écrase : le jour
+            # ou quelqu'un commente SetEnv KITCHEN_API_BASE, l'app entière part
+            # sur « http://<hote>/api/v1 », plus un appel n'aboutit et la
+            # tablette ne peut plus se connecter. C'est arrive le 26/08/2026.
+            # La ligne est donc REECRITE ici depuis REAL_API_BASE, decommentee
+            # au besoin : la source de verite est la variable de depot, pas un
+            # fichier que n'importe quel commit peut neutraliser.
+            echo "USE_MOCK_API != true — on pointe le .htaccess sur l'API réelle."
+            if grep -qE '^[[:space:]]*#?[[:space:]]*SetEnv[[:space:]]+KITCHEN_API_BASE' "$HT"; then
+              sed -i -E "s#^[[:space:]]*#?[[:space:]]*SetEnv[[:space:]]+KITCHEN_API_BASE.*#SetEnv KITCHEN_API_BASE $REAL#" "$HT"
+            else
+              sed -i "1i SetEnv KITCHEN_API_BASE $REAL" "$HT"
+            fi
             grep -n 'KITCHEN_API_BASE' "$HT" || true
+
+            # Et on VERIFIE que ca marche, plutot que de l'esperer : le
+            # selecteur de magasin du login est le premier appel d'API de
+            # l'application, et le seul qui ne demande pas de jeton.
+            opts=$(curl -s -m 10 "http://localhost/kitchen/" | grep -c '<option' || echo 0)
+            echo "  <option> dans le sélecteur de magasin : $opts"
+            if [ "$opts" -lt 2 ]; then
+              echo "  ÉCHEC — le sélecteur ne contient que son libellé : l'API n'est pas jointe."
+              echo "  API visée : $REAL"
+              exit 1
+            fi
+            echo "  OK — le login voit les magasins."
             exit 0
           fi
 

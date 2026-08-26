@@ -5,7 +5,14 @@ RewriteBase /kitchen/
 # Sans elle, config/app.php retombe sur « http://<hôte courant>/api/v1 », qui
 # n'existe pas sur le serveur de test : le sélecteur de magasin du login reste
 # alors vide. Nécessite AllowOverride autorisant SetEnv (mod_env).
-#SetEnv KITCHEN_API_BASE https://atelierby.tfbuddy.com/api/v1
+SetEnv KITCHEN_API_BASE https://atelierby.tfbuddy.com/api/v1
+# NE PAS COMMENTER cette ligne. Sans elle, API_BASE_URL retombe sur
+# « http://<hôte courant>/api/v1 » (config/app.php:19-26), qui n'existe sur
+# aucun de nos serveurs : plus un seul appel n'aboutit, le sélecteur de magasin
+# du login reste vide, et la tablette ne peut plus entrer. Le déploiement
+# réécrit désormais cette ligne à partir de la variable de dépôt
+# REAL_API_BASE — la commenter ici ne suffit donc plus à la désactiver, c'est
+# volontaire.
 
 # ── Application installable ───────────────────────────────────────────────
 # Le manifeste doit arriver avec son propre type : servi en text/plain ou en
