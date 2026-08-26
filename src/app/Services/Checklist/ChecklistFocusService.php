@@ -107,4 +107,65 @@ class ChecklistFocusService
 
         return $h * 60 + $i;
     }
+    /**
+     * La prochaine tâche à faire, pour la carte du tableau de bord.
+     *
+     * ── La règle ──
+     * La première tâche encore ouverte, dans l'ordre des heures prévues. Une
+     * tâche sans heure passe après celles qui en ont une : elle n'est pas
+     * moins due, mais elle n'a pas de rendez-vous — et la carte annonce un
+     * rendez-vous. `late` dit si l'heure est passée : l'écran le montre en
+     * rubis, parce qu'un retard sur une tâche d'hygiène ne se rattrape pas en
+     * silence.
+     *
+     * Même contrat que pick() : aucune requête, aucune horloge — l'instant est
+     * passé en argument, et la règle se vérifie sans navigateur.
+     *
+     * @param array  $tasks Telles que servies par la progression : name,
+     *                      execution_time (« HH:MM:SS » ou null), status.
+     * @param string $now   Heure courante, « HH:MM ».
+     *
+     * @return array{name: string, time: ?string, late: bool}|null
+     *         null = plus rien à faire, ou rien d'affichable.
+     */
+    public function nextPending(array $tasks, string $now): ?array
+    {
+        $best = null;
+        foreach ($tasks as $t) {
+            if (!is_array($t)) {
+                continue;
+            }
+            // DONE, SKIPPED et FAILED sont réglées ; tout le reste attend.
+            if (in_array(strtoupper((string)($t['status'] ?? '')), ['DONE', 'SKIPPED', 'FAILED'], true)) {
+                continue;
+            }
+            $name = trim((string)($t['name'] ?? ''));
+            if ($name === '') {
+                // Une tâche sans nom ne s'annonce pas : « prochaine : ? » ne
+                // dit rien, et elle reste comptée dans le total.
+                continue;
+            }
+            $time = null;
+            if (!empty($t['execution_time']) && is_string($t['execution_time'])) {
+                $time = substr($t['execution_time'], 0, 5);
+            }
+
+            // Ordre : les tâches datées d'abord, par heure ; les sans-heure
+            // ensuite, dans l'ordre servi.
+            $key = $time ?? '99:99';
+            if ($best === null || $key < $best['key']) {
+                $best = ['key' => $key, 'name' => $name, 'time' => $time];
+            }
+        }
+
+        if ($best === null) {
+            return null;
+        }
+
+        return [
+            'name' => $best['name'],
+            'time' => $best['time'],
+            'late' => $best['time'] !== null && $best['time'] < $now,
+        ];
+    }
 }

@@ -397,6 +397,10 @@ if ($method === 'POST' && $m('/employees/\d+/tasks/\d+/mark-as-done')) {
 // document de passation. Un 404 ici n'est pas une panne : la PWA garde ses
 // valeurs par defaut. C'est exactement ce qu'on veut pouvoir verifier.
 if ($method === 'GET' && $m('/devices/\d+/configuration')) {
+    // MOCK_CONFIG_DEAD=1 : la route se tait. Depuis le 26/08, la PWA doit
+    // alors montrer les menus PAR DEFAUT et nommer la route en bandeau —
+    // c'est exactement ce que ce reglage permet de verifier a l'ecran.
+    if (getenv('MOCK_CONFIG_DEAD')) { http_response_code(503); exit; }
     ok(mock_device_config());
 }
 

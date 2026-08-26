@@ -39,12 +39,14 @@ check('casse ignorée',                 $m->normalise('WebShop'), 'webshop');
 check('espaces ignorés',               $m->normalise('  gestion '), 'gestion');
 
 // ── Ce que chaque mode montre ─────────────────────────────────────────────
-// Depuis le 13/08/2026, cela vient de la table pwa_kitchen_param et de rien
-// d'autre. Un service qui n'a pas reçu de configuration ne montre RIEN et
-// nomme la route : c'est le point de la révision — pendant que le back se
-// construit, un menu codé en dur masque exactement ce qu'on cherche à voir.
-check('sans config : menu vide',       $m->navKeys('production'), []);
-check('sans config : onglets vides',   $m->tabKeys('production'), []);
+// La table pwa_kitchen_param decide, via GET /devices/{id}/configuration.
+// Revision du 26/08/2026 : sans configuration servie, les menus reprennent
+// les DEFAUTS de l'application ET la route reste nommee. Le 13/08 les
+// laissait vides pour que le trou se voie — sur la tablette, cela rendait le
+// mode production inutilisable tant que le back n'etait pas pret. La regle
+// d'honnetete demeure : le bandeau dit ce qui manque, il ne bloque plus.
+check('sans config : le menu par défaut', $m->navKeys('production'), DeviceModeService::DEFAULT_NAV['production']);
+check('sans config : les onglets par défaut', $m->tabKeys('production'), DeviceModeService::DEFAULT_TABS['production']);
 check('sans config : la route nommée', $m->missingApi(), 'GET /devices/{id}/configuration');
 
 // DEFAULT_NAV / DEFAULT_TABS ne sont plus un repli : c'est la référence, le
@@ -225,14 +227,32 @@ check('appliquée : onglets',            $m2->tabKeys('production'), ['dashboard
 check('appliquée : allows suit',        $m2->allows('production', 'orders'), false);
 check('appliquée : rien à signaler',    $m2->missingApi(), null);
 
-// Sans configuration : aucun menu, et la route est nommee. C'est LA regle de
-// cette revision — l'ecran doit dire ce qui manque, pas faire semblant.
+// Sans configuration : les defauts reviennent (26/08) et la route reste
+// nommee. La tablette travaille, l'ecran dit ce qui manque.
 $m3 = new DeviceModeService();
 $m3->applyConfig(null);
-check('sans config : menu vide',        $m3->navKeys('production'), []);
-check('sans config : onglets vides',    $m3->tabKeys('production'), []);
-check('sans config : rien n\'est permis', $m3->allows('production', 'orders'), false);
+check('sans config : le menu par défaut', $m3->navKeys('production'), DeviceModeService::DEFAULT_NAV['production']);
+check('sans config : la production se voit', $m3->allows('production', 'production'), true);
 check('sans config : la route nommée',  $m3->missingApi(), 'GET /devices/{id}/configuration');
+
+// ── La forme « lignes de table » du §8 ────────────────────────────────────
+// Le back peut servir les lignes de pwa_kitchen_param telles quelles plutot
+// que l'assemblage {modes:{nav,tabs}}. Les deux disent la meme chose.
+$m4 = new DeviceModeService();
+$m4->applyConfig(['rows' => [
+    ['mode' => 'production', 'feature' => 'checklists', 'is_enabled' => 1, 'in_tabbar' => 1, 'sort_order' => 20],
+    ['mode' => 'production', 'feature' => 'dashboard',  'is_enabled' => 1, 'in_tabbar' => 1, 'sort_order' => 10],
+    ['mode' => 'production', 'feature' => 'knowledge',  'is_enabled' => 1, 'in_tabbar' => 0, 'sort_order' => 30],
+    ['mode' => 'production', 'feature' => 'complaints', 'is_enabled' => 0, 'in_tabbar' => 1, 'sort_order' => 40],
+    ['mode' => 'webshop',    'feature' => 'ws_prep',    'is_enabled' => 1, 'in_tabbar' => 1, 'sort_order' => 10],
+    ['mode' => 'webshop',    'feature' => 'webshop',    'is_enabled' => 1, 'in_tabbar' => 0, 'sort_order' => 5],
+]]);
+check('lignes : ordonnées par sort_order', $m4->navKeys('production'), ['dashboard', 'checklists', 'knowledge']);
+check('lignes : in_tabbar respecté',       $m4->tabKeys('production'), ['dashboard', 'checklists']);
+check('lignes : is_enabled=0 écarté',      $m4->allows('production', 'complaints'), false);
+check('lignes : ws_* hors menu',           $m4->navKeys('webshop'), ['webshop']);
+check('lignes : ws_* en onglet',           $m4->tabKeys('webshop'), ['ws_prep']);
+check('lignes : configuration reconnue',   $m4->missingApi(), null);
 // Jamais appelee du tout : meme verdict qu'une config absente.
 check('jamais appliquée : nommée',      (new DeviceModeService())->missingApi(), 'GET /devices/{id}/configuration');
 

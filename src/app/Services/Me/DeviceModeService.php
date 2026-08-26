@@ -102,14 +102,25 @@ class DeviceModeService
     /**
      * Brancher la configuration distante.
      *
-     * Appelée une fois par requête, depuis core/Support/DeviceMode. Sans
-     * configuration exploitable, les menus restent VIDES et `missingApi()`
-     * nomme l'endpoint : l'écran affiche alors ce qui manque, plutôt que de
-     * servir un menu codé en dur qui ferait croire que tout va bien.
+     * Appelée une fois par requête, depuis core/Support/DeviceMode.
+     *
+     * ── Révision du 26/08/2026 ──
+     * Sans configuration exploitable, les menus reprennent les DÉFAUTS de
+     * l'application, et `missingApi()` continue de nommer la route — le
+     * bandeau reste. La révision du 13/08 laissait les menus VIDES pour que le
+     * trou se voie ; sur la tablette, ça rendait le mode production
+     * inutilisable tant que le back n'était pas prêt. Décision du 26/08 : la
+     * tablette travaille, ET l'écran dit ce qui manque. Le jour où la route
+     * répond, ses cartes remplacent les défauts et le bandeau s'éteint.
      */
     public function applyConfig(?array $config): void
     {
-        $this->maps = self::sanitise($config);
+        $maps = self::sanitise($config);
+        if (!$maps['ok']) {
+            $maps['nav']  = self::DEFAULT_NAV;
+            $maps['tabs'] = self::DEFAULT_TABS;
+        }
+        $this->maps = $maps;
     }
 
     /**
@@ -158,6 +169,46 @@ class DeviceModeService
         $tabs = $vide;
 
         $modes = $config['modes'] ?? null;
+
+        // La réponse peut aussi être les LIGNES de pwa_kitchen_param telles
+        // quelles — {mode, feature, in_tabbar, sort_order} — plutôt que
+        // l'assemblage {modes: {nav, tabs}}. Les deux disent la même chose ;
+        // on assemble ici ce que le back n'a pas assemblé.
+        if (!is_array($modes)) {
+            $rows = null;
+            foreach ([$config, $config['rows'] ?? null, $config['data'] ?? null, $config['items'] ?? null] as $cand) {
+                if (is_array($cand) && array_is_list($cand)
+                    && isset($cand[0]['mode'], $cand[0]['feature'])) {
+                    $rows = $cand;
+                    break;
+                }
+            }
+            if ($rows !== null) {
+                usort($rows, fn($a, $b) => [(int)($a['sort_order'] ?? 0)] <=> [(int)($b['sort_order'] ?? 0)]);
+                $modes = [];
+                foreach ($rows as $r) {
+                    if (!is_array($r)) {
+                        continue;
+                    }
+                    // Une ligne désactivée servie quand même : on la respecte.
+                    if (array_key_exists('is_enabled', $r)
+                        && !filter_var($r['is_enabled'], FILTER_VALIDATE_BOOLEAN)) {
+                        continue;
+                    }
+                    $m = strtolower(trim((string)$r['mode']));
+                    $f = strtolower(trim((string)$r['feature']));
+                    $modes[$m] ??= ['nav' => [], 'tabs' => []];
+                    // Les « ws_* » sont des onglets, pas des sections de menu.
+                    if (!str_starts_with($f, 'ws_')) {
+                        $modes[$m]['nav'][] = $f;
+                    }
+                    if (filter_var($r['in_tabbar'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                        $modes[$m]['tabs'][] = $f;
+                    }
+                }
+            }
+        }
+
         if (!is_array($modes) || $modes === []) {
             return ['nav' => $nav, 'tabs' => $tabs, 'ok' => false];
         }
@@ -231,13 +282,15 @@ class DeviceModeService
     /** @return string[] clés des sections visibles dans le menu */
     public function navKeys(?string $mode): array
     {
-        return ($this->maps['nav'] ?? array_fill_keys(array_keys(self::DEFAULT_NAV), []))[$this->normalise($mode)];
+        // Jamais appliquée = même verdict qu'une configuration absente : les
+        // défauts, et missingApi() nomme la route.
+        return ($this->maps['nav'] ?? self::DEFAULT_NAV)[$this->normalise($mode)];
     }
 
     /** @return string[] clés des onglets du bas, profil non compris */
     public function tabKeys(?string $mode): array
     {
-        return ($this->maps['tabs'] ?? array_fill_keys(array_keys(self::DEFAULT_TABS), []))[$this->normalise($mode)];
+        return ($this->maps['tabs'] ?? self::DEFAULT_TABS)[$this->normalise($mode)];
     }
 
     public function allows(?string $mode, string $navKey): bool
