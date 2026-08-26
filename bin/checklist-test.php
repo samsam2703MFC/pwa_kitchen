@@ -104,6 +104,48 @@ check('« HH:MM » sans secondes',        $f->pick([
     ['id' => 62, 'execution_time' => '14:00', 'tasks_done' => 0, 'tasks_total' => 2],
 ], '15:00'), 62);
 
+// ── La prochaine tâche, pour la carte du tableau de bord ────────────────────
+// La premiere tache encore ouverte, par heure prevue ; les sans-heure passent
+// apres ; DONE, SKIPPED et FAILED sont reglees ; `late` dit si l'heure est
+// passee — l'ecran la montre alors en rubis.
+$T = fn(array $t) => $f->nextPending($t, '19:20');
+
+check('prochaine : la plus tôt', $T([
+    ['name' => 'B', 'execution_time' => '19:45:00', 'status' => 'PENDING'],
+    ['name' => 'A', 'execution_time' => '19:30:00', 'status' => 'PENDING'],
+]), ['name' => 'A', 'time' => '19:30', 'late' => false]);
+
+check('prochaine : les réglées ne comptent pas', $T([
+    ['name' => 'A', 'execution_time' => '19:00:00', 'status' => 'DONE'],
+    ['name' => 'B', 'execution_time' => '19:10:00', 'status' => 'FAILED'],
+    ['name' => 'C', 'execution_time' => '19:15:00', 'status' => 'SKIPPED'],
+    ['name' => 'D', 'execution_time' => '19:45:00', 'status' => 'PENDING'],
+])['name'], 'D');
+
+check('prochaine : en retard → late', $T([
+    ['name' => 'A', 'execution_time' => '19:15:00', 'status' => 'PENDING'],
+])['late'], true);
+
+check('prochaine : sans heure après les datées', $T([
+    ['name' => 'SansHeure', 'status' => 'PENDING'],
+    ['name' => 'Datée', 'execution_time' => '19:50:00', 'status' => 'PENDING'],
+])['name'], 'Datée');
+
+check('prochaine : sans heure, jamais en retard', $T([
+    ['name' => 'SansHeure', 'status' => 'PENDING'],
+]), ['name' => 'SansHeure', 'time' => null, 'late' => false]);
+
+check('prochaine : tout fait → null', $T([
+    ['name' => 'A', 'execution_time' => '19:00:00', 'status' => 'DONE'],
+]), null);
+
+check('prochaine : sans nom, écartée mais pas la liste', $T([
+    ['execution_time' => '19:00:00', 'status' => 'PENDING'],
+    ['name' => 'B', 'execution_time' => '19:30:00', 'status' => 'PENDING'],
+])['name'], 'B');
+
+check('prochaine : liste vide → null', $T([]), null);
+
 // ── Verdict ────────────────────────────────────────────────────────────────
 if ($ko) {
     echo implode("\n", $ko) . "\n\n✗ " . count($ko) . " échec(s), $ok passées\n";

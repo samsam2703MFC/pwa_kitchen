@@ -26,5 +26,8 @@
   "production": "Produkcja",
   "knowledge": "Baza wiedzy",
   "cards": "Karty",
-  "orders": "Zamówienia"
+  "orders": "Zamówienia",
+  "dash_cl_done": "wykonane",
+  "dash_cl_left": "pozostałe dzisiaj",
+  "dash_cl_late": "po terminie"
 }

@@ -26,5 +26,8 @@
   "production": "Production",
   "knowledge": "Knowledge base",
   "cards": "Cards",
-  "orders": "Orders"
+  "orders": "Orders",
+  "dash_cl_done": "done",
+  "dash_cl_left": "left today",
+  "dash_cl_late": "overdue"
 }

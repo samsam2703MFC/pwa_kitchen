@@ -25,6 +25,17 @@
        quatre colonnes, les descriptions se cassaient en trois lignes étroites. */
     .dash-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 
+    /* ── La prochaine tâche sur la carte Checklists ── */
+    .dash-cl-next { margin-top: 6px; display: flex; align-items: baseline; gap: 8px; font-size: .88rem; min-width: 0; }
+    .dash-cl-next .hh { font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; flex: none; }
+    .dash-cl-next .nm { font-weight: 600; color: var(--c-ink, #241f1c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Le retard en rubis — la couleur des choses qui ne se rattrapent pas. */
+    .dash-cl-next.is-late .hh   { color: var(--c-primary, #8D1D2C); }
+    .dash-cl-next.is-late .late { color: var(--c-primary, #8D1D2C); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; flex: none; }
+    .dash-cl-bar { margin-top: 8px; height: 6px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .dash-cl-bar i { display: block; height: 100%; background: var(--c-vert, #2D7A3E); }
+    .dash-cl-leg { margin-top: 4px; font-size: .74rem; color: var(--c-muted, #7a7168); }
+
     .dash-action {
         display: flex; align-items: flex-start; gap: 14px;
         padding: 16px; height: 100%;
@@ -163,14 +174,39 @@
             </div>
         </a>
 
-        {# Checklists #}
+        {# ── Checklists ──
+           Quand une tâche attend, la carte remplace son sous-titre — qui ne
+           dit jamais rien de neuf — par la prochaine tâche : son heure, son
+           nom, et l'avancement du jour. L'heure passe en RUBIS quand elle est
+           dépassée : un retard sur une tâche d'hygiène ne se rattrape pas en
+           silence. Sans donnée servie, le sous-titre revient — une carte de
+           menu n'a pas à porter un bandeau d'erreur. #}
         <a href="{{ ROOT }}/checklists" class="dash-action" data-shift-required-link>
             <div class="dash-action-top">
                 <span class="dash-action-ic ic-ambre">{{ icons.svg('clipboard-check', 22) }}</span>
             </div>
             <div class="dash-action-body">
                 <p class="dash-action-title">{{ translations.checklists }}</p>
-                <p class="dash-action-sub">{{ translations.checklists_subtitle }}</p>
+                {% if cl_next %}
+                    <div class="dash-cl-next {{ cl_next.late ? 'is-late' : '' }}">
+                        {% if cl_next.time %}<span class="hh">{{ cl_next.time }}</span>{% endif %}
+                        <span class="nm">{{ cl_next.name }}</span>
+                        {% if cl_next.late %}
+                            <span class="late">{{ translations.dash_cl_late | default('en retard') }}</span>
+                        {% endif %}
+                    </div>
+                    {% if (cl_done + cl_left) > 0 %}
+                        <div class="dash-cl-bar" aria-hidden="true">
+                            <i style="width:{{ (cl_done / (cl_done + cl_left) * 100)|round }}%"></i>
+                        </div>
+                        <div class="dash-cl-leg">
+                            {{ cl_done }} {{ translations.dash_cl_done | default('faites') }} ·
+                            {{ cl_left }} {{ translations.dash_cl_left | default("restantes aujourd'hui") }}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="dash-action-sub">{{ translations.checklists_subtitle }}</p>
+                {% endif %}
             </div>
         </a>
 

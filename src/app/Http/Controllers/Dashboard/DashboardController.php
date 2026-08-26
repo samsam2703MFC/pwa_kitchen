@@ -1,13 +1,15 @@
 <?php
 namespace App\Kitchen\app\Http\Controllers\Dashboard;
 use App\Kitchen\app\Http\Controllers\Controller;
+use App\Kitchen\app\Services\Checklist\ChecklistFocusService;
 use App\Kitchen\app\Services\Checklist\ChecklistService;
 use App\Kitchen\core\Support\Route;
 use App\Kitchen\core\Support\ShiftSession;
 class DashboardController extends Controller
 {
     public function __construct(
-        private ChecklistService $checklistService
+        private ChecklistService $checklistService,
+        private ChecklistFocusService $focus
     ) {}
     #[Route('GET', '/dashboard')]
     public function index()
@@ -60,7 +62,30 @@ class DashboardController extends Controller
             }
         }
 
+        /* ── La prochaine tâche, pour la carte « Listes de contrôle » ──
+           La checklist du moment est choisie par l'heure (même règle que
+           l'écran des checklists) ; sa progression donne la première tâche
+           encore ouverte. Rien n'est demandé si tout est fait — et si la
+           progression ne répond pas, la carte retombe sur son sous-titre :
+           une carte de menu n'a pas à porter un bandeau d'erreur. */
+        $clNext = null;
+        $picked = $checklists ? $this->focus->pick($checklists, date('H:i')) : null;
+        if ($picked !== null) {
+            $progress = $this->safeFetch(
+                fn() => $this->checklistService->getChecklistProgress($picked, $today),
+                $this->warnings,
+                null,
+                null
+            );
+            if (is_array($progress) && is_array($progress['tasks'] ?? null)) {
+                $clNext = $this->focus->nextPending($progress['tasks'], date('H:i'));
+            }
+        }
+
         $this->view("dashboard/dashboard", [
+            'cl_next'  => $clNext,
+            'cl_done'  => $employeeStats['tasks_completed'] ?? $tasksCompleted,
+            'cl_left'  => $employeeStats['tasks_todo']      ?? $tasksTodo,
             'stats' => [
                 'tasks_todo'        => $tasksTodo,
                 'tasks_in_progress' => 0,

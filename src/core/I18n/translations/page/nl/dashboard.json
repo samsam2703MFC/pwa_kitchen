@@ -26,5 +26,8 @@
   "production": "Productie",
   "knowledge": "Kennisbank",
   "cards": "Kaarten",
-  "orders": "Bestellingen"
+  "orders": "Bestellingen",
+  "dash_cl_done": "gedaan",
+  "dash_cl_left": "vandaag te doen",
+  "dash_cl_late": "te laat"
 }

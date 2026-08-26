@@ -26,5 +26,8 @@
   "production": "Produzione",
   "knowledge": "Base di conoscenza",
   "cards": "Schede",
-  "orders": "Ordini"
+  "orders": "Ordini",
+  "dash_cl_done": "fatte",
+  "dash_cl_left": "rimanenti oggi",
+  "dash_cl_late": "in ritardo"
 }
