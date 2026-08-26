@@ -63,5 +63,9 @@
   "no_photo": "Brak zdjęcia",
   "no_media": "Brak zdjęć i materiałów opakowaniowych",
   "go_to_subrecipes": "Przejdź do podreceptur",
-  "go_to_products": "Przejdź do produktów"
+  "go_to_products": "Przejdź do produktów",
+  "prep_oven": "Piec",
+  "prep_trays": "blachy",
+  "prep_batch_max": "%s naraz",
+  "prep_unreadable": "%s otrzymany(ch) krok(ów) bez czytelnej instrukcji."
 }

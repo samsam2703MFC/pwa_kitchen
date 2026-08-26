@@ -249,6 +249,43 @@
         line-height: 1.5;
     }
     .fiche-step:last-child { border-bottom: none; }
+
+    /* --- PARCOURS DE PRÉPARATION ---
+       Le texte du geste porte la lecture ; la durée, le four et le batch sont
+       des conditions, en retrait sous lui. Les mettre sur la même ligne que
+       l'instruction ferait hésiter entre lire et calculer. */
+    .prep-step-body { min-width: 0; flex: 1; }
+    .prep-total {
+        float: right; text-transform: none; letter-spacing: 0;
+        font-weight: 700; color: var(--c-encre, #1F4F6B);
+    }
+    .prep-step-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .prep-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 9px; border-radius: var(--r-pill, 999px);
+        background: #f4efe8; border: 1px solid #e4dbcf;
+        font-size: .74rem; font-weight: 600; color: #6b6259;
+        white-space: nowrap;
+    }
+    .prep-chip i { font-size: .82rem; line-height: 1; }
+    /* Le four est la contrainte qui décide de la cadence : il se repère sans
+       être lu. */
+    .prep-chip.is-oven {
+        background: rgba(193,122,42,.12); border-color: rgba(193,122,42,.35);
+        color: #8a5518;
+    }
+    .prep-step-shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+    .prep-shot {
+        width: 104px; aspect-ratio: 4 / 3; object-fit: cover;
+        border-radius: 6px; border: 1px solid #e9ecef; background: #f8f9fa;
+    }
+    .prep-unreadable {
+        margin: 10px 0 0; font-size: .78rem; color: #8a5518;
+    }
+    @media (max-width: 575.98px) {
+        .prep-total { float: none; display: block; margin-top: 3px; }
+        .prep-shot  { width: 88px; }
+    }
     .fiche-step-num {
         width: 26px;
         height: 26px;
@@ -688,9 +725,99 @@
                     </div>
                 {% endif %}
 
-                {# KROKI PRZYGOTOWANIA #}
-                {% if preparation and preparation.hasSteps() %}
-                    <h4 class="fiche-section-title" style="margin-top:{% if preparation.hasTypes() %}0{% else %}0{% endif %}">
+                {# ── PARCOURS DE PRÉPARATION ──
+                   Sa propre route (`GET /products/{id}/preparation-path`), et
+                   trois issues qui ne se ressemblent pas :
+
+                     served       — le réseau a défini un parcours : on l'affiche,
+                                    avec durées, four et batch.
+                     unconfigured — la route répond, ce produit n'a pas de
+                                    parcours. Un fait, pas une panne : il se
+                                    règle au back-office. On retombe alors sur
+                                    la préparation de la fiche technique, qui
+                                    vient d'une autre route et est bien réelle.
+                     missing      — la route n'a pas répondu. Le bandeau du haut
+                                    la nomme déjà ; on ne masque pas pour autant
+                                    ce que la fiche technique, elle, a servi. #}
+                {% set prep_steps = prep.state is defined and prep.state == 'served' %}
+
+                {% if prep_steps %}
+                    <h4 class="fiche-section-title">
+                        <i class="bi bi-list-ol me-1"></i>{{ translations.preparation|default('Przygotowanie') }}
+                        {% if prep.total %}
+                            <span class="prep-total">{{ prep.total }}</span>
+                        {% endif %}
+                    </h4>
+
+                    {% for step in prep.steps %}
+                        <div class="fiche-step">
+                            <div class="fiche-step-num">{{ step.n }}</div>
+                            <div class="prep-step-body">
+                                <div>{{ step.text }}</div>
+
+                                {# Les conditions de l'étape. Elles ne sont pas
+                                   décoratives : c'est ce qui dit combien on
+                                   enfourne d'un coup, et ce qui peut passer
+                                   avec quoi. #}
+                                {% set d = step.duration %}
+                                {% if d or step.oven or step.batch_group or step.batch_capacity %}
+                                    <div class="prep-step-meta">
+                                        {% if d %}
+                                            <span class="prep-chip"><i class="bi bi-stopwatch"></i>{{ d }}</span>
+                                        {% endif %}
+                                        {% if step.oven %}
+                                            <span class="prep-chip is-oven">
+                                                <i class="bi bi-fire"></i>{{ translations.prep_oven|default('Four') }}
+                                                {%- if step.per_tray and step.trays %}
+                                                    · {{ step.per_tray }} × {{ step.trays }}
+                                                    {{- ' ' }}{{ translations.prep_trays|default('plaques') }}
+                                                {% endif %}
+                                            </span>
+                                        {% endif %}
+                                        {% if step.batch_group %}
+                                            <span class="prep-chip"><i class="bi bi-collection"></i>{{ step.batch_group }}</span>
+                                        {% endif %}
+                                        {% if step.batch_capacity %}
+                                            <span class="prep-chip">
+                                                <i class="bi bi-box-seam"></i>
+                                                {{- ' ' }}{{ translations.prep_batch_max|default('%s à la fois')|replace({'%s': step.batch_capacity}) }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                {% if step.photos is not empty %}
+                                    <div class="prep-step-shots">
+                                        {# Même règle que ProductPhotoModel::resolveUrl() : une clé
+                                           « r2:// » désigne le stockage partagé, une URL entière se
+                                           suit telle quelle. #}
+                                        {% for photo in step.photos %}
+                                            {% set src = photo starts with 'http'
+                                                 ? photo
+                                                 : shared_files_url ~ '/' ~ (photo starts with 'r2://' ? photo|slice(5) : photo)|trim('/') %}
+                                            <img src="{{ src }}" alt="" loading="lazy" class="prep-shot">
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+
+                    {# Des étapes servies qu'on n'a pas su lire. Les taire
+                       ferait passer un parcours tronqué pour un parcours
+                       complet — et c'est sur un parcours qu'on travaille. #}
+                    {% if prep.unreadable > 0 %}
+                        <p class="prep-unreadable">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            {{ (translations.prep_unreadable|default('%s étape(s) servie(s) sans instruction lisible.'))|replace({'%s': prep.unreadable}) }}
+                        </p>
+                    {% endif %}
+
+                {# KROKI PRZYGOTOWANIA — la préparation de la fiche technique.
+                   Elle reste la source tant que le produit n'a pas de parcours,
+                   ou tant que la route du parcours ne répond pas. #}
+                {% elseif preparation and preparation.hasSteps() %}
+                    <h4 class="fiche-section-title">
                         <i class="bi bi-list-ol me-1"></i>{{ translations.preparation|default('Przygotowanie') }}
                     </h4>
                     {% for step in preparation.getSteps() %}

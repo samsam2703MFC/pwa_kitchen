@@ -400,6 +400,29 @@ if ($method === 'GET' && $m('/devices/me/config')) {
     ok(mock_device_config());
 }
 
+// La fiche technique, juste assez pour ouvrir l'ecran du produit.
+if ($method === 'GET' && $m('/products/(\\d+)/technical-sheet/raw', $vars)) {
+    ok(mock_technical_sheet((int)$vars[1]));
+}
+
+// ── Parcours de preparation ───────────────────────────────────────────────
+// Les gestes definis par le reseau pour un produit : instruction, duree,
+// groupe de batch, four, photos. Trois cas a pouvoir observer, parce qu'ils se
+// ressemblent a l'ecran et n'appellent pas la meme reaction :
+//   ?configured=0 — le produit n'a pas de parcours. Un fait, pas une panne.
+//   ?dead=1       — la route ne repond pas. La PWA doit alors la NOMMER.
+//   defaut        — un parcours complet, four et batch compris.
+if ($method === 'GET' && $m('/products/(\d+)/preparation-path', $vars)) {
+    // MOCK_PREP se regle au lancement du bouchon, pour observer les trois cas
+    // depuis la PWA elle-meme : elle appelle la route sans parametre, on ne
+    // peut donc pas les declencher par l'URL.
+    $forced = strtolower((string)getenv('MOCK_PREP'));
+    if (!empty($q['dead']) || $forced === 'dead')       { http_response_code(503); exit; }
+    if ($forced === 'off'
+        || (isset($q['configured']) && !$q['configured'])) { ok(['configured' => false]); }
+    ok(mock_preparation_path((int)$vars[1]));
+}
+
 // Qui travaille, un jour donne — et la SEULE source du personnel depuis le
 // 13/08/2026. /franchisee-employees a ete retire : le planning porte les
 // personnes, il n'y a plus rien a croiser.

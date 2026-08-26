@@ -518,3 +518,85 @@ function mock_device_config(): array
     // passation.
     return ['modes' => $modes];
 }
+
+/**
+ * Le parcours de preparation d'un produit.
+ *
+ * Reproduit la forme decrite par la documentation du back (tag « Product
+ * preparation ») : etapes ordonnees, duree en secondes, groupe de batch
+ * facultatif, parametres de four, et jusqu'a trois photos.
+ *
+ * La derniere etape est volontairement MUETTE — aucun texte. C'est le cas qui
+ * ferait afficher un geste sans consigne : la PWA doit l'ecarter et dire
+ * combien elle en a ecarte, pas la montrer vide ni la passer sous silence.
+ */
+function mock_preparation_path(int $productId): array
+{
+    return [
+        'product_id' => $productId,
+        'configured' => true,
+        'steps' => [
+            [
+                'id' => 1, 'position' => 1,
+                'description' => 'Peser la farine et le levain, puis frasage 3 minutes en première vitesse.',
+                'duration_seconds' => 240,
+            ],
+            [
+                'id' => 2, 'position' => 2,
+                'description' => 'Pointage en bac filé, à 24 °C.',
+                'duration_seconds' => 5400,
+                'batch_group_id' => 3, 'batch_group_name' => 'Pointage bacs',
+                'batch_capacity' => 6,
+            ],
+            [
+                'id' => 3, 'position' => 3,
+                'description' => 'Façonnage en boules de 350 g, serrage régulier.',
+                'duration_seconds' => 900,
+                'image_key_1' => 'r2://mock/prep-faconnage-1.jpg',
+                'image_key_2' => 'r2://mock/prep-faconnage-2.jpg',
+            ],
+            [
+                'id' => 4, 'position' => 4,
+                'description' => 'Cuisson à 240 °C, buée 3 secondes, puis 220 °C.',
+                'duration_seconds' => 1320,
+                'uses_oven' => true,
+                'batch_group_id' => 7, 'batch_group_name' => 'Four 240°',
+                'batch_capacity' => 48, 'products_per_tray' => 12, 'trays_per_oven' => 4,
+            ],
+            // Servie, mais sans instruction : la PWA doit la compter, pas
+            // l'afficher vide.
+            ['id' => 5, 'position' => 5, 'duration_seconds' => 600],
+        ],
+    ];
+}
+
+/**
+ * La fiche technique d'un produit.
+ *
+ * Minimale a dessein : elle n'existe ici que pour pouvoir OUVRIR l'ecran et y
+ * regarder le parcours de preparation. Elle porte quand meme l'ancienne
+ * preparation (`preparation.steps`), parce que c'est elle qui doit reprendre
+ * la main quand le parcours n'est pas configure ou que sa route se tait — et
+ * qu'un repli qu'on ne peut pas voir n'est pas verifie.
+ */
+function mock_technical_sheet(int $productId): array
+{
+    return [
+        'object' => [
+            'id' => $productId,
+            'name' => 'Pain de campagne 350 g',
+            'category_name' => 'Boulangerie',
+            'description' => 'Pâte au levain naturel, longue fermentation.',
+        ],
+        'preparation' => [
+            'types' => [
+                ['id' => 1, 'name' => 'Pétrissage', 'duration_second' => 240],
+                ['id' => 2, 'name' => 'Cuisson',    'duration_second' => 1320],
+            ],
+            'steps' => [
+                ['step_number' => 1, 'step_description' => 'Pétrir, pointer, façonner.'],
+                ['step_number' => 2, 'step_description' => 'Cuire à 240 °C.'],
+            ],
+        ],
+    ];
+}

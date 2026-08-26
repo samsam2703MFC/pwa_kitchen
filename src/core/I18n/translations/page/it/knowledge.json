@@ -63,5 +63,9 @@
   "photo_presentation": "Presentazione",
   "photo_display": "Esposizione",
   "no_photo": "Nessuna foto",
-  "no_media": "Nessuna foto o materiale di imballaggio disponibile"
+  "no_media": "Nessuna foto o materiale di imballaggio disponibile",
+  "prep_oven": "Forno",
+  "prep_trays": "teglie",
+  "prep_batch_max": "%s alla volta",
+  "prep_unreadable": "%s fase/i ricevuta/e senza istruzione leggibile."
 }
