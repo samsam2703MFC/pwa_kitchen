@@ -180,6 +180,52 @@ check('heures',          PreparationPathService::humanDuration(3900), '1 h 05');
 check('durée absente',   PreparationPathService::humanDuration(null), null);
 check('durée nulle',     PreparationPathService::humanDuration(0), null);
 
+// ── Le résumé pour la production ────────────────────────────────────────────
+// L'écran des besoins veut une ligne par produit a lancer : duree totale et
+// capacite du four. Rien n'est demande aux produits que la route des
+// identifiants ne declare pas configures, et rien n'est invente pour un
+// parcours qui ne repond pas.
+$svc2 = function (?array $ids, array $paths) {
+    return new PreparationPathService(
+        new class($ids, $paths) extends \App\Kitchen\app\Repositories\Knowledge\Preparation\PreparationPathRepository {
+            public function __construct(private ?array $ids, private array $paths) {}
+            public function configuredProductIds(): ?array { return $this->ids; }
+            public function get(int $productId): ?array { return $this->paths[$productId] ?? null; }
+        }
+    );
+};
+
+$baguette = ['configured' => true, 'steps' => [
+    ['description' => 'Frasage', 'duration_seconds' => 480],
+    ['description' => 'Cuisson', 'duration_seconds' => 1320, 'uses_oven' => true,
+     'batch_group_id' => 8, 'batch_capacity' => 80, 'products_per_tray' => 20, 'trays_per_oven' => 4],
+]];
+
+$r = $svc2([6700120], [6700120 => $baguette])->summaries([6700120, 999]);
+check('résumé : servi',            $r['available'], true);
+check('résumé : durée',            $r['map'][6700120]['total'], '30 min');
+check('résumé : four',             $r['map'][6700120]['oven'], '20 × 4');
+check('résumé : capacité',         $r['map'][6700120]['capacity'], 80);
+check('résumé : le non-configuré est absent', array_key_exists(999, $r['map']), false);
+
+// Un produit configure dont le parcours ne repond pas : absent de la map,
+// jamais invente.
+$r = $svc2([6700120], [])->summaries([6700120]);
+check('parcours muet → absent',    $r['map'], []);
+check('parcours muet → ids servis quand même', $r['available'], true);
+
+// La route des identifiants ne repond pas : on le dit, et on ne demande RIEN.
+$r = $svc2(null, [])->summaries([6700120]);
+check('ids muets → indisponible',  $r['available'], false);
+check('ids muets → route nommée',  $r['missing'], 'GET /preparation-paths/configured-product-ids');
+check('ids muets → map vide',      $r['map'], []);
+
+// Sans four, pas de capacite inventee.
+$r = $svc2([5], [5 => ['configured' => true, 'steps' => [['description' => 'A', 'duration_seconds' => 60]]]])
+    ->summaries([5]);
+check('sans four → pas de capacité', $r['map'][5]['capacity'], null);
+check('sans four → durée quand même', $r['map'][5]['total'], '1 min');
+
 // ── Verdict ────────────────────────────────────────────────────────────────
 if ($ko) {
     echo implode("\n", $ko) . "\n\n✗ " . count($ko) . " échec(s), $ok passées\n";

@@ -221,5 +221,7 @@
   "stock_sorted_hint": "Sorted from lowest to highest.",
   "stock_sub_hint": "Against expected sales",
   "stock_title": "Live stock",
-  "stock_updated": "Updated"
+  "stock_updated": "Updated",
+  "prep_oven_short": "oven",
+  "prep_at_once": "at a time"
 }

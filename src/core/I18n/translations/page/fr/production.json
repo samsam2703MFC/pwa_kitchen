@@ -221,5 +221,7 @@
   "stock_sorted_hint": "Trié du plus bas au plus haut.",
   "stock_sub_hint": "Face aux ventes prévues",
   "stock_title": "Stock live",
-  "stock_updated": "Mis à jour"
+  "stock_updated": "Mis à jour",
+  "prep_oven_short": "four",
+  "prep_at_once": "à la fois"
 }

@@ -39,6 +39,43 @@ class PreparationPathRepository
     ) {}
 
     /**
+     * Les identifiants des produits qui ont un parcours.
+     *
+     * `GET /preparation-paths/configured-product-ids` — un appel pour tout le
+     * réseau, prévu par le back précisément pour éviter une requête par
+     * produit. C'est lui qui permet à l'écran de production de savoir quelles
+     * lignes ont un parcours sans interroger chaque produit.
+     *
+     * @return array<int, int>|null null = route non servie
+     */
+    public function configuredProductIds(): ?array
+    {
+        $res = $this->apiClient->get('/preparation-paths/configured-product-ids');
+        if (!($res['success'] ?? false)) {
+            return null;
+        }
+
+        $data = $res['data'] ?? null;
+        if (!is_array($data)) {
+            return null;
+        }
+
+        // La liste peut être servie nue, ou sous une clé. On ne devine pas
+        // au-delà de ces noms.
+        foreach (['product_ids', 'ids', 'data', 'items'] as $k) {
+            if (isset($data[$k]) && is_array($data[$k])) {
+                $data = $data[$k];
+                break;
+            }
+        }
+        if (!array_is_list($data)) {
+            return null;
+        }
+
+        return array_values(array_map('intval', array_filter($data, 'is_numeric')));
+    }
+
+    /**
      * @return array<string, mixed>|null
      *         null = route non servie — à ne pas confondre avec une réponse
      *         portant `configured: false`, qui est un fait, pas une panne.

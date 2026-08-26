@@ -89,6 +89,54 @@ class PreparationPathService
         ];
     }
 
+    /**
+     * Le résumé du parcours de chaque produit d'une liste, pour la production.
+     *
+     * L'écran des besoins n'a pas la place d'un parcours entier : il veut une
+     * ligne — la durée totale, et la capacité du four. On ne demande le
+     * parcours QU'AUX produits que la route des identifiants déclare
+     * configurés : un appel réseau par produit configuré de la liste, jamais
+     * un appel par produit affiché.
+     *
+     * @param array<int, int> $productIds
+     * @return array{available: bool, missing: ?string,
+     *               map: array<int, array{total: ?string, oven: ?string, capacity: ?int}>}
+     *         available=false : la route des identifiants n'a pas répondu, et
+     *         `missing` la nomme. map n'invente rien : un produit configuré
+     *         dont le parcours ne répond pas est simplement absent de la map.
+     */
+    public function summaries(array $productIds): array
+    {
+        $configured = $this->repository->configuredProductIds();
+        if ($configured === null) {
+            return ['available' => false,
+                    'missing'   => 'GET /preparation-paths/configured-product-ids',
+                    'map'       => []];
+        }
+
+        $map = [];
+        foreach (array_intersect(array_map('intval', $productIds), $configured) as $id) {
+            $path = $this->forProduct($id);
+            if ($path['state'] !== 'served') {
+                continue;
+            }
+            $oven = null;
+            $capacity = null;
+            foreach ($path['steps'] as $step) {
+                if ($step['oven']) {
+                    $capacity = $step['batch_capacity'];
+                    if ($step['per_tray'] !== null && $step['trays'] !== null) {
+                        $oven = $step['per_tray'] . ' × ' . $step['trays'];
+                    }
+                    break;
+                }
+            }
+            $map[$id] = ['total' => $path['total'], 'oven' => $oven, 'capacity' => $capacity];
+        }
+
+        return ['available' => true, 'missing' => null, 'map' => $map];
+    }
+
     /** @return array{state: string, steps: array, total_seconds: int, total: ?string, unreadable: int, missing: ?string} */
     private static function none(string $state, ?string $missing): array
     {

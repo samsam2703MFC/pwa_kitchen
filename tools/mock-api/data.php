@@ -532,6 +532,34 @@ function mock_device_config(): array
  */
 function mock_preparation_path(int $productId): array
 {
+    // Produit test : la Baguette tradition (6700120). Quatre gestes, un four
+    // en sole 20 x 4 — la capacite (80) et la duree (3 h 25) sont celles
+    // qu'on veut voir apparaitre sur la ligne « a lancer » de la production.
+    if ($productId === 6700120) {
+        return [
+            'product_id' => $productId,
+            'configured' => true,
+            'steps' => [
+                ['id' => 11, 'position' => 1,
+                 'description' => 'Frasage et pétrissage, 8 minutes en première vitesse.',
+                 'duration_seconds' => 480],
+                ['id' => 12, 'position' => 2,
+                 'description' => 'Pointage en bac, 2 heures à température ambiante.',
+                 'duration_seconds' => 7200,
+                 'batch_group_id' => 3, 'batch_group_name' => 'Pointage bacs', 'batch_capacity' => 6],
+                ['id' => 13, 'position' => 3,
+                 'description' => 'Division et façonnage en baguettes de 350 g.',
+                 'duration_seconds' => 2700],
+                ['id' => 14, 'position' => 4,
+                 'description' => 'Cuisson sur sole à 250 °C, buée à l\'enfournement.',
+                 'duration_seconds' => 1320,
+                 'uses_oven' => true,
+                 'batch_group_id' => 8, 'batch_group_name' => 'Four sole 250°',
+                 'batch_capacity' => 80, 'products_per_tray' => 20, 'trays_per_oven' => 4],
+            ],
+        ];
+    }
+
     return [
         'product_id' => $productId,
         'configured' => true,

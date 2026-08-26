@@ -412,6 +412,12 @@ if ($method === 'GET' && $m('/products/(\\d+)/technical-sheet/raw', $vars)) {
 //   ?configured=0 — le produit n'a pas de parcours. Un fait, pas une panne.
 //   ?dead=1       — la route ne repond pas. La PWA doit alors la NOMMER.
 //   defaut        — un parcours complet, four et batch compris.
+// Les produits qui ont un parcours : un appel pour tout le reseau. La
+// baguette est le produit test — 6700120 dans ce jeu.
+if ($method === 'GET' && $m('/preparation-paths/configured-product-ids')) {
+    ok(['product_ids' => [6700120, 12]]);
+}
+
 if ($method === 'GET' && $m('/products/(\d+)/preparation-path', $vars)) {
     // MOCK_PREP se regle au lancement du bouchon, pour observer les trois cas
     // depuis la PWA elle-meme : elle appelle la route sans parametre, on ne

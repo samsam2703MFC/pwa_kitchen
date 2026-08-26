@@ -15,6 +15,7 @@ use App\Kitchen\app\Services\Production\OrderBookService;
 use App\Kitchen\app\Services\Production\ProductionBoardService;
 use App\Kitchen\app\Services\Production\ProductionService;
 use App\Kitchen\app\Services\Production\StockOutlookService;
+use App\Kitchen\app\Services\Knowledge\Preparation\PreparationPathService;
 use App\Kitchen\app\Services\Staff\StaffService;
 
 class ProductionController extends Controller
@@ -29,7 +30,8 @@ class ProductionController extends Controller
         private StockOutlookService $outlookService,
         private OrderBookService $orderBook,
         private MinimumService $minimumService,
-        private StaffService $staffService
+        private StaffService $staffService,
+        private PreparationPathService $preparationPathService
     ) {}
 
     /**
@@ -93,6 +95,14 @@ class ProductionController extends Controller
             $data += $this->mepData($today, $sector);
         } else {
             $data += $this->periodData($today, $view, $sector);
+            // La route des parcours manque : la coque la nomme en bandeau,
+            // comme toute route manquante. L'écran, lui, reste entier.
+            if (($data['prep']['missing'] ?? null) !== null) {
+                $data['missing_api'] = array_merge(
+                    (array)($data['missing_api'] ?? []),
+                    [$data['prep']['missing']]
+                );
+            }
         }
 
         $this->view('production/index', $data);
@@ -401,7 +411,25 @@ class ProductionController extends Controller
             ),
             'orders_counts'      => $this->orderBook->counts($orders['lines']),
             'now_minutes'        => ForecastService::minutesOf(date('H:i')),
-            'board'              => $this->boardService->build($periodProducts, $lines, $stages, $tension['map']),
+            'board'              => $board = $this->boardService->build($periodProducts, $lines, $stages, $tension['map']),
+            // ── Le parcours de préparation, en résumé ──
+            // Un appel pour la liste des produits configurés, puis un par
+            // produit configuré PRÉSENT à l'écran — jamais un par produit
+            // affiché : summaries() croise avant d'appeler. Si la route ne
+            // répond pas, prep.missing la nomme et le bandeau l'affiche ;
+            // l'écran, lui, reste entier.
+            'prep'               => $this->safeFetch(
+                fn() => $this->preparationPathService->summaries(array_values(array_unique(array_merge([], ...array_map(
+                    fn(array $rows) => array_map(
+                        fn(array $r) => (int)$r['product']->getIdProduct(),
+                        array_values($rows)
+                    ),
+                    array_values($board['buckets'] ?? [])
+                ))))),
+                $this->warnings,
+                null,
+                ['available' => false, 'missing' => null, 'map' => []]
+            ),
         ] + $this->moreCounts($today, $sector, $products, $stock, $orders['lines']);
     }
 

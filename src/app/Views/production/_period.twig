@@ -178,6 +178,22 @@
                                             {{ translations.board_ordered_2 | default('commandés') }}
                                         </span>
                                     {% endif %}
+                                    {# ── Le parcours de préparation, en une ligne ──
+                                       Défini par le réseau (GET /products/{id}/preparation-path) :
+                                       la durée totale des gestes, et la capacité du four. Au
+                                       moment de décider d'une fournée, c'est ce qui dit si
+                                       « 48 » passe en un four ou en deux. Affiché seulement
+                                       s'il est servi — rien n'est inventé, et le calcul du
+                                       manque n'en dépend pas. #}
+                                    {% set pp = prep.map[p.idProduct] | default(null) %}
+                                    {% if pp %}
+                                        <span class="pr-prep">
+                                            {{ icons.svg('list-checks', 13) }}
+                                            {%- if pp.total %} {{ pp.total }}{% endif %}
+                                            {%- if pp.oven %} · {{ translations.prep_oven_short | default('four') }} {{ pp.oven }}{% endif %}
+                                            {%- if pp.capacity %} · {{ pp.capacity }} {{ translations.prep_at_once | default('à la fois') }}{% endif %}
+                                        </span>
+                                    {% endif %}
                                     </span>
                                     {# ETA : l'heure de finition prévue. Elle
                                        n'existe que s'il y a une fournée — et

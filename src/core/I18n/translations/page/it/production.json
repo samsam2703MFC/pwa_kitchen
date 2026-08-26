@@ -221,5 +221,7 @@
   "stock_sorted_hint": "Ordinato dal più basso al più alto.",
   "stock_sub_hint": "Rispetto alle vendite previste",
   "stock_title": "Giacenze live",
-  "stock_updated": "Aggiornato"
+  "stock_updated": "Aggiornato",
+  "prep_oven_short": "forno",
+  "prep_at_once": "alla volta"
 }

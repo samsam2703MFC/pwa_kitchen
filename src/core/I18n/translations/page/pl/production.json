@@ -221,5 +221,7 @@
   "stock_sorted_hint": "Sortowanie od najniższego do najwyższego.",
   "stock_sub_hint": "Wobec prognozy sprzedaży",
   "stock_title": "Stan live",
-  "stock_updated": "Zaktualizowano"
+  "stock_updated": "Zaktualizowano",
+  "prep_oven_short": "piec",
+  "prep_at_once": "naraz"
 }

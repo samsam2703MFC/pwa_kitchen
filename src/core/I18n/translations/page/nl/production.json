@@ -221,5 +221,7 @@
   "stock_sorted_hint": "Gesorteerd van laag naar hoog.",
   "stock_sub_hint": "Tegenover de verwachte verkoop",
   "stock_title": "Live voorraad",
-  "stock_updated": "Bijgewerkt"
+  "stock_updated": "Bijgewerkt",
+  "prep_oven_short": "oven",
+  "prep_at_once": "tegelijk"
 }
