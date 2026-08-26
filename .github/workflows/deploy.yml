@@ -214,7 +214,10 @@ jobs:
             # fichier que n'importe quel commit peut neutraliser.
             echo "USE_MOCK_API != true — on pointe le .htaccess sur l'API réelle."
             if grep -qE '^[[:space:]]*#?[[:space:]]*SetEnv[[:space:]]+KITCHEN_API_BASE' "$HT"; then
-              sed -i -E "s#^[[:space:]]*#?[[:space:]]*SetEnv[[:space:]]+KITCHEN_API_BASE.*#SetEnv KITCHEN_API_BASE $REAL#" "$HT"
+              # Delimiteur « | » et pas « # » : le motif contient lui-meme un
+              # « # » (la ligne peut etre commentee), qui refermerait le motif
+              # au mauvais endroit. C'est ce qui a fait echouer le run 95.
+              sed -i -E "s|^[[:space:]]*#?[[:space:]]*SetEnv[[:space:]]+KITCHEN_API_BASE.*|SetEnv KITCHEN_API_BASE $REAL|" "$HT"
             else
               sed -i "1i SetEnv KITCHEN_API_BASE $REAL" "$HT"
             fi
