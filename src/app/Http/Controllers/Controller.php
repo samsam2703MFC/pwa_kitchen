@@ -7,6 +7,7 @@ use App\Kitchen\core\Exceptions\DataNotFoundException;
 use App\Kitchen\core\Exceptions\ProtectedResourceException;
 use App\Kitchen\core\Support\DeviceMode;
 use App\Kitchen\core\Support\GlobalRegistry;
+use App\Kitchen\core\Support\ShiftSession;
 use App\Kitchen\core\Twig\AppExtension;
 use Exception;
 use ReflectionClass;
@@ -106,6 +107,8 @@ class Controller
         // core/Support/DeviceMode et docs/MODE_TABLETTE.md.
         $mode  = DeviceMode::current();
         $rules = DeviceMode::rules();
+        $shopId = (int)(GlobalRegistry::get('user')['shop_id'] ?? 0);
+        $shift = $shopId > 0 ? ShiftSession::current($shopId, date('Y-m-d')) : null;
 
         // Ces valeurs sont des DÉFAUTS, pas des surcharges : un contrôleur qui
         // a déjà tranché garde son verdict. Sans cette règle, l'écran WebShop
@@ -116,6 +119,13 @@ class Controller
             'nav_keys'    => $rules->navKeys($mode),
             'tab_keys'    => $rules->tabKeys($mode),
             'mode_home'   => $rules->home($mode),
+            // Tożsamość wykonawcy checklist jest niezależna od konta urządzenia.
+            // Każda strona pokazuje ten sam stan, aby nie podpisać zadania pod
+            // cudzym nazwiskiem po przejściu między modułami.
+            'checklist_identity' => $shift ? [
+                'name' => (string)$shift['name'],
+                'initials' => ShiftSession::rules()->initials((string)$shift['name']),
+            ] : null,
             // La vue courante d'un module à onglets internes : la barre du bas
             // en a besoin pour savoir lequel de ses trois onglets est actif,
             // tous trois pointant sur le même chemin.

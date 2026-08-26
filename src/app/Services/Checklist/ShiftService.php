@@ -45,14 +45,21 @@ class ShiftService
      * c'est elle qui glisse. Les confondre donnerait soit un poste qui se
      * referme en pleine checklist, soit un poste éternel.
      */
-    public function sign(int $employeeId, string $name, int $openedAt, int $touchedAt, string $secret): string
+    public function sign(int $employeeId, string $name, int $openedAt, int $touchedAt, string $secret, ?int $shopId = null, ?string $workDate = null): string
     {
-        $payload = json_encode([
+        $claims = [
             'id' => $employeeId,
             'n'  => $name,
             'o'  => $openedAt,
             't'  => $touchedAt,
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        if ($shopId !== null && $shopId > 0) {
+            $claims['s'] = $shopId;
+        }
+        if ($workDate !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $workDate)) {
+            $claims['d'] = $workDate;
+        }
+        $payload = json_encode($claims, JSON_UNESCAPED_UNICODE);
 
         $body = $this->b64($payload);
 
@@ -66,7 +73,7 @@ class ShiftService
      * en poste » est la seule réponse utile. Distinguer « forgé » de « périmé »
      * n'apprendrait rien à l'équipe et renseignerait qui essaie.
      *
-     * @return array{id:int,name:string,opened_at:int,touched_at:int}|null
+     * @return array{id:int,name:string,opened_at:int,touched_at:int,shop_id?:int,work_date?:string}|null
      */
     public function verify(?string $token, int $now, string $secret): ?array
     {
@@ -104,12 +111,20 @@ class ShiftService
             return null;
         }
 
-        return [
+        $claims = [
             'id'         => $id,
             'name'       => (string) ($d['n'] ?? ''),
             'opened_at'  => $o,
             'touched_at' => $t,
         ];
+        if (isset($d['s']) && (int)$d['s'] > 0) {
+            $claims['shop_id'] = (int)$d['s'];
+        }
+        if (isset($d['d']) && is_string($d['d']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d['d'])) {
+            $claims['work_date'] = $d['d'];
+        }
+
+        return $claims;
     }
 
     /**

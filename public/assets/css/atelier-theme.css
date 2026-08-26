@@ -161,6 +161,52 @@ textarea.form-control { min-height:88px; }
 .badge.bg-info { background:var(--c-encre) !important; color:#fff !important; }
 .badge.bg-warning { background:var(--c-ambre) !important; color:#fff !important; }
 .badge.bg-light { background:var(--c-bg-2) !important; color:var(--c-muted) !important; }
+.app-shift-status {
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  min-height:32px;
+  font-weight:700;
+}
+.app-shift-status--active {
+  background-color:#f4efe8 !important;
+  color:#000 !important;
+  border:1px solid var(--c-brun) !important;
+}
+.app-shift-status--active:hover,.app-shift-status--active:focus,.app-shift-status--active:active,
+.app-shift-status--active[aria-expanded="true"] { background-color:#eadbc9 !important; color:#000 !important; border:1px solid var(--c-brun) !important; }
+.app-shift-status--anonymous {
+  background-color:#555 !important;
+  color:#fff !important;
+  border:1px solid #222 !important;
+}
+.app-shift-status--anonymous:hover,.app-shift-status--anonymous:focus,.app-shift-status--anonymous:active { background-color:#414141 !important; color:#fff !important; border:1px solid #000 !important; }
+.app-shift-status-chevron { font-size:.75em; }
+
+/* Globalny wybór osoby przy tablecie: kafle są czytelne i łatwe do trafienia
+   na ekranie dotykowym; nie dziedziczą ciasnego wyglądu list-group. */
+.tablet-worker-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.tablet-worker-badge {
+  display:flex; align-items:center; gap:10px; min-height:58px; padding:9px 12px;
+  border:1px solid var(--c-line-2); border-radius:var(--r-md); background:#fff;
+  color:var(--c-ink); cursor:pointer; text-align:left; font:inherit;
+  transition:border-color .15s var(--ease),background .15s var(--ease),box-shadow .15s var(--ease);
+}
+.tablet-worker-badge:hover,.tablet-worker-badge:focus { border-color:var(--c-primary); background:var(--c-primary-soft); outline:none; }
+.tablet-worker-badge.active { border-color:var(--c-primary); background:var(--c-primary-soft); box-shadow:0 0 0 .16rem rgba(141,29,44,.14); }
+.tablet-worker-initials {
+  width:34px; height:34px; flex:none; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:var(--c-primary); color:#fff; font-size:.8rem; font-weight:700;
+}
+.tablet-worker-name { min-width:0; overflow-wrap:anywhere; font-size:.9rem; font-weight:700; line-height:1.25; }
+.tablet-pin-boxes { display:flex; justify-content:center; gap:10px; }
+.tablet-pin-box {
+  width:56px; height:60px; flex:0 0 auto; border:1px solid var(--c-line-2); border-radius:var(--r-md);
+  background:#fff; color:var(--c-ink); font:700 1.5rem var(--font-ui); text-align:center;
+}
+.tablet-pin-box:focus { outline:none; border-color:var(--c-secondary); box-shadow:0 0 0 .22rem rgba(141,29,44,.14); }
+.tablet-pin-box.is-filled { border-color:var(--c-primary); }
+@media (max-width:380px) { .tablet-worker-grid { grid-template-columns:1fr; } .tablet-pin-box { width:50px; } }
 
 .alert { border-radius:var(--r-md); border:1px solid transparent; }
 .alert-primary { background-color:var(--c-primary-soft) !important; color:#5c131d !important; border-color:#dda9b0 !important; }

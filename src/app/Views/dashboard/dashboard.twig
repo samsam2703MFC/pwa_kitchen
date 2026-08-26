@@ -95,6 +95,7 @@
     .dash-stat.is-disabled { opacity: .65; }
     .dash-stat-lbl { font-size: .78rem; color: var(--c-muted, #7a7168); }
     .dash-stat-val { font-family: var(--font-display); font-size: 1.9rem; line-height: 1.05; color: var(--c-ink, #241f1c); margin-top: 4px; }
+    .dash-stat-personal { font-size: .75rem; color: var(--c-muted, #7a7168); margin-top: 5px; }
     .dash-stat-ic {
         width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
@@ -163,7 +164,7 @@
         </a>
 
         {# Checklists #}
-        <a href="{{ ROOT }}/checklists" class="dash-action">
+        <a href="{{ ROOT }}/checklists" class="dash-action" data-shift-required-link>
             <div class="dash-action-top">
                 <span class="dash-action-ic ic-ambre">{{ icons.svg('clipboard-check', 22) }}</span>
             </div>
@@ -174,7 +175,7 @@
         </a>
 
         {# Commandes #}
-        <a href="{{ ROOT }}/orders" class="dash-action">
+        <a href="{{ ROOT }}/orders" class="dash-action" data-shift-required-link>
             <div class="dash-action-top">
                 <span class="dash-action-ic ic-brun">{{ icons.svg('receipt', 22) }}</span>
             </div>
@@ -196,6 +197,9 @@
             <div>
                 <div class="dash-stat-lbl">{{ translations.tasks_todo }}</div>
                 <div class="dash-stat-val">{{ stats.tasks_todo|default(0) }}</div>
+                {% if employee_stats is not null %}
+                    <div class="dash-stat-personal">{{ translations.tasks_for_you|default('Dla Ciebie') }}: {{ employee_stats.tasks_todo }}</div>
+                {% endif %}
             </div>
             <span class="dash-stat-ic ic-ruby">{{ icons.svg('list-checks', 20) }}</span>
         </div>
@@ -216,6 +220,9 @@
             <div>
                 <div class="dash-stat-lbl">{{ translations.tasks_completed }}</div>
                 <div class="dash-stat-val">{{ stats.tasks_completed|default(0) }}</div>
+                {% if employee_stats is not null %}
+                    <div class="dash-stat-personal">{{ translations.tasks_for_you|default('Dla Ciebie') }}: {{ employee_stats.tasks_completed }}</div>
+                {% endif %}
             </div>
             <span class="dash-stat-ic ic-vert">{{ icons.svg('check-circle', 20) }}</span>
         </div>
@@ -239,4 +246,150 @@
             </a>
         </div>
     </div>
+
+    <div class="modal fade" id="dashboardShiftEntryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kto obsługuje tablet?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="dashboardGuestSwitch" checked>
+                    <label class="form-check-label" for="dashboardGuestSwitch">Przejdź anonimowo</label>
+                </div>
+                <div id="dashboardEmployeeLogin" class="d-none">
+                    <p class="text-muted small">Wybierz siebie z grafiku i podaj PIN.</p>
+                    <div class="tablet-worker-grid mb-3" id="dashboardEntryEmployees">
+                        {% for employee in entry_employees %}
+                            <button type="button" class="tablet-worker-badge" data-employee-id="{{ employee.id }}">
+                                <span class="tablet-worker-initials">{{ employee.initials ?: '—' }}</span>
+                                <span class="tablet-worker-name">{{ employee.name }}</span>
+                            </button>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" id="dashboardEmployeeId">
+                    <input type="hidden" id="dashboardEmployeePin">
+                    <div id="dashboardPinGroup" class="d-none">
+                        <label class="form-label">PIN wybranego pracownika</label>
+                        <div class="tablet-pin-boxes" id="dashboardPinBoxes">
+                            {% for i in 1..4 %}
+                                <input type="password" class="tablet-pin-box dashboard-pin-box" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="PIN {{ i }}">
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div id="dashboardEntryAlert" class="alert mt-3 d-none"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-success" id="dashboardEntryContinue">Kontynuuj</button>
+            </div>
+        </div></div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const modalElement = document.getElementById('dashboardShiftEntryModal');
+    const modal = modalElement ? new bootstrap.Modal(modalElement) : null;
+    const guestSwitch = document.getElementById('dashboardGuestSwitch');
+    const employeeLogin = document.getElementById('dashboardEmployeeLogin');
+    const employees = document.getElementById('dashboardEntryEmployees');
+    const employeeId = document.getElementById('dashboardEmployeeId');
+    const pin = document.getElementById('dashboardEmployeePin');
+    const pinGroup = document.getElementById('dashboardPinGroup');
+    const pinBoxes = Array.from(document.querySelectorAll('.dashboard-pin-box'));
+    const alert = document.getElementById('dashboardEntryAlert');
+    const continueButton = document.getElementById('dashboardEntryContinue');
+    const hasActiveShift = {{ has_active_shift ? 'true' : 'false' }};
+    let destination = null;
+
+    document.querySelectorAll('[data-shift-required-link]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            if (hasActiveShift) return;
+            event.preventDefault();
+            destination = link.href;
+            modal.show();
+        });
+    });
+    function syncPin() {
+        pin.value = pinBoxes.map((box) => box.value).join('');
+        pinBoxes.forEach((box) => box.classList.toggle('is-filled', box.value !== ''));
+    }
+    guestSwitch?.addEventListener('change', () => {
+        employeeLogin.classList.toggle('d-none', guestSwitch.checked);
+        alert.classList.add('d-none');
+    });
+    employees?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-employee-id]');
+        if (!button) return;
+        employees.querySelectorAll('[data-employee-id]').forEach((item) => item.classList.remove('is-active'));
+        button.classList.add('is-active');
+        employeeId.value = button.dataset.employeeId;
+        pinBoxes.forEach((box) => box.value = '');
+        pinGroup.classList.remove('d-none');
+        syncPin();
+        pinBoxes[0]?.focus();
+    });
+    pinBoxes.forEach((box, index) => {
+        box.addEventListener('input', () => {
+            box.value = box.value.replace(/\D/g, '').slice(0, 1);
+            syncPin();
+            if (box.value && pinBoxes[index + 1]) pinBoxes[index + 1].focus();
+        });
+        box.addEventListener('keydown', (event) => {
+            if (event.key === 'Backspace' && !box.value && pinBoxes[index - 1]) {
+                pinBoxes[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+        box.addEventListener('paste', (event) => {
+            const digits = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 4);
+            if (!digits) return;
+            event.preventDefault();
+            pinBoxes.forEach((item, itemIndex) => item.value = digits[itemIndex] || '');
+            syncPin();
+            pinBoxes[Math.min(digits.length, 3)]?.focus();
+        });
+    });
+    modalElement?.addEventListener('show.bs.modal', () => {
+        employeeId.value = '';
+        guestSwitch.checked = true;
+        employeeLogin.classList.add('d-none');
+        pinBoxes.forEach((box) => box.value = '');
+        employees?.querySelectorAll('[data-employee-id]').forEach((item) => item.classList.remove('is-active'));
+        pinGroup.classList.add('d-none');
+        alert.classList.add('d-none');
+        syncPin();
+    });
+    continueButton?.addEventListener('click', async () => {
+        if (guestSwitch.checked) {
+            window.location.assign(destination || '{{ ROOT }}/dashboard');
+            return;
+        }
+        if (!employeeId.value || pin.value.length !== 4) {
+            alert.textContent = 'Wybierz pracownika i podaj PIN.';
+            alert.classList.remove('d-none');
+            return;
+        }
+        continueButton.disabled = true;
+        try {
+            const response = await fetch('{{ ROOT }}/ajax/checklists/shift', {
+                method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({employee_id: employeeId.value, pin: pin.value.trim()}),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Nie udało się zalogować pracownika.');
+            window.location.assign(destination || '{{ ROOT }}/dashboard');
+        } catch (error) {
+            alert.textContent = error.message;
+            alert.classList.remove('d-none');
+            continueButton.disabled = false;
+        }
+    });
+})();
+</script>
 {% endblock %}

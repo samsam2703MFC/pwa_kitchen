@@ -65,6 +65,41 @@ class ChecklistService
         return $this->staffService->roster($employees);
     }
 
+    public function shopId(): int
+    {
+        return $this->getShopId();
+    }
+
+    /** @return array<int, array{employee_id:int,name:string}>|null */
+    public function getEligibleEmployeesForTask(int $taskId, string $date): ?array
+    {
+        $shopId = $this->getShopId();
+        return $shopId > 0 ? $this->checklistRepository->getEligibleEmployeesForTask($shopId, $taskId, $date) : null;
+    }
+
+    /** @return array<int, int>|null */
+    public function getTaskIdsForEmployee(int $employeeId, string $date): ?array
+    {
+        return $this->checklistRepository->getTaskIdsForEmployee($employeeId, $date);
+    }
+
+    /** @return array<int, array{id:mixed,is_done?:bool}>|null */
+    public function getTasksForEmployee(int $employeeId, string $date): ?array
+    {
+        return $this->checklistRepository->getTasksForEmployee($employeeId, $date);
+    }
+
+    public function isScheduledEmployee(int $employeeId, string $date): bool
+    {
+        foreach ($this->staffService->getEmployees($date) ?? [] as $employee) {
+            if ((int)($employee['id'] ?? 0) === $employeeId && ($employee['on_schedule'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Weryfikuje PIN pracownika po stronie serwera, a następnie oznacza zadanie jako wykonane.
      * Zwraca ['success' => bool, 'message' => string].

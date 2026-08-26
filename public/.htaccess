@@ -5,7 +5,7 @@ RewriteBase /kitchen/
 # Sans elle, config/app.php retombe sur « http://<hôte courant>/api/v1 », qui
 # n'existe pas sur le serveur de test : le sélecteur de magasin du login reste
 # alors vide. Nécessite AllowOverride autorisant SetEnv (mod_env).
-SetEnv KITCHEN_API_BASE https://atelierby.tfbuddy.com/api/v1
+#SetEnv KITCHEN_API_BASE https://atelierby.tfbuddy.com/api/v1
 
 # ── Application installable ───────────────────────────────────────────────
 # Le manifeste doit arriver avec son propre type : servi en text/plain ou en

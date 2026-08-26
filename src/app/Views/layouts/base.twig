@@ -125,6 +125,30 @@
                 </a>
 
                 <div class="d-flex align-items-center gap-2">
+                    <div id="tabletWorkerStatus">
+                    {% if checklist_identity %}
+                        <div class="dropdown">
+                            <button type="button" class="badge rounded-pill app-shift-status app-shift-status--active border-0"
+                                    data-bs-toggle="dropdown" aria-expanded="false"
+                                    title="{{ translations.shift_signing | default('Aktywny pracownik') }}">
+                                <i class="bi bi-person-workspace" aria-hidden="true"></i>
+                                {{ checklist_identity.initials }} · {{ checklist_identity.name }}
+                                <i class="bi bi-chevron-down app-shift-status-chevron" aria-hidden="true"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button type="button" class="dropdown-item" data-shift-action="change">{{ translations.shift_change | default('Zmień użytkownika') }}</button></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><button type="button" class="dropdown-item text-danger" data-shift-action="logout">{{ translations.shift_logout | default('Wyloguj pracownika') }}</button></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <button type="button" class="badge rounded-pill app-shift-status app-shift-status--anonymous border-0" data-shift-action="login">
+                            <i class="bi bi-person-plus" aria-hidden="true"></i>
+                            {{ translations.shift_anonymous | default('Tryb anonimowy') }}
+                            <i class="bi bi-chevron-right app-shift-status-chevron" aria-hidden="true"></i>
+                        </button>
+                    {% endif %}
+                    </div>
                     {% block topbar_actions %}{% endblock %}
                     <button class="app-hamburger" id="appHamburger"
                             aria-label="{{ translations.menu ?? 'Menu' }}"
@@ -136,6 +160,38 @@
         </div>
     </div>
 {% endblock %}
+
+<div class="modal fade" id="tabletWorkerModal" tabindex="-1" aria-labelledby="tabletWorkerModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tabletWorkerModalTitle">Kto obsługuje tablet?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Wybierz osobę z dzisiejszego grafiku i potwierdź PIN-em.</p>
+                <div id="tabletWorkerError" class="alert alert-danger d-none" role="alert"></div>
+                <div id="tabletWorkerList" class="tablet-worker-grid mb-3"></div>
+                <div id="tabletWorkerEmpty" class="text-muted d-none">Brak pracowników w dzisiejszym grafiku.</div>
+                <input type="hidden" id="tabletWorkerId">
+                <div id="tabletWorkerPinGroup" class="d-none">
+                    <label class="form-label">PIN wybranego pracownika</label>
+                    <div class="tablet-pin-boxes" id="tabletWorkerPinBoxes">
+                        {% for i in 1..4 %}
+                            <input type="password" class="tablet-pin-box" inputmode="numeric" pattern="[0-9]*"
+                                   maxlength="1" autocomplete="off" aria-label="PIN {{ i }}">
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" id="tabletWorkerPin">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-primary" id="tabletWorkerStart" disabled>Rozpocznij obsługę</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <main class="app-content">
     <div class="container py-3">
@@ -260,6 +316,168 @@
 
 
 {% block scripts %}{% endblock %}
+
+<script>
+(function () {
+    var ROOT = {{ ROOT | json_encode | raw }};
+    var modalElement = document.getElementById('tabletWorkerModal');
+    var workerModal = modalElement ? new bootstrap.Modal(modalElement) : null;
+    var list = document.getElementById('tabletWorkerList');
+    var empty = document.getElementById('tabletWorkerEmpty');
+    var error = document.getElementById('tabletWorkerError');
+    var employeeId = document.getElementById('tabletWorkerId');
+    var pinGroup = document.getElementById('tabletWorkerPinGroup');
+    var pin = document.getElementById('tabletWorkerPin');
+    var pinBoxes = Array.prototype.slice.call(document.querySelectorAll('.tablet-pin-box'));
+    var start = document.getElementById('tabletWorkerStart');
+    function showWorkerError(message) {
+        error.textContent = message;
+        error.classList.remove('d-none');
+    }
+
+    function clearWorkerError() {
+        error.textContent = '';
+        error.classList.add('d-none');
+    }
+
+    async function stopWorker() {
+        const response = await fetch(ROOT + '/ajax/tablet-worker/stop', {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+        return response.ok;
+    }
+
+    function selectWorker(button) {
+        list.querySelectorAll('[data-tablet-worker-id]').forEach(function (item) {
+            item.classList.remove('active');
+        });
+        button.classList.add('active');
+        employeeId.value = button.dataset.tabletWorkerId;
+        pinBoxes.forEach(function (box) { box.value = ''; });
+        syncPin();
+        pinGroup.classList.remove('d-none');
+        if (pinBoxes[0]) pinBoxes[0].focus();
+    }
+
+    function syncPin() {
+        pin.value = pinBoxes.map(function (box) { return box.value; }).join('');
+        pinBoxes.forEach(function (box) { box.classList.toggle('is-filled', box.value !== ''); });
+        start.disabled = !employeeId.value || pin.value.length !== 4;
+    }
+
+    pinBoxes.forEach(function (box, index) {
+        box.addEventListener('input', function () {
+            box.value = box.value.replace(/\D/g, '').slice(0, 1);
+            syncPin();
+            if (box.value && pinBoxes[index + 1]) pinBoxes[index + 1].focus();
+        });
+        box.addEventListener('keydown', function (event) {
+            if (event.key === 'Backspace' && !box.value && pinBoxes[index - 1]) {
+                pinBoxes[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+        box.addEventListener('paste', function (event) {
+            var digits = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+            if (!digits) return;
+            event.preventDefault();
+            pinBoxes.forEach(function (item, itemIndex) { item.value = digits[itemIndex] || ''; });
+            syncPin();
+            (pinBoxes[Math.min(digits.length, 3)] || pinBoxes[3]).focus();
+        });
+    });
+
+    async function openWorkerModal() {
+        if (!workerModal) return;
+        clearWorkerError();
+        list.innerHTML = '<div class="text-muted">Ładowanie pracowników…</div>';
+        empty.classList.add('d-none');
+        employeeId.value = '';
+        pinBoxes.forEach(function (box) { box.value = ''; });
+        syncPin();
+        pinGroup.classList.add('d-none');
+        start.disabled = true;
+        workerModal.show();
+
+        try {
+            var response = await fetch(ROOT + '/ajax/tablet-worker/roster', { credentials: 'same-origin' });
+            var data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Nie można pobrać grafiku.');
+            }
+            list.innerHTML = '';
+            (data.employees || []).forEach(function (employee) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'tablet-worker-badge';
+                button.dataset.tabletWorkerId = employee.id;
+                var name = employee.name || ('Pracownik #' + employee.id);
+                var initials = employee.initials || name.split(/\s+/).map(function (part) { return part.charAt(0); }).join('').slice(0, 2);
+                button.innerHTML = '<span class="tablet-worker-initials"></span><span class="tablet-worker-name"></span>';
+                button.querySelector('.tablet-worker-initials').textContent = initials || '—';
+                button.querySelector('.tablet-worker-name').textContent = name;
+                button.addEventListener('click', function () { selectWorker(button); });
+                list.appendChild(button);
+            });
+            empty.classList.toggle('d-none', list.children.length > 0);
+        } catch (err) {
+            list.innerHTML = '';
+            showWorkerError(err.message || 'Nie można pobrać grafiku.');
+        }
+    }
+
+    start.addEventListener('click', async function () {
+        if (!employeeId.value || pin.value.length !== 4) {
+            showWorkerError('Wybierz pracownika i wpisz PIN.');
+            return;
+        }
+        start.disabled = true;
+        clearWorkerError();
+        try {
+            var body = new URLSearchParams({ employee_id: employeeId.value, pin: pin.value.trim() });
+            var response = await fetch(ROOT + '/ajax/tablet-worker/start', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body: body
+            });
+            var data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Nie udało się rozpocząć obsługi.');
+            }
+            workerModal.hide();
+            window.location.reload();
+        } catch (err) {
+            showWorkerError(err.message || 'Nie udało się rozpocząć obsługi.');
+            start.disabled = false;
+        }
+    });
+
+    document.addEventListener('click', async function (event) {
+        var button = event.target.closest('[data-shift-action]');
+        if (!button) return;
+
+        var action = button.dataset.shiftAction;
+        button.disabled = true;
+        try {
+            if (action === 'change') {
+                await openWorkerModal();
+                return;
+            }
+            if (action === 'logout') {
+                if (await stopWorker()) {
+                    window.location.reload();
+                }
+                return;
+            }
+            if (action === 'login') {
+                await openWorkerModal();
+            }
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+</script>
 
 {# ── Enregistrement du service worker ──────────────────────────────────
    La version voyage dans l'URL : APP_BUILD change à chaque déploiement, donc

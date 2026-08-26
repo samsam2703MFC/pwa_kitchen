@@ -622,7 +622,13 @@
     {% elseif selected_date and checklists is empty %}
         <div class="text-center text-muted py-5">
             <i class="bi bi-clipboard-x" style="font-size:2.5rem;opacity:.3;"></i>
-            <p class="mt-3 mb-0">{{ translations.no_checklists | default('Brak aktywnych checklist dla wybranego dnia.') }}</p>
+            <p class="mt-3 mb-0">
+                {% if employee_mode and employee_no_tasks %}
+                    {{ translations.no_employee_tasks | default('Nie masz dziś zadań przypisanych do swojego stanowiska.') }}
+                {% else %}
+                    {{ translations.no_checklists | default('Brak aktywnych checklist dla wybranego dnia.') }}
+                {% endif %}
+            </p>
         </div>
     {% endif %}
 
@@ -648,6 +654,7 @@
    visible en permanence : c'est la contrepartie de ne plus taper son code à
    chaque tâche — on doit voir d'un coup d'œil sous quel nom on est en train de
    signer, et pouvoir passer la main sans chercher. #}
+{#
 {% if shift %}
     <div class="shift-bar" id="shiftBar">
         <span class="shift-av">{{ shift.initials }}</span>
@@ -660,6 +667,7 @@
         </button>
     </div>
 {% endif %}
+#}
 
 <div class="modal fade" id="completeTaskModal" tabindex="-1" aria-labelledby="completeTaskModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -780,6 +788,13 @@
                     <input type="hidden" id="modalPinInput">
                 </div>
 
+                <div class="form-check form-switch mb-3{{ shift ? ' d-none' : '' }}" id="modalStayLoggedBlock">
+                    <input class="form-check-input" type="checkbox" role="switch" id="modalStayLogged">
+                    <label class="form-check-label" for="modalStayLogged">
+                        {{ translations.complete_stay_logged | default('Pozostań zalogowany po wykonaniu zadania') }}
+                    </label>
+                </div>
+
                 <div id="modalPhotoSection" class="mb-1 d-none">
                     <label class="form-label fw-semibold">
                         {{ translations.modal_photo_label | default('Zdjęcie') }}
@@ -860,6 +875,7 @@
         complete_error_pin_required:       {{ (translations.complete_error_pin_required | default('Wprowadź PIN.')) | json_encode | raw }},
         complete_error_photo_required:     {{ (translations.complete_error_photo_required | default('To zadanie wymaga zdjęcia. Dodaj zdjęcie przed zatwierdzeniem.')) | json_encode | raw }},
         complete_error_note_required:      {{ (translations.complete_error_note_required | default("Indiquez pourquoi la tâche n'a pas été faite.")) | json_encode | raw }},
+        complete_error_no_eligible:        {{ (translations.complete_error_no_eligible | default('Brak w grafiku pracowników uprawnionych do wykonania tego zadania.')) | json_encode | raw }},
     };
 
     let currentTaskId       = null;
@@ -881,10 +897,12 @@
     const noteLabel      = document.getElementById('modalNoteLabel');
     const noteRequired   = document.getElementById('modalNoteRequired');
     const confirmLabel   = document.getElementById('modalConfirmLabel');
+    const employeeGrid   = document.querySelector('#modalWhoBlock .emp-grid');
+    const stayLoggedInput = document.getElementById('modalStayLogged');
     // Badges d'employés et cases de PIN : ils alimentent #modalEmployeeSelect
     // et #modalPinInput, que la suite du script lit sans modification.
     (function () {
-        var grid = document.querySelector('.emp-grid');
+        var grid = document.querySelector('#modalWhoBlock .emp-grid');
         var sel  = document.getElementById('modalEmployeeSelect');
         if (grid && sel) {
             grid.addEventListener('click', function (e) {
@@ -1035,6 +1053,7 @@
         formData.append('date',        opts.date);
         formData.append('note',        opts.note || '');
         formData.append('status',      opts.status);
+        formData.append('stay_logged', opts.stayLogged ? '1' : '0');
         if (opts.photo) formData.append('photo', opts.photo);
 
         try {
@@ -1080,7 +1099,29 @@
     //   • la raison, quand on déclare la tâche non effectuée.
     // Hors de ces trois cas, elle ne demandait rien et ne servait qu'à faire
     // taper « Confirmer » : la tâche part directement.
-    function openModal(btn, mode) {
+    function renderEligibleEmployees(employees) {
+        if (!employeeGrid || !employeeSel) return;
+        employeeSel.innerHTML = '<option value=""></option>';
+        employeeGrid.innerHTML = '';
+        employees.forEach(function (employee) {
+            const id = String(employee.employee_id || employee.id || '');
+            if (!id) return;
+            const name = String(employee.name || '');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'emp-badge';
+            button.dataset.empId = id;
+            button.innerHTML = '<span class="emp-initials">' + (name.split(/\\s+/).map(function (part) { return part.charAt(0); }).join('').slice(0, 2) || '—') + '</span><span class="emp-name"></span>';
+            button.querySelector('.emp-name').textContent = name;
+            employeeGrid.appendChild(button);
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            employeeSel.appendChild(option);
+        });
+    }
+
+    async function openModal(btn, mode) {
         currentTaskId        = btn.dataset.taskId;
         currentTaskDate      = btn.dataset.date;
         currentStatus        = mode === 'fail' ? 'FAILED' : 'DONE';
@@ -1111,6 +1152,26 @@
                     ? (confirmBtn.dataset.labelFail || confirmLabel.textContent)
                     : (confirmBtn.dataset.labelDone || confirmLabel.textContent);
             }
+        }
+
+        if (!SHIFT_OPEN) {
+            renderEligibleEmployees([]);
+            bsModal.show();
+            try {
+                const response = await fetch(ROOT + '/ajax/checklists/tasks/' + currentTaskId + '/eligible-employees?date=' + encodeURIComponent(currentTaskDate), { credentials: 'same-origin' });
+                const data = await response.json();
+                if (!data.success || !Array.isArray(data.employees)) {
+                    showAlert(translations.complete_error_generic, 'danger');
+                    return;
+                }
+                renderEligibleEmployees(data.employees);
+                if (data.employees.length === 0) {
+                    showAlert(translations.complete_error_no_eligible, 'warning');
+                }
+            } catch (err) {
+                showAlert(translations.complete_error_generic, 'danger');
+            }
+            return;
         }
 
         bsModal.show();
@@ -1252,31 +1313,6 @@
         confirmBtn.disabled = true;
 
         try {
-            // Première tâche du service : on ouvre le poste avec le code saisi.
-            // Les tâches suivantes n'en auront plus besoin — le serveur reconnaît
-            // le poste par son cookie signé, et le code ne repart jamais sur le
-            // réseau.
-            if (!SHIFT_OPEN) {
-                const body = new URLSearchParams();
-                body.append('employee_id', employeeId);
-                body.append('pin', pin);
-                const r = await fetch(ROOT + '/ajax/checklists/shift', {
-                    method: 'POST', credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body
-                });
-                const d = await r.json().catch(function () { return null; });
-                if (!d || !d.success) {
-                    showAlert(d && d.message === 'invalid_pin'
-                        ? translations.complete_error_invalid_pin
-                        : translations.complete_error_generic, 'danger');
-                    spinner.classList.add('d-none');
-                    confirmBtn.disabled = false;
-                    return;
-                }
-                SHIFT_OPEN = true;
-            }
-
             await submitTask({
                 taskId:     currentTaskId,
                 date:       currentTaskDate,
@@ -1285,6 +1321,7 @@
                 photo:      photoFile,
                 employeeId: employeeId,
                 pin:        pin,
+                stayLogged: !SHIFT_OPEN && stayLoggedInput && stayLoggedInput.checked,
             });
         } finally {
             spinner.classList.add('d-none');
@@ -1299,6 +1336,7 @@
             resetModal();
         });
     }
+
 })();
 </script>
 

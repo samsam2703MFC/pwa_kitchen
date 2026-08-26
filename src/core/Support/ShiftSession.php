@@ -35,17 +35,28 @@ final class ShiftSession
         return (string) (defined('JWT_SECRET_KEY') ? JWT_SECRET_KEY : '');
     }
 
-    /** @return array{id:int,name:string,opened_at:int,touched_at:int}|null */
-    public static function current(): ?array
+    /** @return array{id:int,name:string,opened_at:int,touched_at:int,shop_id?:int,work_date?:string}|null */
+    public static function current(?int $shopId = null, ?string $workDate = null): ?array
     {
-        return self::rules()->verify($_COOKIE[self::COOKIE] ?? null, time(), self::secret());
+        $claims = self::rules()->verify($_COOKIE[self::COOKIE] ?? null, time(), self::secret());
+        if ($claims === null) {
+            return null;
+        }
+        if ($shopId !== null && (($claims['shop_id'] ?? null) !== $shopId)) {
+            return null;
+        }
+        if ($workDate !== null && (($claims['work_date'] ?? null) !== $workDate)) {
+            return null;
+        }
+
+        return $claims;
     }
 
     /** Ouvre le poste. Le PIN a été vérifié par l'appelant, jamais ici. */
-    public static function open(int $employeeId, string $name): void
+    public static function open(int $employeeId, string $name, int $shopId, string $workDate): void
     {
         $now = time();
-        self::write(self::rules()->sign($employeeId, $name, $now, $now, self::secret()), $now + ShiftService::MAX_S);
+        self::write(self::rules()->sign($employeeId, $name, $now, $now, self::secret(), $shopId, $workDate), $now + ShiftService::MAX_S);
     }
 
     /**
@@ -56,7 +67,7 @@ final class ShiftSession
     {
         $now = time();
         self::write(
-            self::rules()->sign((int) $claims['id'], (string) $claims['name'], (int) $claims['opened_at'], $now, self::secret()),
+            self::rules()->sign((int) $claims['id'], (string) $claims['name'], (int) $claims['opened_at'], $now, self::secret(), (int)($claims['shop_id'] ?? 0), $claims['work_date'] ?? null),
             (int) $claims['opened_at'] + ShiftService::MAX_S
         );
     }
