@@ -540,17 +540,17 @@ function mock_preparation_path(int $productId): array
             'product_id' => $productId,
             'configured' => true,
             'steps' => [
-                ['id' => 11, 'position' => 1,
+                ['id' => 11, 'sort_order' => 1,
                  'description' => 'Frasage et pétrissage, 8 minutes en première vitesse.',
                  'duration_seconds' => 480],
-                ['id' => 12, 'position' => 2,
+                ['id' => 12, 'sort_order' => 2,
                  'description' => 'Pointage en bac, 2 heures à température ambiante.',
                  'duration_seconds' => 7200,
                  'batch_group_id' => 3, 'batch_group_name' => 'Pointage bacs', 'batch_capacity' => 6],
-                ['id' => 13, 'position' => 3,
+                ['id' => 13, 'sort_order' => 3,
                  'description' => 'Division et façonnage en baguettes de 350 g.',
                  'duration_seconds' => 2700],
-                ['id' => 14, 'position' => 4,
+                ['id' => 14, 'sort_order' => 4,
                  'description' => 'Cuisson sur sole à 250 °C, buée à l\'enfournement.',
                  'duration_seconds' => 1320,
                  'uses_oven' => true,
@@ -565,26 +565,26 @@ function mock_preparation_path(int $productId): array
         'configured' => true,
         'steps' => [
             [
-                'id' => 1, 'position' => 1,
+                'id' => 1, 'sort_order' => 1,
                 'description' => 'Peser la farine et le levain, puis frasage 3 minutes en première vitesse.',
-                'duration_seconds' => 240,
+                'duration_seconds' => 240, 'uses_oven' => false,
             ],
             [
-                'id' => 2, 'position' => 2,
+                'id' => 2, 'sort_order' => 2,
                 'description' => 'Pointage en bac filé, à 24 °C.',
                 'duration_seconds' => 5400,
                 'batch_group_id' => 3, 'batch_group_name' => 'Pointage bacs',
                 'batch_capacity' => 6,
             ],
             [
-                'id' => 3, 'position' => 3,
+                'id' => 3, 'sort_order' => 3,
                 'description' => 'Façonnage en boules de 350 g, serrage régulier.',
                 'duration_seconds' => 900,
-                'image_key_1' => 'r2://mock/prep-faconnage-1.jpg',
-                'image_key_2' => 'r2://mock/prep-faconnage-2.jpg',
+                'photo_1_url' => 'https://atelierby.tfbuddy.com/shared-assets/mock/prep-faconnage-1.jpg',
+                'photo_2_url' => 'https://atelierby.tfbuddy.com/shared-assets/mock/prep-faconnage-2.jpg',
             ],
             [
-                'id' => 4, 'position' => 4,
+                'id' => 4, 'sort_order' => 4,
                 'description' => 'Cuisson à 240 °C, buée 3 secondes, puis 220 °C.',
                 'duration_seconds' => 1320,
                 'uses_oven' => true,
@@ -593,7 +593,7 @@ function mock_preparation_path(int $productId): array
             ],
             // Servie, mais sans instruction : la PWA doit la compter, pas
             // l'afficher vide.
-            ['id' => 5, 'position' => 5, 'duration_seconds' => 600],
+            ['id' => 5, 'sort_order' => 5, 'duration_seconds' => 600],
         ],
     ];
 }

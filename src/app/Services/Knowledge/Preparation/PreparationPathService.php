@@ -19,16 +19,15 @@ use App\Kitchen\app\Repositories\Knowledge\Preparation\PreparationPathRepository
  *                  qui se règle au back-office.
  *   missing    — la route n'a pas répondu. Se règle chez le développeur.
  *
- * ── Pourquoi plusieurs orthographes sont acceptées ──
- * La documentation du back nomme explicitement `batch_group_id`,
- * `batch_capacity`, `products_per_tray` et `trays_per_oven`. Elle ne nomme pas
- * le champ du texte, celui de la durée, ni ceux des photos : elle dit
- * seulement « description, durée en secondes, et jusqu'à trois clés d'image ».
- * On accepte donc les quelques orthographes plausibles pour ces trois-là. Ce
- * n'est pas de la complaisance — chacune correspond à une façon dont l'écran
- * afficherait des étapes muettes — et le jour où la forme réelle est connue,
- * il n'en restera qu'une. Une étape dont on ne sait pas lire le texte n'est
- * pas masquée : elle est comptée, et le service le signale.
+ * ── La forme est CONNUE, les lecteurs sont refermés ──
+ * Confirmée le 26/08/2026 au swagger de test (test.tfbuddy.com/docs, schéma
+ * ProductPreparationStep) : id, sort_order, description, duration_seconds,
+ * uses_oven, batch_group_id, batch_group_name, batch_capacity,
+ * products_per_tray, trays_per_oven, photo_1_url..photo_3_url. Les
+ * orthographes de repli acceptées pendant que la forme était inconnue ont été
+ * retirées — une liste ouverte finit par masquer un changement de contrat.
+ * Une étape sans description reste écartée ET comptée : un parcours tronqué
+ * qui a l'air complet est pire qu'un parcours qui manque.
  *
  * Les règles de lecture sont pures et vérifiées sans réseau : bin/preparation-test.php.
  */
@@ -167,10 +166,8 @@ class PreparationPathService
             if (!is_array($row)) {
                 continue;
             }
-            $rank = null;
-            foreach (['position', 'sort_order', 'step_order', 'order', 'step_number'] as $k) {
-                if (isset($row[$k]) && is_numeric($row[$k])) { $rank = (int)$row[$k]; break; }
-            }
+            $rank = isset($row['sort_order']) && is_numeric($row['sort_order'])
+                ? (int)$row['sort_order'] : null;
             $hasRank = $hasRank || $rank !== null;
             $ranked[] = ['rank' => $rank ?? $i, 'seq' => $i, 'row' => $row];
         }
@@ -194,7 +191,7 @@ class PreparationPathService
             $out[] = [
                 'n'              => ++$n,
                 'text'           => $text,
-                'seconds'        => $seconds = self::intOf($row, ['duration_seconds', 'duration_second', 'duration', 'seconds']),
+                'seconds'        => $seconds = self::intOf($row, ['duration_seconds']),
                 // Rendue ici plutôt que dans le gabarit : « 90 s » ou « 1 h 05 »
                 // est une décision de lecture, et elle se vérifie sans navigateur.
                 'duration'       => self::humanDuration($seconds),
@@ -221,26 +218,16 @@ class PreparationPathService
     /** @return array<int, mixed> */
     private static function rowsOf(array $data): array
     {
-        foreach (['steps', 'items', 'preparation_steps', 'path'] as $k) {
-            if (isset($data[$k]) && is_array($data[$k])) {
-                return array_values($data[$k]);
-            }
-        }
-
-        // La réponse peut être la liste elle-même.
-        return array_is_list($data) ? $data : [];
+        return isset($data['steps']) && is_array($data['steps'])
+            ? array_values($data['steps'])
+            : [];
     }
 
     /** L'instruction de travail, ou une chaîne vide. */
     private static function textOf(array $row): string
     {
-        foreach (['description', 'instruction', 'step_description', 'text', 'label', 'name'] as $k) {
-            if (!empty($row[$k]) && is_string($row[$k])) {
-                return trim($row[$k]);
-            }
-        }
-
-        return '';
+        return !empty($row['description']) && is_string($row['description'])
+            ? trim($row['description']) : '';
     }
 
     private static function intOf(array $row, array $keys): ?int
@@ -265,33 +252,16 @@ class PreparationPathService
      */
     private static function ovenOf(array $row): bool
     {
-        foreach (['uses_oven', 'is_oven', 'oven'] as $k) {
-            if (array_key_exists($k, $row) && $row[$k] !== null && $row[$k] !== '') {
-                return filter_var($row[$k], FILTER_VALIDATE_BOOLEAN);
-            }
-        }
-
-        return self::intOf($row, ['products_per_tray']) !== null
-            && self::intOf($row, ['trays_per_oven']) !== null;
+        // `uses_oven` est REQUIS par le schéma : on le lit, on ne le déduit
+        // plus des paramètres de plaque.
+        return filter_var($row['uses_oven'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
     /** Le nom du groupe de batch si le back le sert, son identifiant sinon. */
     private static function batchGroupOf(array $row): ?string
     {
-        foreach (['batch_group_name', 'batch_group_label'] as $k) {
-            if (!empty($row[$k]) && is_string($row[$k])) {
-                return trim($row[$k]);
-            }
-        }
-        if (isset($row['batch_group']) && is_array($row['batch_group'])) {
-            foreach (['name', 'label'] as $k) {
-                if (!empty($row['batch_group'][$k]) && is_string($row['batch_group'][$k])) {
-                    return trim($row['batch_group'][$k]);
-                }
-            }
-        }
-        if (!empty($row['batch_group']) && is_string($row['batch_group'])) {
-            return trim($row['batch_group']);
+        if (!empty($row['batch_group_name']) && is_string($row['batch_group_name'])) {
+            return trim($row['batch_group_name']);
         }
         if (isset($row['batch_group_id']) && $row['batch_group_id'] !== '' && $row['batch_group_id'] !== null) {
             return '#' . $row['batch_group_id'];
@@ -311,38 +281,17 @@ class PreparationPathService
      */
     private static function photosOf(array $row): array
     {
+        // Trois emplacements nommés, en URL complètes — c'est le schéma, pas
+        // une convention locale. Le plafond de trois est donc structurel.
         $keys = [];
-
-        foreach (['photos', 'images', 'image_keys', 'photo_keys'] as $k) {
-            if (isset($row[$k]) && is_array($row[$k])) {
-                foreach ($row[$k] as $photo) {
-                    if (is_string($photo) && trim($photo) !== '') {
-                        $keys[] = trim($photo);
-                    } elseif (is_array($photo)) {
-                        foreach (['key', 'url', 'path', 'filename'] as $pk) {
-                            if (!empty($photo[$pk]) && is_string($photo[$pk])) {
-                                $keys[] = trim($photo[$pk]);
-                                break;
-                            }
-                        }
-                    }
-                }
-                break;
+        foreach ([1, 2, 3] as $slot) {
+            $v = $row["photo_{$slot}_url"] ?? null;
+            if (is_string($v) && trim($v) !== '') {
+                $keys[] = trim($v);
             }
         }
 
-        if ($keys === []) {
-            foreach ([1, 2, 3] as $slot) {
-                foreach (["image_key_$slot", "photo_$slot", "image_$slot"] as $k) {
-                    if (!empty($row[$k]) && is_string($row[$k])) {
-                        $keys[] = trim($row[$k]);
-                        break;
-                    }
-                }
-            }
-        }
-
-        return array_slice(array_values(array_unique($keys)), 0, 3);
+        return array_values(array_unique($keys));
     }
 
     /** « 90 s », « 4 min », « 1 h 05 » — jamais « 0 s » pour une durée absente. */

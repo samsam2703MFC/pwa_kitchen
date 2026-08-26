@@ -35,15 +35,16 @@ check('une étape', $textes($S([
 check('la durée', $S([['description' => 'A', 'duration_seconds' => 90]])[0]['seconds'], 90);
 check('durée absente', $S([['description' => 'A']])[0]['seconds'], null);
 
-// La doc du back ne nomme ni le champ du texte ni celui de la durée : on
-// accepte les orthographes plausibles plutot que d'afficher des etapes muettes.
-check('autres noms du texte', $textes($S([
-    ['instruction' => 'A'], ['step_description' => 'B'], ['text' => 'C'], ['label' => 'D'],
-])), ['1:A', '2:B', '3:C', '4:D']);
-check('autres noms de la durée', array_column($S([
-    ['description' => 'A', 'duration_second' => 30],
-    ['description' => 'B', 'duration' => 45],
-]), 'seconds'), [30, 45]);
+// Forme confirmee au swagger de test le 26/08 (schema ProductPreparationStep) :
+// description, duration_seconds, sort_order, uses_oven, batch_group_name,
+// photo_1_url..photo_3_url — et RIEN d'autre. Les orthographes de repli ont
+// ete retirees : une liste ouverte finit par masquer un changement de contrat.
+check('seul « description » est lu', $textes($S([
+    ['instruction' => 'A'], ['description' => 'B'],
+])), ['1:B']);
+check('seule « duration_seconds » est lue', $S([
+    ['description' => 'A', 'duration' => 45],
+])[0]['seconds'], null);
 
 // ── L'ordre ─────────────────────────────────────────────────────────────────
 // Le back a une route dediee pour le persister : on le respecte.
@@ -51,23 +52,23 @@ check('ordre servi respecté', $textes($S([
     ['description' => 'Petrir'], ['description' => 'Cuire'], ['description' => 'Refroidir'],
 ])), ['1:Petrir', '2:Cuire', '3:Refroidir']);
 
-check('rang explicite respecté', $textes($S([
-    ['description' => 'Cuire',   'position' => 2],
-    ['description' => 'Petrir',  'position' => 1],
+check('sort_order respecté', $textes($S([
+    ['description' => 'Cuire',   'sort_order' => 2],
+    ['description' => 'Petrir',  'sort_order' => 1],
 ])), ['1:Petrir', '2:Cuire']);
 
 check('rangs égaux → ordre servi', $textes($S([
-    ['description' => 'A', 'position' => 1],
-    ['description' => 'B', 'position' => 1],
+    ['description' => 'A', 'sort_order' => 1],
+    ['description' => 'B', 'sort_order' => 1],
 ])), ['1:A', '2:B']);
 
 // ── Le four et le batch ─────────────────────────────────────────────────────
 $four = $S([[
-    'description' => 'Enfourner', 'duration_seconds' => 1200,
+    'description' => 'Enfourner', 'duration_seconds' => 1200, 'uses_oven' => true,
     'batch_group_id' => 7, 'batch_capacity' => 48,
     'products_per_tray' => 12, 'trays_per_oven' => 4,
 ]])[0];
-check('four déduit des plaques', $four['oven'], true);
+check('uses_oven lu tel quel',   $four['oven'], true);
 check('capacité de batch',       $four['batch_capacity'], 48);
 check('pièces par plaque',       $four['per_tray'], 12);
 check('plaques',                 $four['trays'], 4);
@@ -76,29 +77,25 @@ check('groupe sans nom → id',    $four['batch_group'], '#7');
 check('nom du groupe préféré', $S([[
     'description' => 'A', 'batch_group_id' => 7, 'batch_group_name' => 'Fours 180°',
 ]])[0]['batch_group'], 'Fours 180°');
-check('groupe imbriqué', $S([[
-    'description' => 'A', 'batch_group' => ['id' => 7, 'name' => 'Pousse'],
-]])[0]['batch_group'], 'Pousse');
 
-check('drapeau explicite fait foi', $S([[
+// uses_oven est REQUIS par le schema : on ne deduit plus le four des plaques.
+check('uses_oven=false fait foi', $S([[
     'description' => 'A', 'uses_oven' => false, 'products_per_tray' => 12, 'trays_per_oven' => 4,
 ]])[0]['oven'], false);
-// On ne conclut jamais « pas de four » d'une absence de drapeau, mais une
-// etape sans four ni parametre reste une etape sans four.
-check('ni drapeau ni paramètre', $S([['description' => 'A']])[0]['oven'], false);
+check('plaques sans uses_oven → pas de four', $S([[
+    'description' => 'A', 'products_per_tray' => 12, 'trays_per_oven' => 4,
+]])[0]['oven'], false);
 check('étape non batchable', $S([['description' => 'A']])[0]['batch_group'], null);
 
 // ── Les photos ──────────────────────────────────────────────────────────────
-check('liste de clés', $S([['description' => 'A', 'photos' => ['a.jpg', 'b.jpg']]])[0]['photos'], ['a.jpg', 'b.jpg']);
-check('objets photo',   $S([['description' => 'A', 'photos' => [['key' => 'a.jpg'], ['url' => 'b.jpg']]]])[0]['photos'], ['a.jpg', 'b.jpg']);
-check('emplacements numérotés', $S([[
-    'description' => 'A', 'image_key_1' => 'a.jpg', 'image_key_3' => 'c.jpg',
-]])[0]['photos'], ['a.jpg', 'c.jpg']);
-// Le back en garantit trois ; une quatrieme deborderait la rangee sans qu'on
-// sache d'ou elle vient.
-check('quatre photos → trois', $S([[
-    'description' => 'A', 'photos' => ['a', 'b', 'c', 'd'],
-]])[0]['photos'], ['a', 'b', 'c']);
+// photo_1_url..photo_3_url, en URL completes : c'est le schema. Le plafond de
+// trois est structurel, plus une regle locale.
+check('emplacements photo', $S([[
+    'description' => 'A', 'photo_1_url' => 'https://x/a.jpg', 'photo_3_url' => 'https://x/c.jpg',
+]])[0]['photos'], ['https://x/a.jpg', 'https://x/c.jpg']);
+check('emplacement vide ignoré', $S([[
+    'description' => 'A', 'photo_1_url' => '', 'photo_2_url' => null,
+]])[0]['photos'], []);
 check('sans photo', $S([['description' => 'A']])[0]['photos'], []);
 
 // ── Ce qu'on écarte, et qu'on compte ────────────────────────────────────────
@@ -122,8 +119,10 @@ check('la numérotation ne saute pas', array_column($S([
 
 // ── Où sont les étapes dans la réponse ──────────────────────────────────────
 check('sous « steps »', $textes(PreparationPathService::steps(['steps' => [['description' => 'A']]])), ['1:A']);
-check('sous « items »', $textes(PreparationPathService::steps(['items' => [['description' => 'A']]])), ['1:A']);
-check('la liste elle-même', $textes(PreparationPathService::steps([['description' => 'A']])), ['1:A']);
+// La reponse est un objet {product_id, configured, steps} — le schema le fixe.
+// Tout autre emballage est un changement de contrat, et il doit SE VOIR.
+check('sous « items » → rien', PreparationPathService::steps(['items' => [['description' => 'A']]]), []);
+check('liste nue → rien', PreparationPathService::steps([['description' => 'A']]), []);
 check('emballage inconnu → rien', PreparationPathService::steps(['bidule' => [['description' => 'A']]]), []);
 
 // ── Les trois états ─────────────────────────────────────────────────────────

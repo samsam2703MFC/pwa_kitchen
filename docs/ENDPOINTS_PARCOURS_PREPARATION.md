@@ -41,35 +41,42 @@ technique, elle, a bien servie (`/products/{id}/technical-sheet/raw`, une autre
 route, qui répond), et le bandeau du haut dit que le parcours manque. Deux
 sources réelles, jamais une source inventée.
 
-## Ce qu'on lit dans une étape
+## Ce qu'on lit dans une étape — forme CONFIRMÉE
 
-Les noms explicitement donnés par la documentation du back sont lus tels quels :
-`batch_group_id`, `batch_capacity`, `products_per_tray`, `trays_per_oven`,
-`configured`.
+Confirmée le 26/08/2026 au swagger de l'environnement de test
+(`https://test.tfbuddy.com/docs`, schéma `ProductPreparationStep`) :
 
-Trois champs ne sont **pas** nommés par cette documentation — elle dit seulement
-« description, durée en secondes, et jusqu'à trois clés d'image ». Kitchen
-accepte donc quelques orthographes pour ceux-là :
+| Champ | Type | Requis |
+|---|---|---|
+| `id` | int | oui |
+| `sort_order` | int ≥ 1 | oui |
+| `description` | string | oui |
+| `duration_seconds` | int ≥ 0 | oui |
+| `uses_oven` | bool | oui |
+| `batch_group_id` / `batch_group_name` | int / string | nullable |
+| `batch_capacity` | int ≥ 1 | nullable |
+| `products_per_tray` / `trays_per_oven` | int ≥ 1 | nullable |
+| `photo_1_url` … `photo_3_url` | URI | nullable |
 
-| Rôle | Noms acceptés |
-|---|---|
-| Instruction | `description`, `instruction`, `step_description`, `text`, `label`, `name` |
-| Durée (secondes) | `duration_seconds`, `duration_second`, `duration`, `seconds` |
-| Photos | `photos[]`, `images[]`, `image_keys[]`, ou `image_key_1..3` / `photo_1..3` |
-| Rang | `position`, `sort_order`, `step_order`, `order`, `step_number` |
+La réponse est l'objet `{id, product_id, configured, steps[]}` ;
+`configured-product-ids` rend un **tableau nu** d'entiers.
 
-**À refermer** dès que la forme réelle est connue : il ne doit en rester qu'une
-par ligne. Ce n'est pas de la complaisance — chacune correspond à une façon dont
-l'écran afficherait des étapes muettes — mais une liste ouverte finit par
-masquer un changement de contrat.
+Les orthographes de repli acceptées pendant que la forme était inconnue ont
+été **retirées** (révision du 26/08) : `description`, `duration_seconds`,
+`sort_order`, `uses_oven` et `photo_N_url` sont lus tels quels, et rien
+d'autre. Le four n'est plus déduit des plaques : `uses_oven` est requis par le
+schéma, on le lit. Un emballage inattendu rend zéro étape — un changement de
+contrat doit se voir, pas s'absorber.
 
-Une étape servie dont on ne sait pas lire l'instruction n'est **pas** masquée :
-elle est écartée de l'affichage et comptée, et l'écran écrit combien. Un
-parcours tronqué qui a l'air complet est pire qu'un parcours qui manque.
+Une étape servie sans `description` reste écartée **et comptée**, et l'écran
+écrit combien : un parcours tronqué qui a l'air complet est pire qu'un
+parcours qui manque.
 
-Les clés d'image suivent la règle du reste de l'application
-(`ProductPhotoModel::resolveUrl()`) : `r2://…` désigne le stockage partagé, une
-URL entière se suit telle quelle.
+**État des environnements (26/08/2026)** : les 12 routes du tag sont dans le
+swagger de **test** ; **aucune n'est encore en production**
+(`atelierby.tfbuddy.com`, 933 routes vérifiées). Tant qu'elles n'y sont pas,
+l'écran de production nomme `GET /preparation-paths/configured-product-ids`
+dans son bandeau — c'est le comportement attendu, pas une panne de Kitchen.
 
 ## L'ordre des étapes
 
