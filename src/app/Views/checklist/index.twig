@@ -611,8 +611,12 @@
                     <input type="hidden" id="modalPinInput">
                 </div>
 
+                {# Coché d'office : on se déclare une fois et la checklist
+                   s'enchaîne. Le cas courant est de faire plusieurs tâches à la
+                   suite ; décocher reste possible pour qui ne signe qu'une fois
+                   et passe la tablette. #}
                 <div class="form-check form-switch mb-3{{ shift ? ' d-none' : '' }}" id="modalStayLoggedBlock">
-                    <input class="form-check-input" type="checkbox" role="switch" id="modalStayLogged">
+                    <input class="form-check-input" type="checkbox" role="switch" id="modalStayLogged" checked>
                     <label class="form-check-label" for="modalStayLogged">
                         {{ translations.complete_stay_logged | default('Rester identifié après la tâche') }}
                     </label>

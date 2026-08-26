@@ -15,9 +15,10 @@
     {% set base = ROOT ~ '/production?view=' ~ active_view
         ~ (active_view == 'mep' and mep_sub is defined ? '&mep=' ~ mep_sub : '') %}
 
+    {# Plus de libellé « SECTEUR » ni de rangée à soi : les pastilles rejoignent
+       le commutateur dans .pr-bar. Un mot pour annoncer trois pastilles dont
+       les noms se lisent — Boulangerie, Traiteur — n'apprenait rien. #}
     <nav class="pr-sectors" aria-label="{{ translations.sector_title | default('Secteur de production') }}">
-        <span class="pr-sectors-lbl">{{ translations.sector_title | default('Secteur') }}</span>
-
         <a class="cat-chip {{ sector is null ? 'is-on' : '' }}" href="{{ base }}"
            {{ sector is null ? 'aria-current="page"' : '' }}>
             {{ translations.sector_all | default('Tous') }}

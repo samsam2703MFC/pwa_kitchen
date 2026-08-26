@@ -22,7 +22,7 @@
    ici on ne fait que signaler, parce qu'une période dont la MEP n'est pas
    validée n'a rien à mettre en rayon. #}
 {% if mep_available and mep_pending_count > 0 %}
-    <a href="{{ ROOT }}/production?view=mep&mep=morning{{ sector_qs }}" class="mep-banner d-block text-decoration-none mb-3">
+    <a href="{{ ROOT }}/production?view=mep&mep=morning{{ sector_qs }}" class="mep-banner text-decoration-none mb-3">
         <h2>{{ translations.mep_banner_title | default('MEP de la veille à valider') }}</h2>
         <p>{{ translations.mep_banner_text | default("Tant que la MEP n'est pas validée, rien n'est constaté comme produit — et il n'y a rien à porter en rayon.") }}</p>
         <span class="mep-banner-btn">
