@@ -1,5 +1,15 @@
 # Ce qu'il reste à faire côté back-office
 
+> **Règle d'écriture (26/08/2026, décision du patron).** Rien ne s'écrit en
+> dehors des endpoints : aucune application — Kitchen, back-office, script —
+> n'écrit directement dans les tables. Toute écriture passe par une route de
+> l'API, qui valide et journalise. Kitchen respecte déjà cette règle par
+> construction : il n'a ni pilote de base, ni identifiant, ni requête SQL —
+> ses dix écritures sont des POST/PATCH/DELETE vers l'API, listés au tableau
+> ci-dessous. Les fichiers de `docs/sql/` sont des migrations de schéma, à
+> exécuter une fois par le propriétaire de la base, pas des canaux d'écriture
+> applicatifs.
+
 Document de passation. Il liste **tout** ce que la PWA Cuisine appelle
 aujourd'hui, dit ce qui existe déjà et ce qui manque, donne les migrations et
 la forme exacte de chaque échange.

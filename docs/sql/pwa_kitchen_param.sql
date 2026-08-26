@@ -1,6 +1,14 @@
 -- ---------------------------------------------------------------------------
 -- pwa_kitchen_param — contenu initial
 --
+-- RÈGLE (26/08/2026) : rien ne s'écrit en dehors des endpoints — aucune
+-- application n'écrit dans les tables. Ce fichier n'est PAS une exception :
+-- c'est une MIGRATION, à exécuter une seule fois par le propriétaire de la
+-- base ERP au moment de créer la table, comme n'importe quel schéma. Au
+-- quotidien, les cases se cochent au back-office, qui passe par ses propres
+-- endpoints. Kitchen, lui, ne fait que LIRE (GET /devices/{id}/configuration)
+-- et ne détient aucun identifiant de base.
+--
 -- Ce jeu reproduit EXACTEMENT ce que les tablettes affichaient avant que la
 -- table n'existe. L'exécuter ne change donc rien à l'écran : on pose le
 -- contenu sans rien casser, puis on ajuste une case à la fois.
