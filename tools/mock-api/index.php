@@ -132,6 +132,24 @@ function fake_jwt(int $shopId, int $hours = 12): string
            rtrim(strtr(base64_encode('mock-signature'), '+/', '-_'), '=');
 }
 
+// ── Miroir de la PRODUCTION reelle (atelierby.tfbuddy.com) ─────────────────
+// MOCK_PROD_MIRROR=1 : le bouchon renvoie 404 EXACTEMENT sur les routes
+// absentes du swagger de prod (933 routes, verifie le 26/08). Sert a voir ce
+// qu'une vraie tablette voit aujourd'hui : les modules production et cuisson
+// n'ont pas de back, l'ecran doit le dire sans casser.
+if (getenv('MOCK_PROD_MIRROR')) {
+    $absentes = [
+        '#/shops/\d+/production/config#', '#/shops/\d+/production/products#',
+        '#/shops/\d+/production/batches#', '#/shops/\d+/production/pending-count#',
+        '#/shops/\d+/stock#', '#/shops/\d+/sales/profile#',
+        '#/shops/\d+/mep#', '#/shops/\d+/baking#', '#/shops/\d+/ovens#',
+    ];
+    $chemin = '/' . trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '', '/');
+    foreach ($absentes as $re) {
+        if (preg_match($re, $chemin)) { http_response_code(404); exit; }
+    }
+}
+
 // ── Routage ───────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $path   = '/' . trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '', '/');
