@@ -667,12 +667,15 @@
     /* Le nom garde 260 px quoi qu'il arrive : sans plancher, les conditions à
        droite prennent leur largeur naturelle, le nom se retrouve à zéro et
        « Croissant » se casse une lettre par ligne. */
-    .pr-tile-head { flex: 1 1 300px; min-width: 240px; }
-    .pr-tile .pr-need,
-    .pr-tile .pr-ord    { flex: 0 1 auto; margin: 0; }
-    .pr-tile .pr-need   { max-width: 230px; font-size: .84rem; padding: 7px 11px; white-space: nowrap; }
+    .pr-tile-head { flex: 1 1 380px; min-width: 280px; }
+    .pr-tile .pr-need   { flex: 0 1 auto; margin: 0; }
+    /* Elle vit maintenant sous le nom, dans la colonne de texte : plus de
+       largeur à disputer au titre, et un léger retrait pour qu'on la lise
+       comme une précision et non comme une seconde ligne de titre. */
+    .pr-tile .pr-ord    { margin: 5px 0 0; }
+    .pr-tile .pr-need   { max-width: 265px; font-size: .84rem; padding: 7px 11px; white-space: nowrap; }
     .pr-tile .pr-need-sub { white-space: normal; }
-    .pr-tile .pr-ord    { max-width: 150px; font-size: .75rem; }
+
     /* En ligne, la commande de quantité n'a plus la largeur d'une tuile : on la
        resserre à la hauteur du reste de la rangée. Elle reste au-dessus de
        44 px — on saisit au pouce, parfois avec un gant. */

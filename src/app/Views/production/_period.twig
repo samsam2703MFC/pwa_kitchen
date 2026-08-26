@@ -160,6 +160,24 @@
                                                 {{- p.unitName ? ' ' ~ p.unitName : '' }}
                                             {%- endif -%}
                                         </span>
+                                    {# Une part du manque est déjà promise à quelqu'un : le
+                                       dire change la façon dont on arbitre, parce qu'une
+                                       vitrine un peu vide se rattrape et un client qui repart
+                                       sans son plateau non.
+
+                                       Sous le nom, et pas dans la rangée d'actions : c'est un
+                                       fait sur le produit, pas un geste. À droite, elle
+                                       disputait 150 px au titre — « Croissant pur beurre » y
+                                       passait sur trois lignes. Un <span> et non un <p> :
+                                       on est à l'intérieur d'un lien. #}
+                                    {% if r.ordered > 0 %}
+                                        <span class="pr-ord">
+                                            {{ icons.svg('receipt', 13) }}
+                                            {{ translations.board_ordered | default('dont') }}
+                                            {{ r.ordered|number_format(0, ',', ' ') }}
+                                            {{ translations.board_ordered_2 | default('commandés') }}
+                                        </span>
+                                    {% endif %}
                                     </span>
                                     {# ETA : l'heure de finition prévue. Elle
                                        n'existe que s'il y a une fournée — et
@@ -198,20 +216,6 @@
                                         —
                                     {%- endif -%}
                                 </p>
-
-                                {# Une part du manque est déjà promise à
-                                   quelqu'un : le dire change la façon dont on
-                                   arbitre, parce qu'une vitrine un peu vide se
-                                   rattrape et un client qui repart sans son
-                                   plateau non. #}
-                                {% if r.ordered > 0 %}
-                                    <p class="pr-ord">
-                                        {{ icons.svg('receipt', 13) }}
-                                        {{ translations.board_ordered | default('dont') }}
-                                        {{ r.ordered|number_format(0, ',', ' ') }}
-                                        {{ translations.board_ordered_2 | default('commandés') }}
-                                    </p>
-                                {% endif %}
 
                                 {% if r.level == 'short' %}
                                     {# Constater le manque ne le comble pas. Ce bouton
