@@ -93,7 +93,7 @@ class DeviceModeService
     public const MAX_TABS = 4;
 
     /**
-     * Les cartes effectives, telles que `GET /devices/me/config` les a servies.
+     * Les cartes effectives, telles que `GET /devices/{id}/configuration` les a servies.
      *
      * @var array{nav: array<string, string[]>, tabs: array<string, string[]>, ok: bool}|null
      */
@@ -120,7 +120,9 @@ class DeviceModeService
      */
     public function missingApi(): ?string
     {
-        return ($this->maps['ok'] ?? false) ? null : 'GET /devices/me/config';
+        return ($this->maps['ok'] ?? false)
+            ? null
+            : \App\Kitchen\app\Repositories\Me\DeviceConfigRepository::ROUTE;
     }
 
     /**

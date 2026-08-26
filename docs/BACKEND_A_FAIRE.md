@@ -66,7 +66,7 @@ réponse — la PWA l'affiche proprement et continue de fonctionner.
 | 14 | `/baking/{batchId}` | PATCH | à faire | 2 |
 | 15 | `/shops/{id}/baking/pending-count` | GET | à faire | 3 |
 | 16 | `/shops/{id}/employees` | GET | **existe déjà** | — |
-| 17 | `/devices/me/config` | GET | à faire — **§8** | 4 |
+| 17 | `/devices/{id}/configuration` | GET | à faire — **§8** | 4 |
 | 18 | `/devices/me/settings` | PATCH | à faire — **§8** | 4 |
 
 **Priorité 1** = l'écran « Ce qui manque » fonctionne de bout en bout (voir,
@@ -1065,7 +1065,19 @@ du fournil reste en Production quand le responsable s'y connecte.
 > déclarerait le type de chaque clé. Elle n'est **pas** nécessaire à la PWA :
 > c'est un confort d'admin, à faire seulement si la console en a l'usage.
 
-### 8.6 `GET /devices/me/config`
+### 8.6 `GET /devices/{id}/configuration`
+
+> **Révision du 26/08/2026.** Cette route était décrite ici comme
+> `GET /devices/me/config`, un nom que Kitchen avait choisi faute de mieux. Le
+> Swagger de l'ERP porte en réalité `GET /api/v1/devices/{param1}/configuration`
+> (tag *Franchisee devices*) : c'est ce chemin que la PWA appelle désormais,
+> avec l'identifiant de l'appareil pris dans la revendication `device_id` du
+> jeton de session — celle que `AuthMiddleware` lit déjà.
+>
+> Reste à confirmer, faute d'accès à l'API depuis l'atelier de développement :
+> que cette route serve bien la configuration des **modes** (`pwa_kitchen_param`)
+> et pas un autre réglage d'appareil. Si sa réponse ne porte aucun mode connu,
+> l'écran la nommera — c'est le comportement voulu, pas une régression.
 
 Tout ce dont la tablette a besoin, en **un appel**. Elle le passe au plus une
 fois par tranche de dix minutes — le résultat est mis en cache dans un cookie —
@@ -1123,7 +1135,7 @@ réglage ne pourrait plus montrer ce que chaque mode donne.
 
 **Cet endpoint est un prérequis, depuis le 13/08/2026.** Un `404` ne passe plus
 inaperçu : la PWA n'a alors **aucun menu**, et chaque écran affiche un bandeau
-qui nomme la route à créer — « API à créer : `GET /devices/me/config` ».
+qui nomme la route à créer — « API à créer : `GET /devices/{id}/configuration` ».
 
 C'est un changement de posture assumé, et il a été demandé. La version
 précédente retombait sur des menus codés en dur : commode, mais l'écran avait
@@ -1173,7 +1185,7 @@ impose une valeur vide », et il n'y a que la première.
 
 Réponse : `200` avec `{"message": "ok"}`. **Ne renvoyez pas la configuration
 mise à jour** — `ApiClient::patch()` écarte le corps (§0), la PWA ne la lirait
-pas. Elle relit `GET /devices/me/config` juste après.
+pas. Elle relit `GET /devices/{id}/configuration` juste après.
 
 Refus attendus :
 
@@ -1186,7 +1198,7 @@ Refus attendus :
 Cet endpoint n'est **pas** appelé par la PWA aujourd'hui : les deux réglages
 webshop se saisissent sur la tablette et vivent dans ses cookies. Il n'a d'
 intérêt que le jour où l'on voudra poser l'URL une fois pour tout le réseau
-depuis la console — auquel cas c'est `GET /devices/me/config` qui la
+depuis la console — auquel cas c'est `GET /devices/{id}/configuration` qui la
 redescendra, et celui-ci qui l'écrira.
 
 ### 8.8 Ce que la PWA n'écrit jamais
@@ -1201,7 +1213,7 @@ seulement pour elle-même.
 ### 8.9 Côté PWA, c'est branché
 
 **Fait le 12/08/2026.** Il n'y a plus rien à faire côté PWA : elle appelle
-`GET /devices/me/config`, applique ce qu'elle y trouve, et garde ses valeurs
+`GET /devices/{id}/configuration`, applique ce qu'elle y trouve, et garde ses valeurs
 codées en dur pour tout ce qui manque.
 
 | pièce | rôle |
@@ -1220,7 +1232,7 @@ d'aujourd'hui. Vous pouvez poser la table, la remplir avec le jeu de §8.4 — q
 ne change rien à l'écran — puis ajuster une case et voir l'effet dans les dix
 minutes.
 
-### 8.10 Le bouchon sert `/devices/me/config`
+### 8.10 Le bouchon sert `/devices/{id}/configuration`
 
 `tools/mock-api/` sert désormais cet endpoint, avec le jeu de §8.4 : c'est ce
 qui a permis de vérifier au navigateur qu'une case décochée retire bien
@@ -1230,7 +1242,7 @@ bouchonné — rien ne l'appelle encore côté PWA.
 Pour vérifier votre implémentation, le contrat ci-dessus se teste au curl :
 
 ```bash
-curl -s -H "Authorization: Bearer <jeton tablette>" https://<api>/devices/me/config | jq
+curl -s -H "Authorization: Bearer <jeton tablette>" https://<api>/devices/<device_id>/configuration | jq
 curl -s -X PATCH -H "Authorization: Bearer <jeton tablette>" \
      -H 'Content-Type: application/json' \
      -d '{"mode":"gestion"}' https://<api>/devices/me/settings

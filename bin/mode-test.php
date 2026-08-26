@@ -45,7 +45,7 @@ check('espaces ignorés',               $m->normalise('  gestion '), 'gestion');
 // construit, un menu codé en dur masque exactement ce qu'on cherche à voir.
 check('sans config : menu vide',       $m->navKeys('production'), []);
 check('sans config : onglets vides',   $m->tabKeys('production'), []);
-check('sans config : la route nommée', $m->missingApi(), 'GET /devices/me/config');
+check('sans config : la route nommée', $m->missingApi(), 'GET /devices/{id}/configuration');
 
 // DEFAULT_NAV / DEFAULT_TABS ne sont plus un repli : c'est la référence, le
 // contenu que la table doit porter pour reproduire l'affichage historique. On
@@ -232,9 +232,9 @@ $m3->applyConfig(null);
 check('sans config : menu vide',        $m3->navKeys('production'), []);
 check('sans config : onglets vides',    $m3->tabKeys('production'), []);
 check('sans config : rien n\'est permis', $m3->allows('production', 'orders'), false);
-check('sans config : la route nommée',  $m3->missingApi(), 'GET /devices/me/config');
+check('sans config : la route nommée',  $m3->missingApi(), 'GET /devices/{id}/configuration');
 // Jamais appelee du tout : meme verdict qu'une config absente.
-check('jamais appliquée : nommée',      (new DeviceModeService())->missingApi(), 'GET /devices/me/config');
+check('jamais appliquée : nommée',      (new DeviceModeService())->missingApi(), 'GET /devices/{id}/configuration');
 
 // ── Verdict ───────────────────────────────────────────────────────────────
 echo $ko === []

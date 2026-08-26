@@ -69,7 +69,7 @@ ORDER BY mode;
 
 
 -- ---------------------------------------------------------------------------
--- La requête de l'endpoint GET /devices/me/config
+-- La requête de l'endpoint GET /devices/{id}/configuration
 -- ---------------------------------------------------------------------------
 -- Surcharge par boutique : la ligne de la boutique gagne sur celle du réseau.
 -- La sous-requête sur MAX(id_shop) passe AVANT le filtre is_enabled — sans

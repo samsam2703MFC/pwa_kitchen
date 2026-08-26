@@ -70,7 +70,7 @@ mécanisme était exclu ; le cookie est celui que le brief nomme.
 | `kitchen_device_mode` | `gestion` \| `production` \| `webshop` | 5 ans |
 | `kitchen_webshop_url` | surcharge locale de l'URL du back-office | 5 ans |
 | `kitchen_webshop_token` | **le jeton d'appareil du webshop — un secret** | 5 ans |
-| `kitchen_mode_config` | cache de `GET /devices/me/config` — ce que chaque mode affiche | 10 min |
+| `kitchen_mode_config` | cache de `GET /devices/{id}/configuration` — ce que chaque mode affiche | 10 min |
 
 Le quatrième est un **cache**, pas un réglage : ce que chaque mode montre vient
 désormais de la table `pwa_kitchen_param` côté ERP (voir
@@ -79,7 +79,7 @@ tranche de dix minutes — un réglage coché au back-office descend donc dans l
 quart d'heure, sans qu'on touche à la tablette et sans déploiement.
 
 **Endpoint absent ou muet : aucun menu, et l'écran le dit.** Chaque page affiche
-alors « API à créer : `GET /devices/me/config` ».
+alors « API à créer : `GET /devices/{id}/configuration` ».
 
 C'est un choix assumé, demandé le 13/08/2026, et il a un coût : sans cet
 endpoint, la tablette n'a plus de navigation. C'est le prix de la règle
@@ -113,11 +113,11 @@ confondait :
 | **Ce que chaque mode affiche** | table `pwa_kitchen_param`, côté ERP | c'est une décision de réseau, elle appartient au franchisé et ne doit pas demander un déploiement |
 | **Quel mode porte cette tablette** | la tablette, dans ses réglages | on déplace une tablette du fournil au comptoir un samedi matin ; l'équipe doit pouvoir la basculer sur-le-champ, sans appeler quelqu'un qui a accès au back-office |
 
-La première est branchée : `GET /devices/me/config` est lu au plus une fois par
+La première est branchée : `GET /devices/{id}/configuration` est lu au plus une fois par
 tranche de dix minutes, filtré par `DeviceModeService::sanitise()` et mis en
 cache dans `kitchen_mode_config`. Voir `docs/BACKEND_A_FAIRE.md` §8.
 
-La seconde ne le sera pas. `GET /devices/me/config` **ne sert pas** de champ
+La seconde ne le sera pas. `GET /devices/{id}/configuration` **ne sert pas** de champ
 `mode`, `PATCH /devices/me/settings` n'en accepte pas, et trois assertions de
 `bin/mode-test.php` interdisent qu'un tel champ prenne la main un jour sans
 qu'on l'ait décidé. Le mode reste ce qu'il a toujours été ici : un cookie de

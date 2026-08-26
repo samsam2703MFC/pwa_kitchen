@@ -75,7 +75,7 @@ class App {
                     $this->middleware->handle();
 
                     // Ce que chaque mode de tablette affiche vient de la table
-                    // pwa_kitchen_param, via GET /devices/me/config. On la
+                    // pwa_kitchen_param, via GET /devices/{id}/configuration. On la
                     // rafraîchit ici, après l'authentification — l'appel a
                     // besoin du jeton — et au plus une fois par tranche de dix
                     // minutes, le cache vivant dans un cookie.

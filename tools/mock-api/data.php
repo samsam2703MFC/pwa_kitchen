@@ -450,7 +450,7 @@ function mock_checklist_progress(int $id): array
 }
 
 /**
- * La table pwa_kitchen_param, telle que l'endpoint /devices/me/config la sert.
+ * La table pwa_kitchen_param, telle que l'endpoint /devices/{id}/configuration la sert.
  *
  * Le jeu est celui du seed de docs/BACKEND_A_FAIRE.md §8.4 : il reproduit
  * exactement ce que les tablettes affichent sans configuration. Un bouchon qui

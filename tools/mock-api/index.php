@@ -396,7 +396,7 @@ if ($method === 'POST' && $m('/employees/\d+/tasks/\d+/mark-as-done')) {
 // Ce que chaque mode de tablette affiche — table pwa_kitchen_param, §8 du
 // document de passation. Un 404 ici n'est pas une panne : la PWA garde ses
 // valeurs par defaut. C'est exactement ce qu'on veut pouvoir verifier.
-if ($method === 'GET' && $m('/devices/me/config')) {
+if ($method === 'GET' && $m('/devices/\d+/configuration')) {
     ok(mock_device_config());
 }
 
