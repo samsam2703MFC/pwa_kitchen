@@ -62,5 +62,7 @@
   "roster_api_missing": "Lista pochodzi z API, które jeszcze nie odpowiada — zobacz baner u góry.",
   "complete_error_no_eligible": "Brak w grafiku pracowników uprawnionych do wykonania tego zadania.",
   "complete_stay_logged": "Pozostań zalogowany po wykonaniu zadania",
-  "no_employee_tasks": "Nie masz dziś zadań przypisanych do swojego stanowiska."
+  "no_employee_tasks": "Nie masz dziś zadań przypisanych do swojego stanowiska.",
+  "from_time": "od",
+  "col_planned_short": "PLAN."
 }

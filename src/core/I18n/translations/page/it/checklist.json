@@ -62,5 +62,7 @@
   "roster_api_missing": "L'elenco viene dall'API, che non risponde ancora — vedi il banner in alto.",
   "complete_error_no_eligible": "Nessuno in turno può eseguire questa attività.",
   "complete_stay_logged": "Resta identificato dopo l'attività",
-  "no_employee_tasks": "Oggi nessuna attività è assegnata alla tua postazione."
+  "no_employee_tasks": "Oggi nessuna attività è assegnata alla tua postazione.",
+  "from_time": "dalle",
+  "col_planned_short": "PREVISTA"
 }

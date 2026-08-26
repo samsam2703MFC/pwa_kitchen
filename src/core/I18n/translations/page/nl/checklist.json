@@ -62,5 +62,7 @@
   "roster_api_missing": "De lijst komt van de API, die nog niet antwoordt — zie de banner bovenaan.",
   "complete_error_no_eligible": "Niemand op het rooster mag deze taak doen.",
   "complete_stay_logged": "Aangemeld blijven na de taak",
-  "no_employee_tasks": "Vandaag is er geen taak aan jouw post toegewezen."
+  "no_employee_tasks": "Vandaag is er geen taak aan jouw post toegewezen.",
+  "from_time": "vanaf",
+  "col_planned_short": "GEPLAND"
 }

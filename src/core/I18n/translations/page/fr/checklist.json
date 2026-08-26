@@ -62,5 +62,7 @@
   "roster_api_missing": "La liste vient de l'API, qui ne répond pas encore — voir le bandeau en haut de l'écran.",
   "complete_error_no_eligible": "Personne au planning n'a le droit de faire cette tâche.",
   "complete_stay_logged": "Rester identifié après la tâche",
-  "no_employee_tasks": "Aucune tâche n'est assignée à votre poste aujourd'hui."
+  "no_employee_tasks": "Aucune tâche n'est assignée à votre poste aujourd'hui.",
+  "from_time": "à partir de",
+  "col_planned_short": "PRÉVUE"
 }

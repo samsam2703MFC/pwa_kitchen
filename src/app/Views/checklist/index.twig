@@ -4,198 +4,138 @@
 
 {% block head %}
 <style>
-    .task-badge {
-        display: inline-block;
-        padding: .25rem .65rem;
-        border-radius: 999px;
-        font-size: .75rem;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-    .badge-done    { background: #d1e7dd; color: #0f5132; }
-    .badge-pending { background: #e2e3e5; color: #41464b; }
-    .badge-skipped { background: #fff3cd; color: #664d03; }
-    .badge-failed  { background: #f8d7da; color: #842029; }
-
     .checklist-section { margin-bottom: 2rem; }
 
-    /* ── Les filtres, repliés ── */
-    .cl-filters { border: 0; }
-    .cl-filters-sum {
-        display: flex; align-items: center; gap: 12px;
-        min-height: 56px; padding: 8px 14px;
-        border: 1px solid var(--c-line, rgba(36,26,22,.09));
-        border-radius: var(--r-md, 13px);
-        background: var(--c-surface, #fff);
-        cursor: pointer; list-style: none;
-        -webkit-tap-highlight-color: transparent;
+    /* ══ Les filtres, en une rangée ══
+       Ils tenaient dans un panneau repliable qui, déplié, mangeait le premier
+       écran, et replié demandait un tap pour savoir ce qu'il cachait. Une
+       rangée de pastilles dit tout et ne coûte rien : le nom, l'heure et
+       l'avancement de chaque checklist sont lisibles sans rien ouvrir. */
+    .cl-bar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+        margin-bottom: 14px;
     }
-    .cl-filters-sum::-webkit-details-marker { display: none; }
-    .cl-filters-ic {
-        flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--r-md, 13px);
-        display: inline-flex; align-items: center; justify-content: center;
-        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
+    .cl-chip {
+        position: relative; display: inline-flex; align-items: center; gap: 9px;
+        min-height: 46px; padding: 0 20px; border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
+        font-size: .89rem; font-weight: 600; color: var(--c-muted, #7a7168);
+        cursor: pointer; -webkit-tap-highlight-color: transparent;
+        transition: background .14s ease, border-color .14s ease, color .14s ease;
     }
-    .cl-filters-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-    .cl-filters-txt b { font-size: .9rem; font-weight: 700; color: var(--c-ink, #241f1c); }
-    .cl-filters-txt small {
-        font-size: .76rem; color: var(--c-muted, #7a7168);
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    .cl-chip input { position: absolute; opacity: 0; pointer-events: none; }
+    .cl-chip:active { transform: scale(.985); }
+    .cl-chip:has(input:checked), .cl-chip.is-active {
+        background: var(--c-encre, #1F4F6B); border-color: var(--c-encre, #1F4F6B); color: #fff;
     }
-    .cl-filters-chev { flex: 0 0 auto; color: var(--c-muted, #7a7168); transition: transform .15s ease; }
-    .cl-filters[open] .cl-filters-chev { transform: rotate(180deg); }
+    .cl-chip:has(input:focus-visible) { outline: 3px solid rgba(31,79,107,.35); outline-offset: 2px; }
+    .cl-chip-h { font-weight: 400; opacity: .8; font-variant-numeric: tabular-nums; }
+    .cl-chip-n {
+        background: var(--c-bg, #EAE4DC); border-radius: 999px; padding: 1px 9px;
+        font-size: .78rem; font-variant-numeric: tabular-nums;
+    }
+    .cl-chip:has(input:checked) .cl-chip-n, .cl-chip.is-active .cl-chip-n { background: rgba(255,255,255,.22); }
+    /* La date part à droite : on la change rarement, et elle n'a pas à
+       repousser les checklists hors de portée du pouce. */
+    .cl-date { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .cl-date input {
+        min-height: 46px; padding: 0 16px; border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
+        font-size: .89rem; font-weight: 600; color: var(--c-ink, #241f1c);
+    }
+    .cl-date .btn { min-height: 46px; border-radius: var(--r-pill, 999px); padding: 0 20px; }
 
-    /* ── Choix de la checklist : tuiles, deux par ligne ── */
-    .cl-pick-set { border: 0; padding: 0; margin: 1rem 0 0; min-width: 0; }
-    .cl-pick-set > legend { float: none; width: auto; font-size: .82rem; margin-bottom: .5rem; }
-    .cl-pick {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+    /* ══ Le panneau ══
+       Quatre cartes qui flottent font quatre objets ; une liste en fait un
+       seul, et l'œil descend sans repartir de zéro à chaque ligne. */
+    .cl-panel {
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px); overflow: hidden;
     }
-    .cl-pick-tile {
-        position: relative;
-        display: flex; flex-direction: column; gap: 4px;
-        padding: 12px 14px;
-        border: 1px solid var(--c-line, rgba(36,26,22,.09));
-        border-radius: var(--r-md, 13px);
-        background: #fff;
-        cursor: pointer;
-        transition: border-color .15s ease, background .15s ease, transform .1s ease;
-        -webkit-tap-highlight-color: transparent;
-        min-width: 0;
+    .cl-head {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 13px;
+        padding: 13px 20px; background: #fcfaf7;
+        border-bottom: 1px solid var(--c-line, rgba(36,26,22,.09));
     }
-    .cl-pick-tile:active { transform: scale(.99); }
-    /* Le radio pilote l'état mais reste invisible : la tuile entière est la
-       cible tactile, pas une pastille de 16 px. */
-    .cl-pick-tile input { position: absolute; opacity: 0; pointer-events: none; }
-    .cl-pick-tile:has(input:checked),
-    .cl-pick-tile.is-active {
-        border-color: var(--c-primary, #8D1D2C);
-        background: var(--c-primary-soft, #f4dfe2);
+    .cl-head b { font-size: 1.05rem; font-weight: 800; letter-spacing: .01em; }
+    .cl-head .cl-when { font-size: .85rem; color: var(--c-muted, #7a7168); }
+    .cl-head .cl-count {
+        margin-left: auto; font-size: .84rem; color: var(--c-muted, #7a7168);
+        font-variant-numeric: tabular-nums;
     }
-    .cl-pick-tile:has(input:focus-visible) {
-        outline: 2px solid var(--c-secondary, #F2C9A0);
-        outline-offset: 2px;
-    }
-    .cl-pick-name {
-        font-size: .88rem; font-weight: 700; color: var(--c-ink, #241f1c);
-        line-height: 1.25; overflow-wrap: anywhere;
-    }
-    .cl-pick-time { font-size: .72rem; color: var(--c-muted, #7a7168); }
-    .cl-pick-bar {
-        display: block; height: 5px; border-radius: 3px;
-        background: #e6ded3; overflow: hidden; margin-top: 2px;
-    }
-    .cl-pick-bar > span {
-        display: block; height: 100%; border-radius: 3px;
-        background: var(--c-primary, #8D1D2C);
-    }
-    .cl-pick-count { font-size: .7rem; color: var(--c-muted, #7a7168); }
+    .cl-prog { width: 132px; height: 7px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .cl-prog > span { display: block; height: 100%; background: #2D7A3E; }
 
-    /* « Toutes » : pleine largeur, hauteur réduite au strict nécessaire. */
-    .cl-pick-all {
-        grid-column: 1 / -1;
-        flex-direction: row; align-items: center; justify-content: center;
-        padding: 9px 14px; min-height: 44px;
+    /* ── Une tâche = une ligne ── */
+    .tk-row {
+        display: flex; align-items: center; gap: 18px;
+        padding: 14px 20px; border-top: 1px solid var(--c-line, rgba(36,26,22,.09));
     }
-    .cl-pick-all .cl-pick-name { font-size: .84rem; text-align: center; }
-
-    /* ── Tuiles de tâches ── */
-    .tk-list { display: flex; flex-direction: column; gap: 10px; }
-    .tk-item {
-        background: var(--c-surface, #fff);
-        border: 1px solid var(--c-line, rgba(36,26,22,.09));
-        border-left: 4px solid var(--c-muted, #7a7168);
-        border-radius: var(--r-lg, 18px);
-        box-shadow: var(--sh-2);
-        padding: 14px 16px;
-    }
-    /* L'état se lit au liseré avant même le badge : en parcourant la liste,
-       on voit ce qui reste à faire sans lire un mot. */
-    .tk-item.is-done    { border-left-color: #2D7A3E; }
-    .tk-item.is-pending { border-left-color: var(--c-primary, #8D1D2C); }
-    .tk-item.is-skipped { border-left-color: #C17A2A; }
-    .tk-item.is-failed  { border-left-color: #8D1D2C; }
-    .tk-item.is-done { background: #fcfbf9; }
-
-    .tk-head { display: flex; align-items: flex-start; gap: 11px; }
-    .tk-num {
-        width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center;
-        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
-        font-size: .78rem; font-weight: 700;
-    }
-    /* Le nom de la tâche est ce qu'on vient lire : il prend la largeur au lieu
-       de se casser dans une colonne de deux mots. */
-    .tk-title {
-        flex: 1; min-width: 0;
-        font-size: 1rem; font-weight: 600; color: var(--c-ink, #241f1c);
-        line-height: 1.4;
-    }
+    .tk-row:first-of-type { border-top: 0; }
+    .tk-row.is-done { background: #fbfdfb; }
+    /* L'heure prévue commande la fermeture : elle est le repère, pas une
+       étiquette parmi d'autres. En chiffres tabulaires, les heures s'alignent
+       et la liste se lit comme un horaire. */
+    .tk-eta { width: 62px; flex: none; font-variant-numeric: tabular-nums; }
+    .tk-eta b { display: block; font-size: .96rem; font-weight: 700; color: var(--c-encre, #1F4F6B); line-height: 1.15; }
+    .tk-row.is-done .tk-eta b, .tk-row.is-skipped .tk-eta b { color: var(--c-muted, #7a7168); font-weight: 500; }
+    .tk-eta small { display: block; font-size: .66rem; letter-spacing: .09em; color: var(--c-muted, #7a7168); margin-top: 2px; }
+    .tk-body { flex: 1; min-width: 0; }
+    .tk-name { font-size: 1.02rem; font-weight: 700; line-height: 1.3; }
+    .tk-row.is-done .tk-name, .tk-row.is-skipped .tk-name { font-weight: 500; color: var(--c-muted, #7a7168); }
+    .tk-meta { margin-top: 3px; font-size: .79rem; color: var(--c-muted, #7a7168); display: flex; flex-wrap: wrap; gap: 14px; }
+    .tk-req { color: #C17A2A; font-weight: 700; }
+    .tk-note { margin: 6px 0 0; font-size: .82rem; color: var(--c-muted, #7a7168); display: flex; gap: 7px; }
+    .task-mandatory-icon { color: #e0a000; font-size: .75rem; }
     .tk-photo-icon { color: #1F4F6B; font-size: .8rem; }
 
-    .tk-meta { display: flex; flex-wrap: wrap; gap: 7px; margin: 11px 0 0 37px; }
-    .tk-chip {
-        display: inline-flex; align-items: center; gap: 5px;
-        font-size: .78rem; color: var(--c-muted, #7a7168);
-        background: var(--c-bg-2, #F4EFE8);
-        border: 1px solid var(--c-line, rgba(36,26,22,.09));
-        border-radius: 999px; padding: 5px 11px;
-    }
-    .tk-chip strong { color: var(--c-ink, #241f1c); font-weight: 700; }
-
-    .tk-note {
-        display: flex; gap: 7px; margin: 10px 0 0 37px;
-        font-size: .85rem; color: #5b524a; line-height: 1.5;
-    }
-    .tk-note i { color: var(--c-muted, #7a7168); flex-shrink: 0; margin-top: 2px; }
-
-    /* ── Les deux issues d'une tâche ──────────────────────────────────────
-       Une tâche se termine de deux façons, et l'écran ne montrait que la
-       première. « Non effectuée » se déclarait donc en la laissant en attente,
-       c'est-à-dire en ne disant rien — et celui qui relit la checklist ne
-       distingue pas l'oubli du problème constaté.
-
-       Les deux boutons ne pèsent pas pareil : « Effectuer » prend la place, le
-       refus reste à côté, plus étroit, mais rouge et aussi haut — 48 px. Ce
-       n'est pas un geste qu'on doit viser. */
-    .tk-acts {
-        display: flex; gap: 8px;
-        width: calc(100% - 37px); margin: 12px 0 0 37px;
+    /* ── L'interrupteur ──
+       Deux issues dans un seul objet : le doigt choisit un côté au lieu de
+       viser un bouton parmi deux. Le refus ne porte pas de rouge tant qu'on ne
+       le touche pas — une checklist n'est pas un écran d'alerte. Et il est
+       BORNÉ : « Effectuer » faisait 1355 px de large, toute la largeur, quand
+       le refus occupait le bord droit — c'est-à-dire l'endroit où se pose le
+       pouce en paysage. Le geste courant y revient. */
+    .tk-seg {
+        display: flex; flex: none; height: 54px; border-radius: 13px; overflow: hidden;
+        border: 1.5px solid #2D7A3E;
     }
     .tk-do {
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-        flex: 1 1 auto; min-height: 48px;
-        border: 0; border-radius: var(--r-md, 13px);
-        background: #2D7A3E; color: #fff;
-        font-family: inherit; font-size: .95rem; font-weight: 600; cursor: pointer;
-        box-shadow: 0 8px 18px -10px rgba(45,122,62,.6);
+        border: 0; background: #2D7A3E; color: #fff; cursor: pointer;
+        font-size: 1rem; font-weight: 700; padding: 0 28px;
+        display: inline-flex; align-items: center; gap: 10px; white-space: nowrap;
         -webkit-tap-highlight-color: transparent;
     }
-    .tk-do:hover { background: #256633; color: #fff; }
+    .tk-do:hover { background: #256633; }
     .tk-do:active { transform: scale(.99); }
-    .tk-do i { font-size: 1.1rem; }
-    .tk-do[disabled] { opacity: .6; cursor: default; }
-
     .tk-fail {
-        display: flex; align-items: center; justify-content: center; gap: 7px;
-        flex: 0 0 auto; min-height: 48px; padding: 0 16px;
-        border: 2px solid var(--c-primary, #8D1D2C); border-radius: var(--r-md, 13px);
-        background: #fff; color: var(--c-primary, #8D1D2C);
-        font-family: inherit; font-size: .9rem; font-weight: 700; cursor: pointer;
+        border: 0; border-left: 1.5px solid #2D7A3E; background: #fff;
+        color: var(--c-muted, #7a7168); font-size: 1.12rem; padding: 0 19px; cursor: pointer;
         -webkit-tap-highlight-color: transparent;
     }
+    .tk-fail:hover { background: #f4dfe2; color: var(--c-primary, #8D1D2C); }
     .tk-fail:active { transform: scale(.99); }
-    .tk-fail i { font-size: 1rem; }
 
-    @media (max-width: 520px) {
-        .tk-meta, .tk-note { margin-left: 0; }
-        .tk-acts { width: 100%; margin-left: 0; }
-        /* Sous 520 px les deux libellés ne tiennent plus côte à côte : le refus
-           garde sa couleur et sa hauteur, et perd son mot. */
-        .tk-fail span { display: none; }
-        .tk-fail { padding: 0 18px; }
+    .tk-sig { flex: none; text-align: right; font-size: .84rem; font-weight: 700; color: #2D7A3E; }
+    .tk-sig small { display: block; font-weight: 400; color: var(--c-muted, #7a7168); margin-top: 2px; }
+    .tk-state { flex: none; font-size: .84rem; font-weight: 700; }
+    .tk-state.is-failed  { color: var(--c-primary, #8D1D2C); }
+    .tk-state.is-skipped { color: #C17A2A; }
+
+    .cl-empty { text-align: center; color: var(--c-muted, #7a7168); padding: 46px 20px; }
+    .cl-empty i { font-size: 2.3rem; opacity: .3; }
+    .cl-empty p { margin: 14px 0 0; }
+
+    /* Portrait ou petite tablette : l'interrupteur passe sous le libellé
+       plutôt que de comprimer le nom de la tâche à deux mots par ligne. */
+    @media (max-width: 767.98px) {
+        .tk-row { flex-wrap: wrap; gap: 12px; }
+        .tk-eta { width: 54px; }
+        .tk-body { flex: 1 1 60%; }
+        .tk-seg { width: 100%; height: 56px; }
+        .tk-do { flex: 1; justify-content: center; }
+        .cl-date { margin-left: 0; width: 100%; }
+        .cl-date input { flex: 1; }
     }
 
     /* ── Choix de l'employé : badges deux par ligne ── */
@@ -280,211 +220,115 @@
 
     .task-mandatory-icon { color: #e0a000; font-size: .75rem; }
 
-    .summary-stat {
-        text-align: center;
-        padding: .75rem 1rem;
-    }
-    .summary-stat .stat-value {
-        font-size: 1.5rem;
-        font-weight: 800;
-        line-height: 1.1;
-    }
-    .summary-stat .stat-label {
-        font-size: .75rem;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
-    .stat-total  { color: var(--c-encre, #1F4F6B); }
-    .stat-done   { color: var(--c-vert, #2D7A3E); }
-    .stat-missed { color: var(--c-primary, #8D1D2C); }
-
     .progress-bar-thin { height: 6px; border-radius: 3px; }
 </style>
 {% endblock %}
 
 {% block page_heading %}
+    {# Le titre et son sous-titre prenaient 130 px pour dire ce que la barre du
+       bas dit déjà par son onglet actif. Une ligne suffit : la date, et ce
+       qu'il reste à faire. #}
     <div class="page-heading">
         <h3>{{ translations.checklists_title | default('Checklisty') }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.checklists_subtitle | default("Consultez les tâches quotidiennes regroupées par liste de contrôle.") }}</p>
     </div>
 {% endblock %}
-
 {% block content %}
 
-    {# ── Panel filtrów ──
-       Ce bloc occupait la totalité du premier écran : date, bouton, bandeau
-       « toutes », puis trois tuiles. Le premier bouton « Exécuter » tombait
-       vers 1 045 px, sous la ligne de flottaison d'une tablette de 768 px —
-       alors que l'écran n'a qu'un usage, enchaîner les tâches du moment.
+    {# ── Les filtres, en une rangée ──
+       Ils tenaient dans un panneau repliable qui, déplié, poussait le premier
+       bouton « Effectuer » vers 1 045 px — sous la ligne de flottaison d'une
+       tablette — et replié demandait un tap pour savoir ce qu'il cachait.
 
-       Il se replie donc dès qu'une checklist est ouverte, et reste déplié quand
-       on regarde l'ensemble. Le résumé du <summary> dit ce qui est filtré, pour
-       qu'on n'ait pas à déplier pour le savoir. #}
-    <details class="cl-filters mb-4" {{ selected_checklist_id ? '' : 'open' }}>
-        <summary class="cl-filters-sum">
-            <span class="cl-filters-ic" aria-hidden="true"><i class="bi bi-funnel"></i></span>
-            <span class="cl-filters-txt">
-                <b>{{ translations.filter_title | default('Date et checklist') }}</b>
-                <small>
-                    {{ selected_date }}{% if focused_name %} · {{ focused_name }}{% endif %}
-                    {%- if auto_focus %} · {{ translations.filter_auto | default('choisie selon l\'heure') }}{% endif -%}
-                </small>
-            </span>
-            <span class="cl-filters-chev" aria-hidden="true"><i class="bi bi-chevron-down"></i></span>
-        </summary>
-        <div class="card mt-2">
-                <div class="card-body">
-                    <form method="GET" action="{{ ROOT }}/checklists" id="filterForm">
-                        <div class="row g-3 align-items-end">
+       Une rangée de pastilles dit tout sans rien ouvrir : le nom de chaque
+       checklist, son heure et son avancement. Les radios restent des radios :
+       le formulaire fonctionne sans JavaScript, le script n'évite que le
+       second tap. #}
+    <form method="GET" action="{{ ROOT }}/checklists" id="filterForm" class="cl-bar">
+        <label class="cl-chip {{ selected_checklist_id is empty ? 'is-active' : '' }}">
+            <input type="radio" name="checklist_id" value=""
+                   {{ selected_checklist_id is empty ? 'checked' : '' }}>
+            {{ translations.filter_checklist_all | default('— toutes —') }}
+        </label>
 
-                            {# Data #}
-                            <div class="col-12 col-md-8">
-                                <label for="dateInput" class="form-label fw-semibold">
-                                    {{ translations.filter_date | default('Data') }}
-                                </label>
-                                <input type="date"
-                                       name="date"
-                                       id="dateInput"
-                                       class="form-control"
-                                       value="{{ selected_date }}"
-                                       max="{{ today }}"
-                                       required>
-                            </div>
+        {% for cl in checklists %}
+            <label class="cl-chip {{ selected_checklist_id == cl.id ? 'is-active' : '' }}">
+                <input type="radio" name="checklist_id" value="{{ cl.id }}"
+                       {{ selected_checklist_id == cl.id ? 'checked' : '' }}>
+                <span>{{ cl.name }}</span>
+                {% if cl.execution_time %}
+                    <span class="cl-chip-h">{{ cl.execution_time|slice(0,5) }}</span>
+                {% endif %}
+                <span class="cl-chip-n">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+            </label>
+        {% endfor %}
 
-                            <div class="col-12 col-md-4">
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="bi bi-funnel me-1"></i>
-                                    {{ translations.filter_apply | default("Afficher") }}
-                                </button>
-                            </div>
-                        </div>
-
-                        {# ── Checklista ──
-                           Une liste déroulante cachait les checklists derrière un
-                           tap et n'en montrait qu'une à la fois : impossible de
-                           comparer l'avancement d'un coup d'œil. Des tuiles, deux
-                           par ligne, montrent tout — nom, heure, avancement.
-                           Chaque tuile porte un radio, donc le formulaire et son
-                           bouton continuent de fonctionner sans JavaScript ; le
-                           script ne fait qu'éviter le second tap. #}
-                        <fieldset class="cl-pick-set">
-                            <legend class="form-label fw-semibold">
-                                {{ translations.filter_checklist | default('Checklista') }}
-                            </legend>
-
-                            <div class="cl-pick">
-                                {# « Toutes » n'a ni heure ni avancement à montrer : en tuile
-                                   carrée elle laissait un grand vide à côté des autres. Elle
-                                   prend la ligne entière, en bandeau fin. #}
-                                <label class="cl-pick-tile cl-pick-all {{ selected_checklist_id is empty ? 'is-active' : '' }}">
-                                    <input type="radio" name="checklist_id" value=""
-                                           {{ selected_checklist_id is empty ? 'checked' : '' }}>
-                                    <span class="cl-pick-name">
-                                        {{ translations.filter_checklist_all | default('— wszystkie —') }}
-                                    </span>
-                                </label>
-
-                                {% for cl in checklists %}
-                                    {% set done = cl.tasks_total > 0 ? (cl.tasks_done / cl.tasks_total * 100)|round : 0 %}
-                                    <label class="cl-pick-tile {{ selected_checklist_id == cl.id ? 'is-active' : '' }}">
-                                        <input type="radio" name="checklist_id" value="{{ cl.id }}"
-                                               {{ selected_checklist_id == cl.id ? 'checked' : '' }}>
-                                        <span class="cl-pick-name">{{ cl.name }}</span>
-                                        {% if cl.execution_time %}
-                                            <span class="cl-pick-time">
-                                                <i class="bi bi-clock"></i> {{ cl.execution_time|slice(0,5) }}
-                                            </span>
-                                        {% endif %}
-                                        <span class="cl-pick-bar" aria-hidden="true">
-                                            <span style="width:{{ done }}%"></span>
-                                        </span>
-                                        <span class="cl-pick-count">
-                                            {{ cl.tasks_done }}/{{ cl.tasks_total }}
-                                            {{ translations.tasks_done_of | default('wyk.') }}
-                                        </span>
-                                    </label>
-                                {% endfor %}
-                            </div>
-                        </fieldset>
-                    </form>
-                </div>
-        </div>
-    </details>
+        {# La date part à droite : on la change rarement, et elle n'a pas à
+           repousser les checklists hors de portée du pouce. #}
+        <span class="cl-date">
+            <label for="dateInput" class="visually-hidden">{{ translations.filter_date | default('Date') }}</label>
+            <input type="date" name="date" id="dateInput"
+                   value="{{ selected_date }}" max="{{ today }}" required>
+            <button type="submit" class="btn btn-outline-secondary">
+                {{ translations.filter_apply | default('Afficher') }}
+            </button>
+        </span>
+    </form>
 
     {# ── Wyniki ── #}
     {% if progress is not null and progress.checklist is defined %}
 
-        {# Nagłówek checklisty #}
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                            <div>
-                                <h4 class="mb-0 fw-bold">{{ progress.checklist.name }}</h4>
-                                <div class="text-muted small mt-1">
-                                    {% if progress.checklist.execution_time %}
-                                        <i class="bi bi-clock me-1"></i>{{ progress.checklist.execution_time|slice(0,5) }} ·
-                                    {% endif %}
-                                    {{ selected_date }}
-                                </div>
-                            </div>
-                            <div class="d-flex gap-3">
-                                <div class="summary-stat">
-                                    <div class="stat-value stat-total">{{ progress.summary.total }}</div>
-                                    <div class="stat-label">{{ translations.summary_total | default("Total") }}</div>
-                                </div>
-                                <div class="summary-stat">
-                                    <div class="stat-value stat-done">{{ progress.summary.done }}</div>
-                                    <div class="stat-label">{{ translations.summary_done | default('Wykonane') }}</div>
-                                </div>
-                                <div class="summary-stat">
-                                    <div class="stat-value stat-missed">{{ progress.summary.not_done }}</div>
-                                    <div class="stat-label">{{ translations.summary_not_done | default('Niewykonane') }}</div>
-                                </div>
-                            </div>
-                        </div>
+        {# ── Un panneau, des lignes ──
+           L'en-tête portait trois grands chiffres empilés dans une carte à
+           part, la liste en portait une autre : deux objets pour une seule
+           question. Ici l'avancement tient dans l'en-tête du panneau, et les
+           tâches suivent immédiatement. #}
+        <div class="cl-panel">
+            <div class="cl-head">
+                <b>{{ progress.checklist.name }}</b>
+                {% if progress.checklist.execution_time %}
+                    <span class="cl-when">
+                        {{ translations.from_time | default('à partir de') }}
+                        {{ progress.checklist.execution_time|slice(0,5) }}
+                    </span>
+                {% endif %}
+                <span class="cl-count">
+                    {{ progress.summary.done }} / {{ progress.summary.total }}
+                    {{ translations.tasks_done_of | default('effectuées') }}
+                </span>
+                {% if progress.summary.total > 0 %}
+                    <span class="cl-prog" role="progressbar"
+                          aria-valuenow="{{ progress.summary.done }}"
+                          aria-valuemin="0" aria-valuemax="{{ progress.summary.total }}">
+                        <span style="width:{{ (progress.summary.done / progress.summary.total * 100)|round }}%"></span>
+                    </span>
+                {% endif %}
+            </div>
 
-                        {% if progress.summary.total > 0 %}
-                            <div class="mt-3">
-                                <div class="progress progress-bar-thin">
-                                    <div class="progress-bar bg-success"
-                                         style="width: {{ (progress.summary.done / progress.summary.total * 100)|round }}%"
-                                         aria-valuenow="{{ progress.summary.done }}"
-                                         aria-valuemin="0"
-                                         aria-valuemax="{{ progress.summary.total }}">
-                                    </div>
-                                </div>
-                            </div>
-                        {% endif %}
-                    </div>
+            {% if progress.tasks is empty %}
+                <div class="cl-empty">
+                    <i class="bi bi-clipboard-x"></i>
+                    <p>{{ translations.no_tasks | default("Aucune tâche trouvée pour cette liste de contrôle à la date sélectionnée.") }}</p>
                 </div>
-            </div>
-        </div>
-
-        {# Lista zadań #}
-        {% if progress.tasks is empty %}
-            <div class="text-center text-muted py-5">
-                <i class="bi bi-clipboard-x" style="font-size:2.5rem;opacity:.3;"></i>
-                <p class="mt-3 mb-0">{{ translations.no_tasks | default("Aucune tâche trouvée pour cette liste de contrôle à la date sélectionnée.") }}</p>
-            </div>
-        {% else %}
-            {# ── Tâches ──
-               Huit colonnes dans un tableau : sur une tablette tenue en main,
-               « Vérifier si le magasin est propre » se cassait sur cinq lignes
-               dans une colonne large de deux mots, le nom de l'opérateur était
-               tronqué et le reste sortait de l'écran. Chaque tâche est une
-               tuile : ce qu'il y a à faire en tête, l'état sur le côté, les
-               horaires en dessous, et le bouton d'exécution à portée du pouce. #}
-            <div class="tk-list">
+            {% else %}
                 {% for task in progress.tasks %}
                     {% set status = task.status ?? 'PENDING' %}
-                    <div class="tk-item is-{{ status|lower }}">
+                    <div class="tk-row is-{{ status|lower }}">
 
-                        <div class="tk-head">
-                            <span class="tk-num">{{ loop.index }}</span>
-                            <div class="tk-title">
+                        {# L'heure prévue commande la fermeture : elle est le
+                           repère, pas une étiquette parmi d'autres. Une tâche
+                           sans heure garde la colonne vide plutôt qu'une heure
+                           inventée. #}
+                        <div class="tk-eta">
+                            {% if task.execution_time %}
+                                <b>{{ task.execution_time|slice(0,5) }}</b>
+                                <small>{{ translations.col_planned_short | default('PRÉVUE') }}</small>
+                            {% else %}
+                                <b>—</b>
+                            {% endif %}
+                        </div>
+
+                        <div class="tk-body">
+                            <div class="tk-name">
                                 {{ task.name }}
                                 {% if task.is_mandatory %}
                                     <i class="bi bi-star-fill task-mandatory-icon"
@@ -495,93 +339,72 @@
                                        title="{{ translations.photo_required | default("Photo requise") }}"></i>
                                 {% endif %}
                             </div>
-                            {% if status == 'DONE' %}
-                                <span class="task-badge badge-done">
-                                    <i class="bi bi-check-circle-fill me-1"></i>{{ translations.status_done | default('Wykonane') }}
-                                </span>
-                            {% elseif status == 'SKIPPED' %}
-                                <span class="task-badge badge-skipped">
-                                    <i class="bi bi-skip-forward-fill me-1"></i>{{ translations.status_skipped | default("Ignorée") }}
-                                </span>
-                            {% elseif status == 'FAILED' %}
-                                <span class="task-badge badge-failed">
-                                    <i class="bi bi-x-circle-fill me-1"></i>{{ translations.status_failed | default('Nieudane') }}
-                                </span>
-                            {% else %}
-                                <span class="task-badge badge-pending">
-                                    <i class="bi bi-circle me-1"></i>{{ translations.status_pending | default('Oczekuje') }}
-                                </span>
+                            <div class="tk-meta">
+                                {% if task.requires_photo and status not in ['DONE','SKIPPED','FAILED'] %}
+                                    <span class="tk-req">{{ translations.photo_required | default('Photo requise') }}</span>
+                                {% endif %}
+                                {% if task.completed_at %}
+                                    {# Une tâche refusée porte le même horodatage, mais
+                                       « Réalisée à » contredirait son état : ce n'est pas
+                                       l'heure d'une réalisation, c'est celle d'un constat. #}
+                                    <span>
+                                        {{ status == 'FAILED'
+                                           ? (translations.col_reported_at | default('Signalée à'))
+                                           : (translations.col_completed_at | default('Effectuée à')) }}
+                                        {{ task.completed_at|slice(11,5) }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            {% if task.note %}
+                                <p class="tk-note"><i class="bi bi-chat-left-text"></i>{{ task.note }}</p>
                             {% endif %}
                         </div>
 
-                        <div class="tk-meta">
-                            {% if task.execution_time %}
-                                <span class="tk-chip">
-                                    <i class="bi bi-clock"></i>
-                                    {{ translations.col_planned_time | default('Planowana godz.') }}
-                                    <strong>{{ task.execution_time|slice(0,5) }}</strong>
-                                </span>
-                            {% endif %}
-                            {% if task.completed_at %}
-                                {# Une tâche refusée porte le même horodatage,
-                                   mais « Réalisée à » contredirait le badge
-                                   « Non effectuée » juste au-dessus : ce n'est
-                                   pas l'heure d'une réalisation, c'est celle
-                                   d'un constat. #}
-                                <span class="tk-chip">
-                                    <i class="bi bi-{{ status == 'FAILED' ? 'x-circle' : 'check2' }}"></i>
-                                    {{ status == 'FAILED'
-                                       ? (translations.col_reported_at | default('Signalée à'))
-                                       : (translations.col_completed_at | default('Zrealizowane')) }}
-                                    <strong>{{ task.completed_at|slice(11,5) }}</strong>
-                                </span>
-                            {% endif %}
-                            {% if task.completed_by %}
-                                <span class="tk-chip">
-                                    <i class="bi bi-person"></i><strong>{{ task.completed_by }}</strong>
-                                </span>
-                            {% endif %}
-                        </div>
-
-                        {% if task.note %}
-                            <p class="tk-note">
-                                <i class="bi bi-chat-left-text"></i>{{ task.note }}
-                            </p>
-                        {% endif %}
-
-                        {% if status != 'DONE' and status != 'SKIPPED' %}
-                            {# « Effectuer » ouvre une fenêtre uniquement quand
-                               il reste quelque chose à saisir : une photo
-                               exigée, ou le nom et le code de la première tâche
-                               du service. Sans photo et le poste ouvert, la
-                               tâche se valide d'un seul geste — c'était le
-                               reproche principal fait à cet écran.
-                               Le script lit ces deux attributs pour trancher. #}
-                            <div class="tk-acts">
+                        {% if status == 'DONE' %}
+                            <div class="tk-sig">
+                                {{ task.completed_by | default('—') }}
+                                <small>{{ translations.status_done | default('effectuée') }}</small>
+                            </div>
+                        {% elseif status == 'FAILED' %}
+                            <div class="tk-state is-failed">
+                                {{ translations.status_failed | default('Non effectuée') }}
+                                {% if task.completed_by %}<small style="display:block;font-weight:400;color:var(--c-muted)">{{ task.completed_by }}</small>{% endif %}
+                            </div>
+                        {% elseif status == 'SKIPPED' %}
+                            <div class="tk-state is-skipped">{{ translations.status_skipped | default('Ignorée') }}</div>
+                        {% else %}
+                            {# ── L'interrupteur ──
+                               « Effectuer » ouvre une fenêtre uniquement quand il
+                               reste quelque chose à saisir : une photo exigée, ou le
+                               nom et le code de la première tâche du service. Sans
+                               photo et le poste ouvert, la tâche se valide d'un seul
+                               geste. Le script lit ces deux attributs pour trancher.
+                               Le refus, lui, passe TOUJOURS par la fenêtre : il exige
+                               une raison écrite. #}
+                            <div class="tk-seg">
                                 <button type="button"
                                         class="tk-do btn-complete-task"
                                         data-task-id="{{ task.task_id }}"
                                         data-task-name="{{ task.name }}"
                                         data-date="{{ selected_date }}"
                                         data-requires-photo="{{ task.requires_photo ? '1' : '0' }}">
-                                    <i class="bi bi-check2"></i>{{ translations.btn_complete | default('Wykonaj') }}
+                                    <i class="bi bi-check2"></i>{{ translations.btn_complete | default('Effectuer') }}
                                 </button>
-                                {# Le refus, lui, passe TOUJOURS par la fenêtre :
-                                   il exige une raison écrite. #}
                                 <button type="button"
                                         class="tk-fail btn-fail-task"
                                         data-task-id="{{ task.task_id }}"
                                         data-task-name="{{ task.name }}"
                                         data-date="{{ selected_date }}"
-                                        aria-label="{{ translations.btn_not_done | default('Non effectuée') }}">
-                                    <i class="bi bi-x-circle"></i><span>{{ translations.btn_not_done | default('Non effectuée') }}</span>
+                                        aria-label="{{ translations.btn_not_done | default('Non effectuée') }}"
+                                        title="{{ translations.btn_not_done | default('Non effectuée') }}">
+                                    <i class="bi bi-x-circle"></i>
                                 </button>
                             </div>
                         {% endif %}
                     </div>
                 {% endfor %}
-            </div>
-        {% endif %}
+            {% endif %}
+        </div>
 
     {% elseif checklists is not empty and selected_checklist_id is empty %}
 
@@ -642,7 +465,7 @@
 (function () {
     var form = document.getElementById('filterForm');
     if (!form) return;
-    form.querySelectorAll('.cl-pick-tile input[type="radio"]').forEach(function (r) {
+    form.querySelectorAll('.cl-chip input[type="radio"]').forEach(function (r) {
         r.addEventListener('change', function () { form.submit(); });
     });
 })();

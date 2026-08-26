@@ -62,5 +62,7 @@
   "roster_api_missing": "The list comes from the API, which does not answer yet — see the banner at the top.",
   "complete_error_no_eligible": "Nobody on the schedule may perform this task.",
   "complete_stay_logged": "Stay signed in after the task",
-  "no_employee_tasks": "No task is assigned to your station today."
+  "no_employee_tasks": "No task is assigned to your station today.",
+  "from_time": "from",
+  "col_planned_short": "PLANNED"
 }
