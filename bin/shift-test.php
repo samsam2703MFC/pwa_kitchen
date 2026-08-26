@@ -34,6 +34,12 @@ check('poste reconnu',              $c !== null, true);
 check('la personne suit',           $c['id'], 7);
 check('le nom suit',                $c['name'], 'Nathan Lambert');
 
+// La prise de poste est valable pour une boutique et un jour précis. Un même
+// navigateur ne doit pas conserver une signature après changement de magasin.
+$scoped = $s->verify($s->sign(7, 'Nathan Lambert', $T0, $T0, $SEC, 12, '2026-08-21'), $T0, $SEC);
+check('le magasin suit',            $scoped['shop_id'], 12);
+check('le jour suit',               $scoped['work_date'], '2026-08-21');
+
 // ── Le glissement ───────────────────────────────────────────────────────────
 // Tant qu'on enchaîne les tâches, le poste reste ouvert.
 check('29 min après : ouvert',      $s->verify($tok, $T0 + 1740, $SEC) !== null, true);
