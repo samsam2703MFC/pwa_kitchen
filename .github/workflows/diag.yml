@@ -6,7 +6,10 @@ name: Diagnostic serveur (lecture seule)
 # rien modifier : les IP du serveur SSH, les vhosts Apache et leurs docroots,
 # et ce que le serveur voit quand il appelle le domaine public.
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/diag.yml']
 
 jobs:
   diag:
