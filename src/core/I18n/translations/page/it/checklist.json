@@ -64,5 +64,14 @@
   "complete_stay_logged": "Resta identificato dopo l'attività",
   "no_employee_tasks": "Oggi nessuna attività è assegnata alla tua postazione.",
   "from_time": "dalle",
-  "col_planned_short": "PREVISTA"
+  "col_planned_short": "PREVISTA",
+  "cl_overview": "Tutte le liste",
+  "cl_tag_done": "completata",
+  "cl_tag_now": "adesso",
+  "cl_tag_soon": "in arrivo",
+  "cl_all_done": "tutto fatto",
+  "cl_tasks": "attività",
+  "cl_review": "Rivedi",
+  "cl_start": "Inizia",
+  "cl_open": "Apri"
 }

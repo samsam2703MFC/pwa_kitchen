@@ -64,5 +64,14 @@
   "complete_stay_logged": "Rester identifié après la tâche",
   "no_employee_tasks": "Aucune tâche n'est assignée à votre poste aujourd'hui.",
   "from_time": "à partir de",
-  "col_planned_short": "PRÉVUE"
+  "col_planned_short": "PRÉVUE",
+  "cl_overview": "Vue d'ensemble",
+  "cl_tag_done": "terminée",
+  "cl_tag_now": "maintenant",
+  "cl_tag_soon": "à venir",
+  "cl_all_done": "tout est fait",
+  "cl_tasks": "tâches",
+  "cl_review": "Revoir",
+  "cl_start": "Commencer",
+  "cl_open": "Ouvrir"
 }

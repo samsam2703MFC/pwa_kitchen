@@ -64,5 +64,14 @@
   "complete_stay_logged": "Stay signed in after the task",
   "no_employee_tasks": "No task is assigned to your station today.",
   "from_time": "from",
-  "col_planned_short": "PLANNED"
+  "col_planned_short": "PLANNED",
+  "cl_overview": "All lists",
+  "cl_tag_done": "done",
+  "cl_tag_now": "now",
+  "cl_tag_soon": "upcoming",
+  "cl_all_done": "all done",
+  "cl_tasks": "tasks",
+  "cl_review": "Review",
+  "cl_start": "Start",
+  "cl_open": "Open"
 }

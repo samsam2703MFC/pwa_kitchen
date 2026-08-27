@@ -21,7 +21,13 @@ class ChecklistController extends Controller
     public function index(): void
     {
         $date        = $_GET['date']         ?? date('Y-m-d');
-        $checklistId = isset($_GET['checklist_id']) ? (int)$_GET['checklist_id'] : null;
+        // Vide (« ?checklist_id= », le « toutes » choisi à la main) → null, pas
+        // 0 : dans Twig « 0 is empty » vaut faux, et la vue d'ensemble ne se
+        // déclencherait jamais. La distinction absent / vide est gérée plus bas
+        // par array_key_exists.
+        $rawChecklistId = $_GET['checklist_id'] ?? null;
+        $checklistId = ($rawChecklistId !== null && $rawChecklistId !== '')
+            ? (int)$rawChecklistId : null;
         $today       = date('Y-m-d');
 
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || $date > $today) {
@@ -88,13 +94,17 @@ class ChecklistController extends Controller
         // pour l'équipe ; vide, c'est « — toutes — » choisi à la main, et on ne
         // repasse pas par-dessus. La règle ne vaut qu'aujourd'hui : sur une
         // date passée on vient relire, pas exécuter.
+        // La liste « du moment », calculée dans tous les cas : l'accueil (CL2)
+        // s'en sert pour marquer la carte « maintenant », même quand aucune
+        // liste n'est ouverte.
+        $focusId = ($date === $today && $checklists)
+            ? $this->focus->pick($checklists, date('H:i'))
+            : null;
+
         $autoFocus = false;
-        if (!array_key_exists('checklist_id', $_GET) && $date === $today && $checklists) {
-            $picked = $this->focus->pick($checklists, date('H:i'));
-            if ($picked !== null) {
-                $checklistId = $picked;
-                $autoFocus   = true;
-            }
+        if (!array_key_exists('checklist_id', $_GET) && $focusId !== null) {
+            $checklistId = $focusId;
+            $autoFocus   = true;
         }
 
         if ($checklistId !== null && $activeWorker && !$this->containsChecklist($checklists, $checklistId)) {
@@ -130,6 +140,7 @@ class ChecklistController extends Controller
             ] : null,
             'selected_date'         => $date,
             'selected_checklist_id' => $checklistId,
+            'focus_id'              => $focusId,
             // La vue s'en sert pour deux choses : replier les filtres, et dire
             // que c'est elle qui a choisi. Une sélection qu'on n'a pas faite et
             // qu'on ne voit pas expliquée passe pour un bug.

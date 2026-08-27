@@ -64,5 +64,14 @@
   "complete_stay_logged": "Aangemeld blijven na de taak",
   "no_employee_tasks": "Vandaag is er geen taak aan jouw post toegewezen.",
   "from_time": "vanaf",
-  "col_planned_short": "GEPLAND"
+  "col_planned_short": "GEPLAND",
+  "cl_overview": "Alle lijsten",
+  "cl_tag_done": "klaar",
+  "cl_tag_now": "nu",
+  "cl_tag_soon": "straks",
+  "cl_all_done": "alles klaar",
+  "cl_tasks": "taken",
+  "cl_review": "Bekijken",
+  "cl_start": "Starten",
+  "cl_open": "Openen"
 }

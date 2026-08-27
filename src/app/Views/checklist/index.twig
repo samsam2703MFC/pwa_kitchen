@@ -126,6 +126,57 @@
     .cl-empty i { font-size: 2.3rem; opacity: .3; }
     .cl-empty p { margin: 14px 0 0; }
 
+    /* ══ La barre du haut ══ */
+    .cl-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .cl-back { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 16px;
+        border-radius: var(--r-pill, 999px); border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        background: #fff; color: var(--c-ink, #241f1c); font-size: .88rem; font-weight: 600; text-decoration: none; }
+    .cl-back:active { transform: scale(.985); }
+    .cl-top form { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .cl-top input[type=date] { min-height: 44px; padding: 0 14px; border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff; font-size: .88rem; font-weight: 600; color: var(--c-ink, #241f1c); }
+    .cl-top .btn { min-height: 44px; border-radius: var(--r-pill, 999px); padding: 0 18px; }
+
+    /* ══ CL2 — cartes d'accueil à anneau ══ */
+    .cl-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    @media (max-width: 900px) { .cl-cards { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .cl-cards { grid-template-columns: 1fr; } }
+    .cl-card { display: flex; flex-direction: column; gap: 13px; padding: 20px; background: #fff;
+        border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-xl, 22px);
+        text-decoration: none; color: inherit; box-shadow: 0 10px 24px -20px rgba(36,26,22,.5); }
+    .cl-card.is-now { border: 2px solid var(--c-primary, #8D1D2C); }
+    .cl-card-top { display: flex; align-items: center; justify-content: space-between; }
+    .cl-card-hh { font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; }
+    .cl-card-tag { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 10px; border-radius: 999px; }
+    .cl-card-tag.now { background: var(--c-primary, #8D1D2C); color: #fff; }
+    .cl-card-tag.done { background: rgba(45,122,62,.14); color: var(--c-vert, #2D7A3E); }
+    .cl-card-tag.soon { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
+    .cl-ring { width: 92px; height: 92px; margin: 2px auto; position: relative; display: grid; place-items: center; }
+    .cl-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .cl-ring-n { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .cl-card-name { font-size: 1.12rem; font-weight: 700; text-align: center; }
+    .cl-card-sub { font-size: .82rem; color: var(--c-muted, #7a7168); text-align: center; }
+    .cl-card-go { margin-top: 2px; min-height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: .92rem; }
+    .cl-card-go.now { background: var(--c-primary, #8D1D2C); color: #fff; }
+    .cl-card-go.soft { background: var(--c-bg-2, #F4EFE8); color: var(--c-ink, #241f1c); }
+
+    /* ══ CL3 — accordéon de travail ══ */
+    .cl-acc { background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-lg, 18px); overflow: hidden; }
+    .cl-acc-hd { display: flex; align-items: center; gap: 14px; padding: 15px 20px;
+        border-top: 1px solid var(--c-line, rgba(36,26,22,.09)); text-decoration: none; color: inherit; }
+    .cl-acc-hd:first-child { border-top: 0; }
+    a.cl-acc-hd:active { background: #fbfaf8; }
+    .cl-acc-hd.is-open { background: #fcfaf7; }
+    .cl-acc-hh { width: 52px; flex: none; font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; font-size: .9rem; }
+    .cl-acc-hd b { flex: 1; min-width: 0; font-size: 1.05rem; font-weight: 700; }
+    .cl-acc-hd.is-done b { color: var(--c-muted, #7a7168); font-weight: 500; }
+    .cl-acc-bar { width: 110px; flex: none; height: 6px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .cl-acc-bar > i { display: block; height: 100%; background: var(--c-vert, #2D7A3E); }
+    .cl-acc-cnt { width: 48px; flex: none; text-align: right; font-size: .84rem; color: var(--c-muted, #7a7168); font-variant-numeric: tabular-nums; }
+    .cl-acc-chev { color: var(--c-muted, #7a7168); flex: none; }
+    .cl-acc-body { border-top: 1px solid var(--c-line, rgba(36,26,22,.09)); background: #fff; }
+    @media (max-width: 620px) { .cl-acc-bar { display: none; } }
+
     /* Portrait ou petite tablette : l'interrupteur passe sous le libellé
        plutôt que de comprimer le nom de la tâche à deux mots par ligne. */
     @media (max-width: 767.98px) {
@@ -243,202 +294,186 @@
        checklist, son heure et son avancement. Les radios restent des radios :
        le formulaire fonctionne sans JavaScript, le script n'évite que le
        second tap. #}
-    <form method="GET" action="{{ ROOT }}/checklists" id="filterForm" class="cl-bar">
-        <label class="cl-chip {{ selected_checklist_id is empty ? 'is-active' : '' }}">
-            <input type="radio" name="checklist_id" value=""
-                   {{ selected_checklist_id is empty ? 'checked' : '' }}>
-            {{ translations.filter_checklist_all | default('— toutes —') }}
-        </label>
-
-        {% for cl in checklists %}
-            <label class="cl-chip {{ selected_checklist_id == cl.id ? 'is-active' : '' }}">
-                <input type="radio" name="checklist_id" value="{{ cl.id }}"
-                       {{ selected_checklist_id == cl.id ? 'checked' : '' }}>
-                <span>{{ cl.name }}</span>
-                {% if cl.execution_time %}
-                    <span class="cl-chip-h">{{ cl.execution_time|slice(0,5) }}</span>
-                {% endif %}
-                <span class="cl-chip-n">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
-            </label>
-        {% endfor %}
-
-        {# La date part à droite : on la change rarement, et elle n'a pas à
-           repousser les checklists hors de portée du pouce. #}
-        <span class="cl-date">
+    <div class="cl-top">
+        {% if progress is not null and progress.checklist is defined %}
+            <a class="cl-back" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id=">
+                <i class="bi bi-grid"></i>{{ translations.cl_overview | default("Vue d'ensemble") }}
+            </a>
+        {% endif %}
+        <form method="GET" action="{{ ROOT }}/checklists">
             <label for="dateInput" class="visually-hidden">{{ translations.filter_date | default('Date') }}</label>
-            <input type="date" name="date" id="dateInput"
-                   value="{{ selected_date }}" max="{{ today }}" required>
-            <button type="submit" class="btn btn-outline-secondary">
-                {{ translations.filter_apply | default('Afficher') }}
-            </button>
-        </span>
-    </form>
+            <input type="date" name="date" id="dateInput" value="{{ selected_date }}" max="{{ today }}" required onchange="this.form.submit()">
+            <button type="submit" class="btn btn-outline-secondary">{{ translations.filter_apply | default('Afficher') }}</button>
+        </form>
+    </div>
 
     {# ── Wyniki ── #}
+
     {% if progress is not null and progress.checklist is defined %}
 
-        {# ── Un panneau, des lignes ──
-           L'en-tête portait trois grands chiffres empilés dans une carte à
-           part, la liste en portait une autre : deux objets pour une seule
-           question. Ici l'avancement tient dans l'en-tête du panneau, et les
-           tâches suivent immédiatement. #}
-        <div class="cl-panel">
-            <div class="cl-head">
-                <b>{{ progress.checklist.name }}</b>
-                {% if progress.checklist.execution_time %}
-                    <span class="cl-when">
-                        {{ translations.from_time | default('à partir de') }}
-                        {{ progress.checklist.execution_time|slice(0,5) }}
-                    </span>
-                {% endif %}
-                <span class="cl-count">
-                    {{ progress.summary.done }} / {{ progress.summary.total }}
-                    {{ translations.tasks_done_of | default('effectuées') }}
-                </span>
-                {% if progress.summary.total > 0 %}
-                    <span class="cl-prog" role="progressbar"
-                          aria-valuenow="{{ progress.summary.done }}"
-                          aria-valuemin="0" aria-valuemax="{{ progress.summary.total }}">
-                        <span style="width:{{ (progress.summary.done / progress.summary.total * 100)|round }}%"></span>
-                    </span>
-                {% endif %}
-            </div>
-
-            {% if progress.tasks is empty %}
-                <div class="cl-empty">
-                    <i class="bi bi-clipboard-x"></i>
-                    <p>{{ translations.no_tasks | default("Aucune tâche trouvée pour cette liste de contrôle à la date sélectionnée.") }}</p>
-                </div>
-            {% else %}
-                {% for task in progress.tasks %}
-                    {% set status = task.status ?? 'PENDING' %}
-                    <div class="tk-row is-{{ status|lower }}">
-
-                        {# L'heure prévue commande la fermeture : elle est le
-                           repère, pas une étiquette parmi d'autres. Une tâche
-                           sans heure garde la colonne vide plutôt qu'une heure
-                           inventée. #}
-                        <div class="tk-eta">
-                            {% if task.execution_time %}
-                                <b>{{ task.execution_time|slice(0,5) }}</b>
-                                <small>{{ translations.col_planned_short | default('PRÉVUE') }}</small>
-                            {% else %}
-                                <b>—</b>
-                            {% endif %}
-                        </div>
-
-                        <div class="tk-body">
-                            <div class="tk-name">
-                                {{ task.name }}
-                                {% if task.is_mandatory %}
-                                    <i class="bi bi-star-fill task-mandatory-icon"
-                                       title="{{ translations.mandatory | default("Obligatoire") }}"></i>
-                                {% endif %}
-                                {% if task.requires_photo %}
-                                    <i class="bi bi-camera-fill tk-photo-icon"
-                                       title="{{ translations.photo_required | default("Photo requise") }}"></i>
-                                {% endif %}
-                            </div>
-                            <div class="tk-meta">
-                                {% if task.requires_photo and status not in ['DONE','SKIPPED','FAILED'] %}
-                                    <span class="tk-req">{{ translations.photo_required | default('Photo requise') }}</span>
-                                {% endif %}
-                                {% if task.completed_at %}
-                                    {# Une tâche refusée porte le même horodatage, mais
-                                       « Réalisée à » contredirait son état : ce n'est pas
-                                       l'heure d'une réalisation, c'est celle d'un constat. #}
-                                    <span>
-                                        {{ status == 'FAILED'
-                                           ? (translations.col_reported_at | default('Signalée à'))
-                                           : (translations.col_completed_at | default('Effectuée à')) }}
-                                        {{ task.completed_at|slice(11,5) }}
-                                    </span>
-                                {% endif %}
-                            </div>
-                            {% if task.note %}
-                                <p class="tk-note"><i class="bi bi-chat-left-text"></i>{{ task.note }}</p>
-                            {% endif %}
-                        </div>
-
-                        {% if status == 'DONE' %}
-                            <div class="tk-sig">
-                                {{ task.completed_by | default('—') }}
-                                <small>{{ translations.status_done | default('effectuée') }}</small>
-                            </div>
-                        {% elseif status == 'FAILED' %}
-                            <div class="tk-state is-failed">
-                                {{ translations.status_failed | default('Non effectuée') }}
-                                {% if task.completed_by %}<small style="display:block;font-weight:400;color:var(--c-muted)">{{ task.completed_by }}</small>{% endif %}
-                            </div>
-                        {% elseif status == 'SKIPPED' %}
-                            <div class="tk-state is-skipped">{{ translations.status_skipped | default('Ignorée') }}</div>
-                        {% else %}
-                            {# ── L'interrupteur ──
-                               « Effectuer » ouvre une fenêtre uniquement quand il
-                               reste quelque chose à saisir : une photo exigée, ou le
-                               nom et le code de la première tâche du service. Sans
-                               photo et le poste ouvert, la tâche se valide d'un seul
-                               geste. Le script lit ces deux attributs pour trancher.
-                               Le refus, lui, passe TOUJOURS par la fenêtre : il exige
-                               une raison écrite. #}
-                            <div class="tk-seg">
-                                <button type="button"
-                                        class="tk-do btn-complete-task"
-                                        data-task-id="{{ task.task_id }}"
-                                        data-task-name="{{ task.name }}"
-                                        data-date="{{ selected_date }}"
-                                        data-requires-photo="{{ task.requires_photo ? '1' : '0' }}">
-                                    <i class="bi bi-check2"></i>{{ translations.btn_complete | default('Effectuer') }}
-                                </button>
-                                <button type="button"
-                                        class="tk-fail btn-fail-task"
-                                        data-task-id="{{ task.task_id }}"
-                                        data-task-name="{{ task.name }}"
-                                        data-date="{{ selected_date }}"
-                                        aria-label="{{ translations.btn_not_done | default('Non effectuée') }}"
-                                        title="{{ translations.btn_not_done | default('Non effectuée') }}">
-                                    <i class="bi bi-x-circle"></i>
-                                </button>
-                            </div>
-                        {% endif %}
+        {# ── CL3 — l'accordéon de travail ── #}
+        <div class="cl-acc">
+            {% for cl in checklists %}
+                {% set is_open = cl.id == selected_checklist_id %}
+                {% set pct = cl.tasks_total > 0 ? (cl.tasks_done / cl.tasks_total * 100)|round : 0 %}
+                {% set cl_done = cl.tasks_total > 0 and cl.tasks_done >= cl.tasks_total %}
+                {% if is_open %}
+                    <div class="cl-acc-hd is-open {{ cl_done ? 'is-done' : '' }}">
+                        <span class="cl-acc-hh">{{ cl.execution_time ? cl.execution_time|slice(0,5) : '—' }}</span>
+                        <b>{{ cl.name }}</b>
+                        <span class="cl-acc-bar" aria-hidden="true"><i style="width:{{ pct }}%"></i></span>
+                        <span class="cl-acc-cnt">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+                        <i class="bi bi-chevron-up cl-acc-chev"></i>
                     </div>
-                {% endfor %}
-            {% endif %}
+                    <div class="cl-acc-body">
+                    {% if progress.tasks is empty %}
+                        <div class="cl-empty">
+                            <i class="bi bi-clipboard-x"></i>
+                            <p>{{ translations.no_tasks | default("Aucune tâche trouvée pour cette liste de contrôle à la date sélectionnée.") }}</p>
+                        </div>
+                    {% else %}
+                        {% for task in progress.tasks %}
+                            {% set status = task.status ?? 'PENDING' %}
+                            <div class="tk-row is-{{ status|lower }}">
+
+                                {# L'heure prévue commande la fermeture : elle est le
+                                   repère, pas une étiquette parmi d'autres. Une tâche
+                                   sans heure garde la colonne vide plutôt qu'une heure
+                                   inventée. #}
+                                <div class="tk-eta">
+                                    {% if task.execution_time %}
+                                        <b>{{ task.execution_time|slice(0,5) }}</b>
+                                        <small>{{ translations.col_planned_short | default('PRÉVUE') }}</small>
+                                    {% else %}
+                                        <b>—</b>
+                                    {% endif %}
+                                </div>
+
+                                <div class="tk-body">
+                                    <div class="tk-name">
+                                        {{ task.name }}
+                                        {% if task.is_mandatory %}
+                                            <i class="bi bi-star-fill task-mandatory-icon"
+                                               title="{{ translations.mandatory | default("Obligatoire") }}"></i>
+                                        {% endif %}
+                                        {% if task.requires_photo %}
+                                            <i class="bi bi-camera-fill tk-photo-icon"
+                                               title="{{ translations.photo_required | default("Photo requise") }}"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="tk-meta">
+                                        {% if task.requires_photo and status not in ['DONE','SKIPPED','FAILED'] %}
+                                            <span class="tk-req">{{ translations.photo_required | default('Photo requise') }}</span>
+                                        {% endif %}
+                                        {% if task.completed_at %}
+                                            {# Une tâche refusée porte le même horodatage, mais
+                                               « Réalisée à » contredirait son état : ce n'est pas
+                                               l'heure d'une réalisation, c'est celle d'un constat. #}
+                                            <span>
+                                                {{ status == 'FAILED'
+                                                   ? (translations.col_reported_at | default('Signalée à'))
+                                                   : (translations.col_completed_at | default('Effectuée à')) }}
+                                                {{ task.completed_at|slice(11,5) }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    {% if task.note %}
+                                        <p class="tk-note"><i class="bi bi-chat-left-text"></i>{{ task.note }}</p>
+                                    {% endif %}
+                                </div>
+
+                                {% if status == 'DONE' %}
+                                    <div class="tk-sig">
+                                        {{ task.completed_by | default('—') }}
+                                        <small>{{ translations.status_done | default('effectuée') }}</small>
+                                    </div>
+                                {% elseif status == 'FAILED' %}
+                                    <div class="tk-state is-failed">
+                                        {{ translations.status_failed | default('Non effectuée') }}
+                                        {% if task.completed_by %}<small style="display:block;font-weight:400;color:var(--c-muted)">{{ task.completed_by }}</small>{% endif %}
+                                    </div>
+                                {% elseif status == 'SKIPPED' %}
+                                    <div class="tk-state is-skipped">{{ translations.status_skipped | default('Ignorée') }}</div>
+                                {% else %}
+                                    {# ── L'interrupteur ──
+                                       « Effectuer » ouvre une fenêtre uniquement quand il
+                                       reste quelque chose à saisir : une photo exigée, ou le
+                                       nom et le code de la première tâche du service. Sans
+                                       photo et le poste ouvert, la tâche se valide d'un seul
+                                       geste. Le script lit ces deux attributs pour trancher.
+                                       Le refus, lui, passe TOUJOURS par la fenêtre : il exige
+                                       une raison écrite. #}
+                                    <div class="tk-seg">
+                                        <button type="button"
+                                                class="tk-do btn-complete-task"
+                                                data-task-id="{{ task.task_id }}"
+                                                data-task-name="{{ task.name }}"
+                                                data-date="{{ selected_date }}"
+                                                data-requires-photo="{{ task.requires_photo ? '1' : '0' }}">
+                                            <i class="bi bi-check2"></i>{{ translations.btn_complete | default('Effectuer') }}
+                                        </button>
+                                        <button type="button"
+                                                class="tk-fail btn-fail-task"
+                                                data-task-id="{{ task.task_id }}"
+                                                data-task-name="{{ task.name }}"
+                                                data-date="{{ selected_date }}"
+                                                aria-label="{{ translations.btn_not_done | default('Non effectuée') }}"
+                                                title="{{ translations.btn_not_done | default('Non effectuée') }}">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    </div>
+                {% else %}
+                    <a class="cl-acc-hd {{ cl_done ? 'is-done' : '' }}" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}">
+                        <span class="cl-acc-hh">{{ cl.execution_time ? cl.execution_time|slice(0,5) : '—' }}</span>
+                        <b>{{ cl.name }}</b>
+                        <span class="cl-acc-bar" aria-hidden="true"><i style="width:{{ pct }}%"></i></span>
+                        <span class="cl-acc-cnt">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+                        <i class="bi bi-chevron-down cl-acc-chev"></i>
+                    </a>
+                {% endif %}
+            {% endfor %}
         </div>
 
     {% elseif checklists is not empty and selected_checklist_id is empty %}
 
-        {# Widok listy checklist bez szczegółów #}
-        <div class="row g-3">
+        {# ── CL2 — les cartes d'accueil ── #}
+        <div class="cl-cards">
             {% for cl in checklists %}
                 {% set pct = cl.tasks_total > 0 ? (cl.tasks_done / cl.tasks_total * 100)|round : 0 %}
-                <div class="col-12 col-md-6 col-lg-4">
-                    <a href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}"
-                       class="card h-100 shadow-sm border-0 text-decoration-none text-dark">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="card-title fw-bold mb-0">{{ cl.name }}</h5>
-                                {% if cl.execution_time %}
-                                    <span class="text-muted small ms-2 text-nowrap">
-                                        <i class="bi bi-clock me-1"></i>{{ cl.execution_time|slice(0,5) }}
-                                    </span>
-                                {% endif %}
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center mb-2 small text-muted">
-                                <span>{{ cl.tasks_done }} / {{ cl.tasks_total }} {{ translations.tasks_done_of | default('wykonanych') }}</span>
-                                <span class="fw-semibold {% if pct == 100 %}text-success{% elseif pct > 0 %}text-warning{% else %}text-secondary{% endif %}">
-                                    {{ pct }}%
-                                </span>
-                            </div>
-
-                            <div class="progress progress-bar-thin">
-                                <div class="progress-bar {% if pct == 100 %}bg-success{% elseif pct > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
-                                     style="width:{{ pct }}%"></div>
-                            </div>
-                        </div>
-                    </a>
-                </div>
+                {% set cl_done = cl.tasks_total > 0 and cl.tasks_done >= cl.tasks_total %}
+                {% set is_now = cl.id == focus_id %}
+                {% set off = 264 - (264 * pct / 100) %}
+                <a class="cl-card {{ is_now ? 'is-now' : '' }}" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}">
+                    <div class="cl-card-top">
+                        <span class="cl-card-hh">{{ cl.execution_time ? cl.execution_time|slice(0,5) : '' }}</span>
+                        {% if cl_done %}<span class="cl-card-tag done">{{ translations.cl_tag_done | default('terminée') }}</span>
+                        {% elseif is_now %}<span class="cl-card-tag now">{{ translations.cl_tag_now | default('maintenant') }}</span>
+                        {% else %}<span class="cl-card-tag soon">{{ translations.cl_tag_soon | default('à venir') }}</span>{% endif %}
+                    </div>
+                    <div class="cl-ring">
+                        <svg viewBox="0 0 92 92" aria-hidden="true">
+                            <circle cx="46" cy="46" r="42" fill="none" stroke="#eee" stroke-width="8"/>
+                            {% if pct > 0 %}<circle cx="46" cy="46" r="42" fill="none" stroke="{{ cl_done ? '#2D7A3E' : '#8D1D2C' }}" stroke-width="8" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="{{ off }}"/>{% endif %}
+                        </svg>
+                        <span class="cl-ring-n" style="color:{{ cl_done ? '#2D7A3E' : (pct > 0 ? '#8D1D2C' : 'var(--c-muted)') }}">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+                    </div>
+                    <div class="cl-card-name">{{ cl.name }}</div>
+                    <div class="cl-card-sub">
+                        {% if cl_done %}{{ translations.cl_all_done | default('tout est fait') }}
+                        {% elseif cl.execution_time %}{{ translations.from_time | default('à partir de') }} {{ cl.execution_time|slice(0,5) }}
+                        {% else %}{{ cl.tasks_total }} {{ translations.cl_tasks | default('tâches') }}{% endif %}
+                    </div>
+                    <span class="cl-card-go {{ is_now and not cl_done ? 'now' : 'soft' }}">
+                        {% if cl_done %}{{ translations.cl_review | default('Revoir') }}
+                        {% elseif is_now %}{{ translations.cl_start | default('Commencer') }} →
+                        {% else %}{{ translations.cl_open | default('Ouvrir') }}{% endif %}
+                    </span>
+                </a>
             {% endfor %}
         </div>
 

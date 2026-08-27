@@ -64,5 +64,14 @@
   "complete_stay_logged": "Pozostań zalogowany po wykonaniu zadania",
   "no_employee_tasks": "Nie masz dziś zadań przypisanych do swojego stanowiska.",
   "from_time": "od",
-  "col_planned_short": "PLAN."
+  "col_planned_short": "PLAN.",
+  "cl_overview": "Wszystkie listy",
+  "cl_tag_done": "ukończona",
+  "cl_tag_now": "teraz",
+  "cl_tag_soon": "wkrótce",
+  "cl_all_done": "wszystko zrobione",
+  "cl_tasks": "zadań",
+  "cl_review": "Przejrzyj",
+  "cl_start": "Rozpocznij",
+  "cl_open": "Otwórz"
 }
