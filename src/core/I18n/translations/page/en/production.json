@@ -223,5 +223,16 @@
   "stock_title": "Live stock",
   "stock_updated": "Updated",
   "prep_oven_short": "oven",
-  "prep_at_once": "at a time"
+  "prep_at_once": "at a time",
+  "pilot_title": "Production control",
+  "pilot_period1": "Period 1",
+  "pilot_to_produce": "to produce this period",
+  "pilot_basis": "Forecast: weighted average of the last %s weeks, same weekday, same slot.",
+  "pilot_col_prevu": "forecast",
+  "pilot_col_vendu": "sold",
+  "pilot_col_ecart": "gap",
+  "pilot_unknown": "%s without forecast",
+  "pilot_no_section": "Other",
+  "pilot_no_period": "Production is not yet split by time slot by the API.",
+  "pilot_not_served": "Production control is not yet served by the API. The screen is ready: it will show as soon as the endpoint responds."
 }

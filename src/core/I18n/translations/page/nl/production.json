@@ -223,5 +223,16 @@
   "stock_title": "Live voorraad",
   "stock_updated": "Bijgewerkt",
   "prep_oven_short": "oven",
-  "prep_at_once": "tegelijk"
+  "prep_at_once": "tegelijk",
+  "pilot_title": "Productiesturing",
+  "pilot_period1": "Periode 1",
+  "pilot_to_produce": "te produceren deze periode",
+  "pilot_basis": "Prognose: gewogen gemiddelde van de laatste %s weken, zelfde weekdag, zelfde tijdvak.",
+  "pilot_col_prevu": "prognose",
+  "pilot_col_vendu": "verkocht",
+  "pilot_col_ecart": "verschil",
+  "pilot_unknown": "%s zonder prognose",
+  "pilot_no_section": "Overige",
+  "pilot_no_period": "De productie is nog niet per tijdvak opgesplitst door de API.",
+  "pilot_not_served": "Productiesturing wordt nog niet door de API geleverd. Het scherm is klaar: het verschijnt zodra het endpoint antwoordt."
 }

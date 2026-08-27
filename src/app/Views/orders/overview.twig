@@ -37,17 +37,33 @@
     /* Le commutateur de Bootstrap fait 19 px de haut : sous le doigt, on
        vise le libellé et on rate la case. On agrandit les deux, qui sont déjà
        liés par « for ». */
-    .ff-switch { display: flex; align-items: center; min-height: 44px; }
-    /* La case elle-même reste dessinée en 40x22, mais sa boîte fait 44 px de
-       haut : une bordure transparente porte la zone sensible, background-clip
-       garde la couleur dans le rail. Le libellé lié par « for » est déjà large,
-       ceci met la case au même niveau. */
-    .ff-switch .form-check-input {
-        width: 40px; height: 22px; margin-top: 0;
-        box-sizing: content-box; border-width: 11px 0; border-color: transparent;
-        background-clip: padding-box;
+    /* Une pastille-bascule, comme les autres filtres de l'app : creuse quand
+       elle est éteinte, pleine (encre) et cochée quand elle est active. Bien
+       plus nette que l'interrupteur Bootstrap, et une cible large. */
+    .ff-toggle {
+        display: inline-flex; align-items: center; gap: 9px;
+        min-height: 44px; padding: 0 18px; width: 100%;
+        border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
+        font-size: .88rem; font-weight: 600; color: var(--c-muted, #7a7168);
+        cursor: pointer; -webkit-tap-highlight-color: transparent;
+        transition: background .14s ease, border-color .14s ease, color .14s ease;
     }
-    .ff-switch .form-check-label { min-height: 44px; display: inline-flex; align-items: center; }
+    .ff-toggle:active { transform: scale(.99); }
+    .ff-toggle:focus { outline: none; }
+    .ff-toggle:focus-visible { outline: 3px solid rgba(31,79,107,.35); outline-offset: 2px; }
+    .ff-toggle span:last-child, .ff-toggle { white-space: normal; line-height: 1.15; text-align: left; }
+    .ff-toggle .ff-tick {
+        width: 18px; height: 18px; flex: none; border-radius: 50%;
+        border: 2px solid var(--c-line-2, rgba(36,26,22,.2));
+        display: grid; place-items: center; font-size: .7rem; color: transparent;
+    }
+    .ff-toggle[aria-pressed="true"] {
+        background: var(--c-encre, #1F4F6B); border-color: var(--c-encre, #1F4F6B); color: #fff;
+    }
+    .ff-toggle[aria-pressed="true"] .ff-tick {
+        background: #fff; border-color: #fff; color: var(--c-encre, #1F4F6B);
+    }
 
     .ff-seg-btn {
         flex: 1; min-height: 44px;
@@ -145,15 +161,11 @@
             <div class="col-12 col-sm-6 col-lg-2 d-flex align-items-center gap-2 pt-lg-3">
                 {# Ukryte pole — wartość zmieniana przez JS #}
                 <input type="hidden" id="pendingOnlyInput" name="pending_only" value="{{ pending_only ? '1' : '0' }}">
-                <div class="form-check form-switch mb-0 ff-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           id="filterPendingOnly"
-                           {{ pending_only ? 'checked' : '' }}>
-                    <label class="form-check-label small fw-semibold" for="filterPendingOnly">
-                        {{ translations.filter_pending_only | default("En attente uniquement") }}
-                    </label>
-                </div>
+                <button type="button" class="ff-toggle" id="filterPendingOnly"
+                        aria-pressed="{{ pending_only ? 'true' : 'false' }}">
+                    <span class="ff-tick" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                    {{ translations.filter_pending_only | default("En attente uniquement") }}
+                </button>
             </div>
 
             {# Przyciski #}
@@ -377,8 +389,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const checkbox        = document.getElementById('filterPendingOnly');
     const hiddenInput     = document.getElementById('pendingOnlyInput');
 
-    checkbox.addEventListener('change', function () {
-        hiddenInput.value = this.checked ? '1' : '0';
+    checkbox.addEventListener('click', function () {
+        const on = this.getAttribute('aria-pressed') !== 'true';
+        this.setAttribute('aria-pressed', on ? 'true' : 'false');
+        hiddenInput.value = on ? '1' : '0';
     });
 });
 </script>

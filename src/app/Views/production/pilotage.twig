@@ -1,0 +1,121 @@
+{% extends "layouts/base.twig" %}
+
+{% block title %}{{ translations.pilot_title | default('Pilotage de la production') }}{% endblock %}
+
+{% block head %}
+<style>
+    .pl-head { margin-bottom: 16px; }
+    .pl-when { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; color: var(--c-muted, #7a7168); }
+    .pl-when b { color: var(--c-ink, #241f1c); }
+    .pl-hint { margin-top: 4px; font-size: .78rem; color: var(--c-muted, #7a7168); }
+
+    /* Le bandeau « à produire » : la conclusion, en tête. */
+    .pl-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px;
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-left: 5px solid var(--c-primary, #8D1D2C);
+        border-radius: var(--r-lg, 18px); padding: 16px 20px; margin-bottom: 16px; }
+    .pl-sum-big { font-family: Vank, Gotham, sans-serif; font-size: 1.5rem; color: var(--c-primary, #8D1D2C); line-height: 1; }
+    .pl-sum-lbl { font-size: .85rem; color: var(--c-muted, #7a7168); }
+    .pl-sum-sec { font-size: .82rem; color: var(--c-encre, #1F4F6B); font-weight: 700; }
+    .pl-sum-unknown { font-size: .78rem; color: var(--c-ambre, #C17A2A); }
+
+    .pl-panel { background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-lg, 18px); overflow: hidden; }
+    .pl-sec-hd { padding: 11px 18px; background: #fcfaf7; border-top: 1px solid var(--c-line, rgba(36,26,22,.09));
+        font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--c-muted, #7a7168); }
+    .pl-sec-hd:first-child { border-top: 0; }
+    .pl-row { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-top: 1px solid var(--c-line, rgba(36,26,22,.09)); }
+    .pl-name { flex: 1; min-width: 0; font-size: 1.02rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-cell { flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+    .pl-cell b { display: block; font-size: 1.02rem; font-weight: 700; line-height: 1.1; }
+    .pl-cell small { display: block; font-size: .64rem; letter-spacing: .07em; text-transform: uppercase; color: var(--c-muted, #7a7168); margin-top: 1px; }
+    .pl-prevu b  { color: var(--c-encre, #1F4F6B); } .pl-prevu  { width: 66px; }
+    .pl-vendu b  { color: var(--c-ink, #241f1c); }   .pl-vendu  { width: 66px; }
+    .pl-ecart    { width: 78px; }
+    .pl-ecart.short b { color: var(--c-primary, #8D1D2C); }   /* il en manque */
+    .pl-ecart.ahead b { color: var(--c-vert, #2D7A3E); }      /* on est en avance */
+    .pl-ecart.zero b  { color: var(--c-muted, #7a7168); }
+    .pl-unknown { color: var(--c-ambre, #C17A2A); font-size: .82rem; font-style: italic; }
+
+    .pl-state { text-align: center; color: var(--c-muted, #7a7168); padding: 46px 20px; }
+    .pl-state svg, .pl-state i { font-size: 2.3rem; opacity: .3; }
+    .pl-state p { margin: 14px 0 0; }
+</style>
+{% endblock %}
+
+{% block page_heading %}
+    <div class="page-heading"><h3>{{ translations.pilot_title | default('Pilotage de la production') }}</h3></div>
+{% endblock %}
+
+{% block content %}
+    {% include "page_components/alerts.twig" %}
+
+    <div class="pl-head">
+        {% if period %}
+            <span class="pl-when">
+                <i class="bi bi-sunrise"></i>
+                <b>{{ period.label ?: (translations.pilot_period1 | default('Période 1')) }}</b>
+                {% if period.from %}· {{ period.from }}–{{ period.to }}{% endif %}
+                · {{ selected_date }}
+            </span>
+        {% endif %}
+        <div class="pl-hint">
+            {{ (translations.pilot_basis | default('Prévision : moyenne pondérée des %s dernières semaines, même jour, même tranche.'))|replace({'%s': weeks}) }}
+        </div>
+    </div>
+
+    {% if state == 'served' %}
+        {# La conclusion d'abord : combien il reste à produire. #}
+        <div class="pl-sum">
+            <span class="pl-sum-big">{{ to_produce.total|number_format(0, ',', ' ') }}</span>
+            <span class="pl-sum-lbl">{{ translations.pilot_to_produce | default('à produire sur la période') }}</span>
+            {% for sec, qty in to_produce.by_section %}
+                <span class="pl-sum-sec">{{ translations['sector_' ~ sec] ?? sec }} : {{ qty|number_format(0, ',', ' ') }}</span>
+            {% endfor %}
+            {% if to_produce.unknown > 0 %}
+                <span class="pl-sum-unknown">
+                    {{ (translations.pilot_unknown | default('%s sans prévision'))|replace({'%s': to_produce.unknown}) }}
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="pl-panel">
+            {% set current_section = '__none__' %}
+            {% for r in rows %}
+                {% if r.section != current_section %}
+                    {% set current_section = r.section %}
+                    <div class="pl-sec-hd">{{ translations['sector_' ~ r.section] ?? (r.section ?: (translations.pilot_no_section | default('Autres'))) }}</div>
+                {% endif %}
+                <div class="pl-row">
+                    <span class="pl-name">{{ r.name }}</span>
+                    <span class="pl-cell pl-prevu">
+                        {% if r.prevu is not null %}<b>{{ r.prevu|round }}</b>{% else %}<b class="pl-unknown">—</b>{% endif %}
+                        <small>{{ translations.pilot_col_prevu | default('prévu') }}</small>
+                    </span>
+                    <span class="pl-cell pl-vendu">
+                        <b>{{ r.vendu|round }}</b>
+                        <small>{{ translations.pilot_col_vendu | default('vendu') }}</small>
+                    </span>
+                    <span class="pl-cell pl-ecart {{ r.ecart is null ? '' : (r.ecart > 0 ? 'short' : (r.ecart < 0 ? 'ahead' : 'zero')) }}">
+                        {% if r.ecart is not null %}
+                            <b>{{ r.ecart > 0 ? '+' : '' }}{{ r.ecart|round }}</b>
+                        {% else %}
+                            <b class="pl-unknown">?</b>
+                        {% endif %}
+                        <small>{{ translations.pilot_col_ecart | default('écart') }}</small>
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
+
+    {% elseif state == 'no_period' %}
+        <div class="pl-panel"><div class="pl-state">
+            {{ icons.svg('clock', 38) }}
+            <p>{{ translations.pilot_no_period | default("La production n'est pas encore ventilée par tranche horaire par l'API.") }}</p>
+        </div></div>
+    {% else %}
+        {# 'missing' — la route est nommée dans le bandeau du haut (missing_api). #}
+        <div class="pl-panel"><div class="pl-state">
+            {{ icons.svg('package', 38) }}
+            <p>{{ translations.pilot_not_served | default("Le pilotage de production n'est pas encore servi par l'API. L'écran est prêt : il s'affichera dès que l'endpoint répondra.") }}</p>
+        </div></div>
+    {% endif %}
+{% endblock %}

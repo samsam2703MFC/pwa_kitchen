@@ -223,5 +223,16 @@
   "stock_title": "Giacenze live",
   "stock_updated": "Aggiornato",
   "prep_oven_short": "forno",
-  "prep_at_once": "alla volta"
+  "prep_at_once": "alla volta",
+  "pilot_title": "Pilotaggio della produzione",
+  "pilot_period1": "Periodo 1",
+  "pilot_to_produce": "da produrre nel periodo",
+  "pilot_basis": "Previsione: media ponderata delle ultime %s settimane, stesso giorno, stessa fascia.",
+  "pilot_col_prevu": "previsto",
+  "pilot_col_vendu": "venduto",
+  "pilot_col_ecart": "scarto",
+  "pilot_unknown": "%s senza previsione",
+  "pilot_no_section": "Altri",
+  "pilot_no_period": "La produzione non è ancora suddivisa per fascia oraria dall'API.",
+  "pilot_not_served": "Il pilotaggio della produzione non è ancora servito dall'API. La schermata è pronta: comparirà appena l'endpoint risponde."
 }

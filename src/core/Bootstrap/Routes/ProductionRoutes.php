@@ -6,6 +6,13 @@ return function (RouteCollector $r) {
 
     $controller = \App\Kitchen\app\Http\Controllers\Production\ProductionController::class;
 
+    // Pilotage de la production (module « Gestion de production », brique 1) :
+    // état de la période 1 — prévu / vendu / écart par produit.
+    $r->addRoute('GET', '/production/pilotage', [
+        'controller' => \App\Kitchen\app\Http\Controllers\Production\PilotageController::class,
+        'method'     => 'period1',
+    ]);
+
     // Écran unique, quatre vues : matin, midi, après-midi, stock.
     $r->addRoute('GET', '/production', [
         'controller' => $controller,

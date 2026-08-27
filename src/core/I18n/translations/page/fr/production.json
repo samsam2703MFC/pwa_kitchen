@@ -223,5 +223,16 @@
   "stock_title": "Stock live",
   "stock_updated": "Mis à jour",
   "prep_oven_short": "four",
-  "prep_at_once": "à la fois"
+  "prep_at_once": "à la fois",
+  "pilot_title": "Pilotage de la production",
+  "pilot_period1": "Période 1",
+  "pilot_to_produce": "à produire sur la période",
+  "pilot_basis": "Prévision : moyenne pondérée des %s dernières semaines, même jour, même tranche.",
+  "pilot_col_prevu": "prévu",
+  "pilot_col_vendu": "vendu",
+  "pilot_col_ecart": "écart",
+  "pilot_unknown": "%s sans prévision",
+  "pilot_no_section": "Autres",
+  "pilot_no_period": "La production n'est pas encore ventilée par tranche horaire par l'API.",
+  "pilot_not_served": "Le pilotage de production n'est pas encore servi par l'API. L'écran est prêt : il s'affichera dès que l'endpoint répondra."
 }

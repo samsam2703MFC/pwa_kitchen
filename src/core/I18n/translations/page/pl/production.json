@@ -223,5 +223,16 @@
   "stock_title": "Stan live",
   "stock_updated": "Zaktualizowano",
   "prep_oven_short": "piec",
-  "prep_at_once": "naraz"
+  "prep_at_once": "naraz",
+  "pilot_title": "Sterowanie produkcją",
+  "pilot_period1": "Okres 1",
+  "pilot_to_produce": "do wyprodukowania w okresie",
+  "pilot_basis": "Prognoza: średnia ważona z ostatnich %s tygodni, ten sam dzień, ten sam przedział.",
+  "pilot_col_prevu": "plan",
+  "pilot_col_vendu": "sprzedaż",
+  "pilot_col_ecart": "różnica",
+  "pilot_unknown": "%s bez prognozy",
+  "pilot_no_section": "Inne",
+  "pilot_no_period": "Produkcja nie jest jeszcze rozbita na przedziały godzinowe przez API.",
+  "pilot_not_served": "Sterowanie produkcją nie jest jeszcze udostępnione przez API. Ekran jest gotowy — pojawi się, gdy endpoint odpowie."
 }
