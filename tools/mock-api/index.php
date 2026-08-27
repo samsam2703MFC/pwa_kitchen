@@ -422,6 +422,11 @@ if ($method === 'GET' && $m('/devices/\d+/configuration')) {
     ok(mock_device_config());
 }
 
+// Le poste d'un employe — GET /employees/{id}/positions (contrat confirme).
+if ($method === 'GET' && $m('/employees/(\\d+)/positions', $vars)) {
+    ok(mock_employee_positions((int)$vars[1]));
+}
+
 // La fiche technique, juste assez pour ouvrir l'ecran du produit.
 if ($method === 'GET' && $m('/products/(\\d+)/technical-sheet/raw', $vars)) {
     ok(mock_technical_sheet((int)$vars[1]));

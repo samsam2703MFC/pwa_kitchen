@@ -51,10 +51,10 @@ function mock_shops(): array
 function mock_employees(): array
 {
     return [
-        ['id' => 41, 'name' => 'Nathan Colin',   'pin' => '1234', 'on_schedule' => true, 'position_name' => 'Boulanger'],
-        ['id' => 42, 'name' => 'Aïcha Benali',   'pin' => '2345', 'on_schedule' => true, 'position_name' => 'Vente'],
+        ['id' => 41, 'name' => 'Nathan Colin',   'pin' => '1234', 'on_schedule' => true],
+        ['id' => 42, 'name' => 'Aïcha Benali',   'pin' => '2345', 'on_schedule' => true],
         ['id' => 43, 'name' => 'Marek Kowalski', 'pin' => '3456', 'on_schedule' => true],
-        ['id' => 44, 'name' => 'Ali',            'pin' => '4567', 'on_schedule' => true, 'position_name' => 'Traiteur'],
+        ['id' => 44, 'name' => 'Ali',            'pin' => '4567', 'on_schedule' => true],
         ['id' => 45, 'name' => 'Sofia Ferreira', 'pin' => '5678', 'on_schedule' => false],
     ];
 }
@@ -73,12 +73,11 @@ function mock_employees(): array
 function mock_schedule(string $date): array
 {
     return [
-        ['id' => 901, 'employee_id' => 41,   'name' => 'Nathan Colin', 'position_name' => 'Boulanger',
+        ['id' => 901, 'employee_id' => 41,   'name' => 'Nathan Colin',
          'date' => $date, 'start' => '06:00', 'end' => '14:00'],
-        // Marek sans poste servi : l'ecran ne doit rien inventer sous son nom.
         ['id' => 902, 'employee_id' => '43', 'name' => 'Marek Kowalski',
          'date' => $date, 'start' => '06:00', 'end' => '14:00'],
-        ['id' => 903, 'employee' => ['id' => 44, 'name' => 'Ali'], 'position_name' => 'Traiteur',
+        ['id' => 903, 'employee' => ['id' => 44, 'name' => 'Ali'],
          'date' => $date, 'start' => '13:00', 'end' => '20:00'],
         // Ali revient le soir : deux lignes, une seule personne à l'écran.
         ['id' => 904, 'employee' => ['id' => 44, 'name' => 'Ali'],
@@ -628,4 +627,19 @@ function mock_technical_sheet(int $productId): array
             ],
         ],
     ];
+}
+
+/**
+ * Les postes d'un employe — forme EmployeePosition du swagger.
+ * Nathan (41) boulanger, Aicha (42) vente, Ali (44) traiteur. Marek (43) SANS
+ * poste : l'ecran ne doit rien afficher sous son nom.
+ */
+function mock_employee_positions(int $id): array
+{
+    $map = [
+        41 => [['id' => 1, 'name' => 'Boulanger', 'level_id' => 2, 'level_name' => 'Confirme', 'level_order' => 2]],
+        42 => [['id' => 2, 'name' => 'Vente',     'level_id' => 1, 'level_name' => 'Base',     'level_order' => 1]],
+        44 => [['id' => 3, 'name' => 'Traiteur',  'level_id' => 1, 'level_name' => 'Base',     'level_order' => 1]],
+    ];
+    return $map[$id] ?? [];
 }

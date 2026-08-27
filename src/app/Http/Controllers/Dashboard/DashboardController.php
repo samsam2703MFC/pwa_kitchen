@@ -9,7 +9,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         private ChecklistService $checklistService,
-        private ChecklistFocusService $focus
+        private ChecklistFocusService $focus,
+        private \App\Kitchen\app\Repositories\Staff\StaffPositionRepository $positions
     ) {}
     #[Route('GET', '/dashboard')]
     public function index()
@@ -40,7 +41,13 @@ class DashboardController extends Controller
                 null,
                 []
             );
-            $entryEmployees = $this->checklistService->roster($employees)['list'];
+            $entryEmployees = \App\Kitchen\app\Services\Staff\StaffService::withPositions(
+                $this->checklistService->roster($employees)['list'],
+                fn(int $id) => $this->safeFetch(
+                    fn() => $this->positions->positionName($id),
+                    $this->warnings, null, null
+                )
+            );
         }
         if ($shift) {
             $employeeTasks = $this->safeFetch(

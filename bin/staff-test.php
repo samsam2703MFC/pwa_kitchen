@@ -157,29 +157,34 @@ check('fiche désactivée écartée', $noms(StaffService::peopleOf([
 
 check('planning vide', StaffService::peopleOf([], $J), []);
 
-// ── Le poste (P1) ─────────────────────────────────────────────────────────────
-// Le poste vient du planning (endpoint), lu sous plusieurs noms de champ non
-// encore confirmes. Absent → chaine vide : l'ecran n'invente rien.
-$role = fn(array $rows) => array_map(fn($r) => $r['id'] . ':' . ($r['role'] ?? '·'), StaffService::peopleOf($rows, $J));
-check('poste depuis la ligne', $role([
-    ['employee_id' => 11, 'name' => 'Nathan', 'position_name' => 'Boulanger'],
-]), ['11:Boulanger']);
-check('autres noms de champ', $role([
-    ['employee_id' => 12, 'name' => 'A', 'workstation' => 'Vente'],
-    ['employee_id' => 13, 'name' => 'B', 'stanowisko'  => 'Four'],
-    ['employee_id' => 14, 'name' => 'C', 'role'        => 'Traiteur'],
-]), ['12:Vente', '13:Four', '14:Traiteur']);
-check('poste imbrique {name}', $role([
-    ['employee_id' => 15, 'name' => 'D', 'position' => ['id' => 3, 'name' => 'Patissier']],
-]), ['15:Patissier']);
-check('sans poste → vide', $role([
-    ['employee_id' => 16, 'name' => 'E'],
-]), ['16:']);
-// Deux services, une seule ligne porte le poste : on le garde.
-check('dedup preserve le poste', $role([
-    ['employee_id' => 17, 'name' => 'F', 'position_name' => 'Boulanger', 'start' => '06:00'],
-    ['employee_id' => 17, 'name' => 'F', 'start' => '14:00'],
-]), ['17:Boulanger']);
+// ── Le poste : source unique = l'endpoint /employees/{id}/positions ──────────
+use App\Kitchen\app\Repositories\Staff\StaffPositionRepository;
+
+// pick() choisit le poste a montrer parmi ceux d'une personne : plus bas
+// level_order d'abord (le metier de base).
+check('pick : plus bas niveau', StaffPositionRepository::pick([
+    ['name' => 'Chef', 'level_order' => 3],
+    ['name' => 'Boulanger', 'level_order' => 1],
+]), 'Boulanger');
+check('pick : sans ordre → premier', StaffPositionRepository::pick([
+    ['name' => 'Vente'], ['name' => 'Four'],
+]), 'Vente');
+check('pick : nom vide ignore', StaffPositionRepository::pick([
+    ['name' => '', 'level_order' => 1], ['name' => 'Traiteur', 'level_order' => 2],
+]), 'Traiteur');
+check('pick : rien d exploitable → null', StaffPositionRepository::pick([['id' => 1]]), null);
+check('pick : liste vide → null', StaffPositionRepository::pick([]), null);
+
+// withPositions() applique le poste a chaque personne via un lookup injecte —
+// aucun reseau. Un poste null laisse la carte sans sous-titre (chaine vide).
+$people = [
+    ['id' => 11, 'name' => 'Nathan'],
+    ['id' => 12, 'name' => 'Marek'],
+];
+$lookup = fn(int $id) => $id === 11 ? 'Boulanger' : null;
+$enrichis = StaffService::withPositions($people, $lookup);
+check('withPositions : poste applique', $enrichis[0]['role'], 'Boulanger');
+check('withPositions : sans poste → vide', $enrichis[1]['role'], '');
 
 // ── Ce que l'écran en fait ──────────────────────────────────────────────────
 // Revision du 13/08/2026 : plus de repli. Si une route ne repond pas, on ne

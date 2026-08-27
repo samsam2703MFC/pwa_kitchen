@@ -3,6 +3,7 @@
 namespace App\Kitchen\app\Http\Controllers\Checklist;
 
 use App\Kitchen\app\Http\Controllers\Controller;
+use App\Kitchen\app\Repositories\Staff\StaffPositionRepository;
 use App\Kitchen\app\Services\Checklist\ChecklistFocusService;
 use App\Kitchen\app\Services\Checklist\ChecklistService;
 use App\Kitchen\core\Support\ShiftSession;
@@ -11,7 +12,8 @@ class ChecklistController extends Controller
 {
     public function __construct(
         private ChecklistService $checklistService,
-        private ChecklistFocusService $focus
+        private ChecklistFocusService $focus,
+        private StaffPositionRepository $positions
     ) {}
 
     /**
@@ -350,9 +352,20 @@ class ChecklistController extends Controller
             return $this->json(['success' => false, 'message' => 'employees_unavailable'], 502);
         }
 
+        // Le poste de chaque personne, depuis GET /employees/{id}/positions
+        // (source unique, contrat confirme). Une lecture par personne ; un
+        // echec laisse simplement la carte sans poste — aucun repli.
+        $list = \App\Kitchen\app\Services\Staff\StaffService::withPositions(
+            $roster['list'],
+            fn(int $id) => $this->safeFetch(
+                fn() => $this->positions->positionName($id),
+                $this->warnings, null, null
+            )
+        );
+
         return $this->json([
             'success' => true,
-            'employees' => $roster['list'],
+            'employees' => $list,
         ]);
     }
 

@@ -154,20 +154,10 @@ class StaffService
                 continue;
             }
 
-            // Le poste du jour vient du planning (la ligne), à défaut de la
-            // fiche : c'est l'affectation qui compte, pas l'intitulé général.
-            $role = self::roleOf($row);
-            if ($role === '') {
-                $role = self::roleOf($fiche);
-            }
-
-            // Deux services dans la journée : une seule personne. Si une ligne
-            // porte le poste et l'autre non, on garde celui qui est renseigné —
-            // sans quoi la dernière ligne, muette, l'effacerait.
-            if (isset($out[$id]) && $role === '' && ($out[$id]['role'] ?? '') !== '') {
-                $role = $out[$id]['role'];
-            }
-            $out[$id] = self::card(['id' => $id, 'name' => $name, 'role' => $role], true);
+            // Le poste n'est PAS lu ici : sa source unique est l'endpoint
+            // GET /employees/{id}/positions, appliqué par withPositions().
+            // Deux services dans la journée : une seule personne.
+            $out[$id] = self::card(['id' => $id, 'name' => $name], true);
         }
 
         return array_values($out);
@@ -189,29 +179,6 @@ class StaffService
         ];
     }
 
-    /**
-     * Le poste affichable d'une ligne de planning ou d'une fiche, ou ''.
-     *
-     * Lecture large — le champ n'est pas confirmé au swagger (planning vide
-     * sans jeton) — mais bornée à des noms plausibles. Un objet {name} est
-     * accepté (le back sert parfois le poste imbriqué).
-     */
-    private static function roleOf(array $e): string
-    {
-        foreach (['position_name', 'position', 'workstation_name', 'workstation',
-                  'stanowisko', 'role_name', 'role', 'job_title'] as $k) {
-            if (!empty($e[$k])) {
-                if (is_string($e[$k])) {
-                    return trim($e[$k]);
-                }
-                if (is_array($e[$k]) && !empty($e[$k]['name']) && is_string($e[$k]['name'])) {
-                    return trim($e[$k]['name']);
-                }
-            }
-        }
-
-        return '';
-    }
 
     /** L'identifiant, en chaîne : l'API rend tantôt 12, tantôt « 12 ». */
     private static function idOf(array $row, array $fiche): ?string
@@ -319,6 +286,28 @@ class StaffService
      * @param array<int, array<string, mixed>> $employees
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Ajoute le poste à chaque personne, depuis GET /employees/{id}/positions.
+     *
+     * Pur : le lookup est injecté, donc vérifiable sans réseau. Le contrôleur
+     * passe un appel au dépôt ; les tests passent une closure figée. Un poste
+     * absent (null) laisse la carte sans sous-titre — aucun repli.
+     *
+     * @param array<int, array<string, mixed>> $people
+     * @param callable(int):?string $lookup  id → nom du poste, ou null
+     * @return array<int, array<string, mixed>>
+     */
+    public static function withPositions(array $people, callable $lookup): array
+    {
+        foreach ($people as $i => $person) {
+            $id = (int)($person['id'] ?? 0);
+            $role = $id > 0 ? $lookup($id) : null;
+            $people[$i]['role'] = is_string($role) ? $role : '';
+        }
+
+        return $people;
+    }
+
     public static function activeOnly(array $employees): array
     {
         return array_values(array_filter($employees, static function (array $e): bool {
