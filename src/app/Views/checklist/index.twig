@@ -167,8 +167,11 @@
     .cl-dot { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid #d8cfc4; }
     .cl-dot.on { background: var(--c-vert, #2D7A3E); border-color: var(--c-vert, #2D7A3E); }
     .cl-dot.next { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); }
-    /* Au-delà de six tâches, les points encombrent : une barre fine dit la même
-       chose sans compter. */
+    /* Les points s'affichent jusqu'à douze tâches et s'enroulent proprement si
+       besoin — assez pour toutes les checklists réelles, si bien qu'on ne voit
+       jamais un mélange points/barre d'une carte à l'autre. Au-delà (rare), une
+       barre fine prend le relais. */
+    .cl-dots { max-height: 40px; overflow: hidden; }
     .cl-mini { flex: 1; height: 8px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
     .cl-mini > i { display: block; height: 100%; }
     .cl-mini > i.on { background: var(--c-vert, #2D7A3E); }
@@ -471,9 +474,9 @@
                     </div>
                     <div class="cl-card-r2">
                         {% if cl.execution_time %}<span class="cl-card-hh">{{ cl.execution_time|slice(0,5) }}</span>{% endif %}
-                        {# L'avancement en points tant qu'ils tiennent (≤ 6 tâches) ;
+                        {# L'avancement en points tant qu'ils tiennent (≤ 12 tâches) ;
                            une barre fine au-delà, pour ne pas encombrer. #}
-                        {% if cl.tasks_total > 0 and cl.tasks_total <= 6 %}
+                        {% if cl.tasks_total > 0 and cl.tasks_total <= 12 %}
                             <span class="cl-dots" aria-hidden="true">
                                 {% for i in 1..cl.tasks_total %}
                                     {% if i <= cl.tasks_done %}<span class="cl-dot on"></span>
