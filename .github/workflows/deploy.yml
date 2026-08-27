@@ -208,7 +208,11 @@ jobs:
           # direct d'abord, sudo -n en repli, et on IMPRIME le résultat.
           echo "== services php présents =="
           systemctl list-units 'php*' --no-legend 2>/dev/null || true
-          for svc in php8.2-fpm php-fpm apache2; do
+          # Les pools FPM sont détectés (php8.3-fpm aujourd'hui, un autre
+          # demain) : un reload FPM re-fork les ouvriers et vide leur opcache,
+          # ce que le reload d'Apache seul ne fait pas.
+          FPMS=\$(systemctl list-units 'php*fpm*' --no-legend 2>/dev/null | awk '{print \$1}')
+          for svc in \$FPMS apache2; do
             if systemctl reload "\$svc" 2>&1; then echo "reload \$svc : OK"; \
             elif sudo -n systemctl reload "\$svc" 2>&1; then echo "sudo reload \$svc : OK"; \
             else echo "reload \$svc : refusé"; fi
@@ -406,10 +410,17 @@ jobs:
         run: |
           BASE="https://atelierby.tfbuddy.com/${{ vars.URL_PATH || 'kitchen' }}"
           SHORT='${{ github.sha }}'; SHORT=${SHORT:0:7}
-          body=$(curl -s -m 20 "$BASE/auth?deploycheck=${{ github.run_id }}")
-          stamp=$(printf '%s' "$body" | grep -o 'name="app-build" content="[^"]*"' | head -1)
-          echo "public : ${stamp:-app-build absent} (attendu $SHORT)"
-          printf '%s' "$body" | grep -q "content=\"$SHORT" || { echo "ÉCHEC — le public ne sert pas ce commit (OPcache ? vhost ?)"; exit 1; }
+          # Les caches (realpath, opcache re-forké) mettent quelques secondes
+          # à converger après le reload : on laisse jusqu'à 5 essais.
+          ok=""
+          for i in 1 2 3 4 5; do
+            body=$(curl -s -m 20 "$BASE/auth?deploycheck=${{ github.run_id }}-$i")
+            stamp=$(printf '%s' "$body" | grep -o 'name="app-build" content="[^"]*"' | head -1)
+            echo "essai $i — public : ${stamp:-app-build absent} (attendu $SHORT)"
+            if printf '%s' "$body" | grep -q "content=\"$SHORT"; then ok=1; break; fi
+            sleep 6
+          done
+          [ -n "$ok" ] || { echo "ÉCHEC — le public ne sert pas ce commit (OPcache ? vhost ?)"; exit 1; }
           code=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$BASE/production/pilotage")
           echo "route /production/pilotage → HTTP $code (302 attendu sans session)"
           [ "$code" = "302" ] || [ "$code" = "200" ] || { echo "ÉCHEC — la route du pilotage ne répond pas ($code)"; exit 1; }
