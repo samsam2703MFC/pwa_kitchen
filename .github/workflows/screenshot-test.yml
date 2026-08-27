@@ -1,0 +1,92 @@
+name: Screenshots du serveur test
+
+# Capture le module Pilotage TEL QUE SERVI par le serveur de test, sans rien
+# y modifier : un tunnel SSH (port local du runner → localhost:80 du serveur),
+# le Chrome du runner via playwright-core, et les images en artifact.
+#
+# Préalable : le bouchon doit être actif sur le serveur (fichier versionné
+# tools/mock-api/ENABLED + un déploiement) — le login de démonstration est
+# celui du bouchon. Le workflow réessaie quelques minutes le temps que le
+# déploiement précédent se termine.
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/screenshot-test.yml']
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+
+      - name: Open SSH tunnel to the test server
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ExitOnForwardFailure=yes -f -N -L 8080:localhost:80 \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -m 10 "http://localhost:8080/${{ vars.URL_PATH || 'kitchen' }}/auth" || true)
+            echo "tunnel check $i → HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 3
+          done
+          echo "tunnel KO"; exit 1
+
+      - name: Install playwright-core (Chrome du runner, pas de téléchargement)
+        run: npm init -y >/dev/null && npm i --no-audit --no-fund playwright-core >/dev/null
+
+      - name: Capture le pilotage
+        run: |
+          mkdir -p shots
+          cat > shots.js << 'JS'
+          const { chromium } = require('playwright-core');
+          const B = 'http://localhost:8080/${{ vars.URL_PATH || 'kitchen' }}';
+          (async () => {
+            const browser = await chromium.launch({ channel: 'chrome' });
+            const page = await (await browser.newContext({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2 })).newPage();
+            // Le bouchon peut mettre quelques minutes à être actif si le
+            // déploiement précédent tourne encore : on réessaie le login.
+            let logged = false;
+            for (let i = 0; i < 12 && !logged; i++) {
+              try {
+                await page.goto(B + '/auth', { waitUntil: 'networkidle', timeout: 20000 });
+                const opts = await page.locator('select[name="shop_id"] option').count();
+                if (opts > 1) {
+                  await page.selectOption('select[name="shop_id"]', '1');
+                  await page.fill('input[name="login"]', 'tablette');
+                  await page.fill('input[name="password"]', '1234');
+                  await page.click('button[type="submit"]');
+                  await page.waitForLoadState('networkidle');
+                  if (!page.url().includes('/auth')) logged = true;
+                }
+              } catch (e) { console.log('essai ' + i + ' : ' + e.message); }
+              if (!logged) await page.waitForTimeout(15000);
+            }
+            if (!logged) { console.error('login impossible — bouchon pas encore actif ?'); process.exit(1); }
+
+            await page.goto(B + '/production/pilotage', { waitUntil: 'networkidle' });
+            await page.screenshot({ path: 'shots/pilotage-matin.png' });
+            const day = page.locator('#pdmToggle [data-bucket="day"]');
+            if (await day.count()) { await day.click(); await page.waitForTimeout(400); }
+            await page.screenshot({ path: 'shots/pilotage-cuisson-jour.png' });
+            const p4 = page.locator('#flowBar [data-pane="p4"]');
+            if (await p4.count()) { await p4.click(); await page.waitForTimeout(400); }
+            await page.screenshot({ path: 'shots/pilotage-solder.png' });
+            console.log('captures OK — build servi :');
+            const stamp = await page.evaluate(() => (document.querySelector('meta[name="app-build"]') || {}).content || 'absent');
+            console.log('app-build = ' + stamp);
+            await browser.close();
+          })().catch(e => { console.error(e); process.exit(1); });
+          JS
+          node shots.js
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pilotage-serveur-test
+          path: shots/
+          retention-days: 7
