@@ -152,6 +152,33 @@ jobs:
       # Pour revenir à l'API réelle : passer USE_MOCK_API à false (ou la
       # supprimer) et relancer le workflow. Le .htaccess du dépôt reprend la
       # main et le processus est arrêté.
+      # Le PHP du serveur garde les .php compilés en mémoire (OPcache avec
+      # revalidation lente ou coupée) : les fichiers changent sur le disque,
+      # la page servie reste l'ancienne — les assets, eux, suivent. D'où des
+      # déploiements « verts » qui ne changent rien à l'écran. On dépose donc
+      # un reset one-shot, on l'appelle par les DEUX chemins (localhost et le
+      # domaine public), puis on l'efface.
+      - name: Reset PHP OPcache (localhost + domaine public)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          TOKEN="opcache-reset-${{ github.run_id }}.php"
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s << REMOTE
+          set -e
+          printf '<?php if (function_exists("opcache_reset")) { var_export(opcache_reset()); } else { echo "no-opcache"; }' \
+            > "$APP_DIR/public/$TOKEN"
+          for base in "http://localhost/${{ vars.URL_PATH || 'kitchen' }}" \
+                      "https://atelierby.tfbuddy.com/${{ vars.URL_PATH || 'kitchen' }}"; do
+            echo "reset via \$base/$TOKEN : \$(curl -sk -m 10 "\$base/$TOKEN" || echo injoignable)"
+          done
+          rm -f "$APP_DIR/public/$TOKEN"
+          # Si l'utilisateur de déploiement peut recharger FPM, autant le faire.
+          sudo -n systemctl reload php8.2-fpm 2>/dev/null || sudo -n systemctl reload apache2 2>/dev/null || true
+          REMOTE
+
       - name: Mock API — start or stop, then point .htaccess at it
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
@@ -291,11 +318,13 @@ jobs:
           body=$(curl -s "$BASE/")
           # La preuve que la page servie vient bien de CE déploiement : elle
           # porte le commit qu'on vient de pousser. Un 200 ne le disait pas.
-          if printf '%s' "$body" | grep -q 'name="app-build" content="${{ github.sha }}'; then
-            echo "  OK — page servie au commit courant"
+          # BUILD porte le sha COURT : comparer au long ne matchait jamais.
+          SHORT='${{ github.sha }}'; SHORT=${SHORT:0:7}
+          if printf '%s' "$body" | grep -q "name=\"app-build\" content=\"$SHORT"; then
+            echo "  OK — page servie au commit courant ($SHORT)"
           else
             stamp=$(printf '%s' "$body" | grep -o 'name="app-build" content="[^"]*"' | head -1)
-            echo "  ATTENTION — version servie : ${stamp:-absente} (attendu ${GITHUB_SHA:0:7})"
+            echo "  ATTENTION — version servie : ${stamp:-absente} (attendu $SHORT)"
           fi
           echo "  octets : $(printf '%s' "$body" | wc -c)"
           if printf '%s' "$body" | grep -qi 'atelier-theme.css'; then
@@ -333,3 +362,19 @@ jobs:
             *)   echo "ATTENTION : statut inattendu $code — vérifier la conf Apache + mod_rewrite";;
           esac
           REMOTE
+
+      # Le contrôle qui compte : ce que voit un CLIENT, depuis l'extérieur.
+      # Un déploiement dont la page publique ne porte pas le commit poussé
+      # est un échec, quel que soit ce que dit localhost.
+      - name: Verify PUBLIC URL serves this commit (bloquant)
+        run: |
+          BASE="https://atelierby.tfbuddy.com/${{ vars.URL_PATH || 'kitchen' }}"
+          SHORT='${{ github.sha }}'; SHORT=${SHORT:0:7}
+          body=$(curl -s -m 20 "$BASE/auth?deploycheck=${{ github.run_id }}")
+          stamp=$(printf '%s' "$body" | grep -o 'name="app-build" content="[^"]*"' | head -1)
+          echo "public : ${stamp:-app-build absent} (attendu $SHORT)"
+          printf '%s' "$body" | grep -q "content=\"$SHORT" || { echo "ÉCHEC — le public ne sert pas ce commit (OPcache ? vhost ?)"; exit 1; }
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$BASE/production/pilotage")
+          echo "route /production/pilotage → HTTP $code (302 attendu sans session)"
+          [ "$code" = "302" ] || [ "$code" = "200" ] || { echo "ÉCHEC — la route du pilotage ne répond pas ($code)"; exit 1; }
+          echo "OK — le public sert $SHORT et la route pilotage existe"
