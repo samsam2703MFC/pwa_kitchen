@@ -51,4 +51,11 @@ jobs:
           echo "== le domaine public, appelé du serveur =="
           curl -sk -m 10 -o /tmp/pub.html -w "HTTP %{http_code} · %{size_download} o\n" "https://atelierby.tfbuddy.com/kitchen/auth"
           grep -o 'name="app-build" content="[^"]*"' /tmp/pub.html | head -1 || echo "(pas de stamp)"
+          echo
+          echo "== conf COMPLÈTE du vhost atelierby (Alias/Proxy compris) =="
+          for f in /etc/apache2/sites-enabled/atelierby.tfbuddy.com.conf /etc/apache2/sites-enabled/atelierby.tfbuddy.com-le-ssl.conf; do
+            echo "── \$f ──"; sed -n '1,80p' "\$f" 2>/dev/null || echo "(illisible)"
+          done
+          echo "== handler PHP du serveur =="
+          apache2ctl -M 2>/dev/null | grep -iE "php|proxy|fcgi" || true
           REMOTE
