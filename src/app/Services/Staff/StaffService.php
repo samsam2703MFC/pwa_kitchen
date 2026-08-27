@@ -154,22 +154,63 @@ class StaffService
                 continue;
             }
 
-            // Deux services dans la journée : une seule personne.
-            $out[$id] = self::card(['id' => $id, 'name' => $name], true);
+            // Le poste du jour vient du planning (la ligne), à défaut de la
+            // fiche : c'est l'affectation qui compte, pas l'intitulé général.
+            $role = self::roleOf($row);
+            if ($role === '') {
+                $role = self::roleOf($fiche);
+            }
+
+            // Deux services dans la journée : une seule personne. Si une ligne
+            // porte le poste et l'autre non, on garde celui qui est renseigné —
+            // sans quoi la dernière ligne, muette, l'effacerait.
+            if (isset($out[$id]) && $role === '' && ($out[$id]['role'] ?? '') !== '') {
+                $role = $out[$id]['role'];
+            }
+            $out[$id] = self::card(['id' => $id, 'name' => $name, 'role' => $role], true);
         }
 
         return array_values($out);
     }
 
-    /** @return array{id: mixed, name: string, initials: string, on_schedule: ?bool} */
+    /** @return array{id: mixed, name: string, initials: string, role: string, on_schedule: ?bool} */
     private static function card(array $e, ?bool $onSchedule): array
     {
         return [
             'id'          => $e['id'] ?? null,
             'name'        => (string)($e['name'] ?? ''),
             'initials'    => self::initials((string)($e['name'] ?? '')),
+            // Le poste, s'il est servi. Vide sinon : l'écran n'invente pas de
+            // sous-titre. Confirmé disponible par endpoint (GET /positions,
+            // /employees/{id}/positions, /position-levels) ; côté planning le
+            // champ exact est à confirmer au jeton, d'où la lecture large.
+            'role'        => (string)($e['role'] ?? ''),
             'on_schedule' => $onSchedule,
         ];
+    }
+
+    /**
+     * Le poste affichable d'une ligne de planning ou d'une fiche, ou ''.
+     *
+     * Lecture large — le champ n'est pas confirmé au swagger (planning vide
+     * sans jeton) — mais bornée à des noms plausibles. Un objet {name} est
+     * accepté (le back sert parfois le poste imbriqué).
+     */
+    private static function roleOf(array $e): string
+    {
+        foreach (['position_name', 'position', 'workstation_name', 'workstation',
+                  'stanowisko', 'role_name', 'role', 'job_title'] as $k) {
+            if (!empty($e[$k])) {
+                if (is_string($e[$k])) {
+                    return trim($e[$k]);
+                }
+                if (is_array($e[$k]) && !empty($e[$k]['name']) && is_string($e[$k]['name'])) {
+                    return trim($e[$k]['name']);
+                }
+            }
+        }
+
+        return '';
     }
 
     /** L'identifiant, en chaîne : l'API rend tantôt 12, tantôt « 12 ». */

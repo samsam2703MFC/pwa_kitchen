@@ -157,6 +157,30 @@ check('fiche désactivée écartée', $noms(StaffService::peopleOf([
 
 check('planning vide', StaffService::peopleOf([], $J), []);
 
+// ── Le poste (P1) ─────────────────────────────────────────────────────────────
+// Le poste vient du planning (endpoint), lu sous plusieurs noms de champ non
+// encore confirmes. Absent → chaine vide : l'ecran n'invente rien.
+$role = fn(array $rows) => array_map(fn($r) => $r['id'] . ':' . ($r['role'] ?? '·'), StaffService::peopleOf($rows, $J));
+check('poste depuis la ligne', $role([
+    ['employee_id' => 11, 'name' => 'Nathan', 'position_name' => 'Boulanger'],
+]), ['11:Boulanger']);
+check('autres noms de champ', $role([
+    ['employee_id' => 12, 'name' => 'A', 'workstation' => 'Vente'],
+    ['employee_id' => 13, 'name' => 'B', 'stanowisko'  => 'Four'],
+    ['employee_id' => 14, 'name' => 'C', 'role'        => 'Traiteur'],
+]), ['12:Vente', '13:Four', '14:Traiteur']);
+check('poste imbrique {name}', $role([
+    ['employee_id' => 15, 'name' => 'D', 'position' => ['id' => 3, 'name' => 'Patissier']],
+]), ['15:Patissier']);
+check('sans poste → vide', $role([
+    ['employee_id' => 16, 'name' => 'E'],
+]), ['16:']);
+// Deux services, une seule ligne porte le poste : on le garde.
+check('dedup preserve le poste', $role([
+    ['employee_id' => 17, 'name' => 'F', 'position_name' => 'Boulanger', 'start' => '06:00'],
+    ['employee_id' => 17, 'name' => 'F', 'start' => '14:00'],
+]), ['17:Boulanger']);
+
 // ── Ce que l'écran en fait ──────────────────────────────────────────────────
 // Revision du 13/08/2026 : plus de repli. Si une route ne repond pas, on ne
 // propose PERSONNE et l'ecran nomme la route. On rendait auparavant toute

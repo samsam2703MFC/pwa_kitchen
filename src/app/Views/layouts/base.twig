@@ -414,9 +414,14 @@
                 button.dataset.tabletWorkerId = employee.id;
                 var name = employee.name || ('Pracownik #' + employee.id);
                 var initials = employee.initials || name.split(/\s+/).map(function (part) { return part.charAt(0); }).join('').slice(0, 2);
-                button.innerHTML = '<span class="tablet-worker-initials"></span><span class="tablet-worker-name"></span>';
+                button.innerHTML = '<span class="tablet-worker-initials"></span>'
+                    + '<span class="tablet-worker-txt"><span class="tablet-worker-name"></span>'
+                    + '<span class="tablet-worker-role"></span></span>';
                 button.querySelector('.tablet-worker-initials').textContent = initials || '—';
                 button.querySelector('.tablet-worker-name').textContent = name;
+                // Le poste, s'il est servi. Vide → la ligne reste absente,
+                // rien n'est inventé.
+                if (employee.role) { button.querySelector('.tablet-worker-role').textContent = employee.role; }
                 button.addEventListener('click', function () { selectWorker(button); });
                 list.appendChild(button);
             });
