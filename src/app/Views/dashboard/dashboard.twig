@@ -32,8 +32,16 @@
     /* Le retard en rubis — la couleur des choses qui ne se rattrapent pas. */
     .dash-cl-next.is-late .hh   { color: var(--c-primary, #8D1D2C); }
     .dash-cl-next.is-late .late { color: var(--c-primary, #8D1D2C); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; flex: none; }
+    /* L'avancement en points, comme les cartes de checklist : plein vert pour
+       ce qui est fait, rubis pour la tache en cours, creux pour le reste. Barre
+       fine seulement au-dela de douze taches (rare). */
+    .dash-cl-dots { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 34px; overflow: hidden; }
+    .dash-cl-dot { width: 11px; height: 11px; flex: none; border-radius: 50%; border: 2px solid #d8cfc4; }
+    .dash-cl-dot.on { background: var(--c-vert, #2D7A3E); border-color: var(--c-vert, #2D7A3E); }
+    .dash-cl-dot.next { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); }
     .dash-cl-bar { margin-top: 8px; height: 6px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
     .dash-cl-bar i { display: block; height: 100%; background: var(--c-vert, #2D7A3E); }
+    .dash-cl-bar i.late { background: var(--c-primary, #8D1D2C); }
     .dash-cl-leg { margin-top: 4px; font-size: .74rem; color: var(--c-muted, #7a7168); }
 
     .dash-action {
@@ -195,10 +203,21 @@
                             <span class="late">{{ translations.dash_cl_late | default('en retard') }}</span>
                         {% endif %}
                     </div>
-                    {% if (cl_done + cl_left) > 0 %}
-                        <div class="dash-cl-bar" aria-hidden="true">
-                            <i style="width:{{ (cl_done / (cl_done + cl_left) * 100)|round }}%"></i>
-                        </div>
+                    {% set cl_total = cl_done + cl_left %}
+                    {% if cl_total > 0 %}
+                        {% if cl_total <= 12 %}
+                            <div class="dash-cl-dots" aria-hidden="true">
+                                {% for i in 1..cl_total %}
+                                    {% if i <= cl_done %}<span class="dash-cl-dot on"></span>
+                                    {% elseif cl_next.late and i == cl_done + 1 %}<span class="dash-cl-dot next"></span>
+                                    {% else %}<span class="dash-cl-dot"></span>{% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="dash-cl-bar" aria-hidden="true">
+                                <i class="{{ cl_next.late ? 'late' : '' }}" style="width:{{ (cl_done / cl_total * 100)|round }}%"></i>
+                            </div>
+                        {% endif %}
                         <div class="dash-cl-leg">
                             {{ cl_done }} {{ translations.dash_cl_done | default('faites') }} ·
                             {{ cl_left }} {{ translations.dash_cl_left | default("restantes aujourd'hui") }}
