@@ -48,6 +48,13 @@ jobs:
             [ -f "$f" ] && echo "$f : $(cat "$f")"
           done 2>/dev/null
           echo
+          echo "== reproduction : /kitchen/dashboard en local =="
+          for u in dashboard production/pilotage auth; do
+            echo "-- GET /kitchen/$u --"
+            curl -sk -m 15 -o /tmp/body -w "HTTP %{http_code} · %{size_download} o\n" "http://localhost/kitchen/$u"
+            head -c 400 /tmp/body; echo; echo "---"
+          done
+          echo
           echo "== erreurs PHP recentes (apache error log) =="
           for f in /var/log/apache2/error.log /var/log/apache2/*error*.log; do
             [ -f "$f" ] || continue
