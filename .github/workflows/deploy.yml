@@ -167,15 +167,15 @@ jobs:
             -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "set -e; TFB=/var/www/html/tfb/kitchen; \
-             if [ -d \"\$TFB\" ] && [ ! -L \"\$TFB\" ]; then \
+             if [ -d \"\$TFB\" ] && [ ! -L \"\$TFB\" ] && [ ! -L \"\$TFB/public\" ]; then \
                mv \"\$TFB\" \"\$TFB.bak-\$(date +%Y%m%d%H%M%S)\" || sudo -n mv \"\$TFB\" \"\$TFB.bak-\$(date +%Y%m%d%H%M%S)\"; \
                echo 'ancienne copie sauvegardée en .bak'; \
              fi; \
-             if [ ! -e \"\$TFB\" ]; then \
-               ln -s '$APP_DIR/public' \"\$TFB\" || sudo -n ln -s '$APP_DIR/public' \"\$TFB\"; \
-               echo \"symlink cree : \$TFB -> $APP_DIR/public\"; \
-             fi; \
-             ls -ld \"\$TFB\""
+             if [ -L \"\$TFB\" ]; then rm \"\$TFB\"; fi; \
+             mkdir -p \"\$TFB\"; \
+             ln -sfn '$APP_DIR/public' \"\$TFB/public\"; \
+             echo 'pont en place :'; \
+             ls -ld \"\$TFB\" \"\$TFB/public\""
 
       # Le PHP du serveur garde les .php compilés en mémoire (OPcache avec
       # revalidation lente ou coupée) : les fichiers changent sur le disque,
