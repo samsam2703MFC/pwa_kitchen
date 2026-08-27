@@ -240,7 +240,9 @@
    une tablette dont on ne peut plus changer le mode serait à réinstaller. #}
 {% set tabs = {
     'dashboard':  { href: ROOT ~ '/dashboard',  icon: 'home',            label: translations.nav_dashboard  ?? 'Pulpit' },
-    'production': { href: ROOT ~ '/production', icon: 'list-checks',     label: translations.nav_production ?? 'Production' },
+    {# L'onglet mène au module de pilotage (prévision → cuisson → rayon →
+       solder) ; l'ancien écran planning reste accessible sur /production. #}
+    'production': { href: ROOT ~ '/production/pilotage', icon: 'list-checks',     label: translations.nav_production ?? 'Production' },
     'checklists': { href: ROOT ~ '/checklists', icon: 'clipboard-check', label: translations.nav_checklists ?? 'Checklists' },
     'orders':     { href: ROOT ~ '/orders',     icon: 'receipt',         label: translations.nav_orders     ?? 'Commandes' },
     'knowledge':  { href: ROOT ~ '/knowledge',  icon: 'notebook',        label: translations.knowledge      ?? 'Connaissances' },
