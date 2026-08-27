@@ -48,6 +48,13 @@ jobs:
             [ -f "$f" ] && echo "$f : $(cat "$f")"
           done 2>/dev/null
           echo
+          echo "== erreurs PHP recentes (apache error log) =="
+          for f in /var/log/apache2/error.log /var/log/apache2/*error*.log; do
+            [ -f "$f" ] || continue
+            echo "-- $f --"
+            (tail -n 200 "$f" 2>/dev/null || sudo -n tail -n 200 "$f") | grep -iE "fatal|uncaught|kitchen|pwa_kitchen" | tail -25
+          done
+          echo
           echo "== le domaine public, appelé du serveur =="
           curl -sk -m 10 -o /tmp/pub.html -w "HTTP %{http_code} · %{size_download} o\n" "https://atelierby.tfbuddy.com/kitchen/auth"
           grep -o 'name="app-build" content="[^"]*"' /tmp/pub.html | head -1 || echo "(pas de stamp)"
