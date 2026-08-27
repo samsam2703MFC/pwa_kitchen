@@ -137,40 +137,43 @@
         border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff; font-size: .88rem; font-weight: 600; color: var(--c-ink, #241f1c); }
     .cl-top .btn { min-height: 44px; border-radius: var(--r-pill, 999px); padding: 0 18px; }
 
-    /* ══ CL2 — l'accueil, compact et pensé mobile ══
-       Des lignes serrées plutôt que de grandes cartes : sur un téléphone,
-       trois listes tiennent sans défiler, et le pouce atteint tout. Deux
-       colonnes seulement au-delà de 720 px, jamais trois — une carte de
-       checklist n'a pas assez à dire pour mériter un tiers d'écran. */
-    .cl-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    /* ══ CL2 — l'accueil : cartes à points de tâches (D2) ══
+       Compact et lisible d'un coup d'œil : le nom en tête, l'état en pastille,
+       et l'avancement en POINTS — plein pour ce qui est fait, rubis pour la
+       tâche en cours, creux pour le reste. Une seule colonne sur téléphone,
+       deux au-delà de 720 px. */
+    .cl-cards { display: grid; grid-template-columns: 1fr; gap: 11px; }
     @media (min-width: 720px) { .cl-cards { grid-template-columns: 1fr 1fr; } }
     .cl-card {
-        display: flex; align-items: center; gap: 14px; padding: 12px 14px;
-        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
-        border-radius: var(--r-md, 13px); text-decoration: none; color: inherit;
-        box-shadow: 0 4px 12px -10px rgba(36,26,22,.4);
+        display: block; padding: 15px 17px; background: #fff;
+        border: 1.5px solid transparent; border-radius: 16px;
+        text-decoration: none; color: inherit;
+        box-shadow: 0 6px 16px -12px rgba(36,26,22,.5);
         -webkit-tap-highlight-color: transparent;
     }
+    .cl-card, .cl-card:visited { color: inherit; }
     .cl-card:active { transform: scale(.99); }
-    .cl-card.is-now { border-color: var(--c-primary, #8D1D2C); border-width: 1.5px; }
-    /* L'anneau, petit : 46 px, le chiffre au centre. Il dit l'avancement sans
-       prendre la place d'une vignette. */
-    .cl-ring { width: 46px; height: 46px; flex: none; position: relative; display: grid; place-items: center; }
-    .cl-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
-    .cl-ring-n { font-size: .82rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-    .cl-card-mid { flex: 1; min-width: 0; }
-    .cl-card-name { font-size: 1.02rem; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cl-card-sub { margin-top: 2px; font-size: .8rem; color: var(--c-muted, #7a7168); display: flex; align-items: center; gap: 8px; }
-    .cl-card-hh { font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; }
-    .cl-card-tag { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; }
+    .cl-card.is-now { border-color: rgba(141,29,44,.35); }
+    .cl-card-r1 { display: flex; align-items: center; gap: 10px; }
+    .cl-card-name { flex: 1; min-width: 0; font-size: 1.08rem; font-weight: 700; line-height: 1.25; color: var(--c-ink, #241f1c);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cl-card-tag { flex: none; font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 3px 9px; border-radius: 999px; }
     .cl-card-tag.now { background: var(--c-primary, #8D1D2C); color: #fff; }
     .cl-card-tag.done { background: rgba(45,122,62,.14); color: var(--c-vert, #2D7A3E); }
     .cl-card-tag.soon { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
-    /* L'action à droite : un rond plein sous le pouce pour « maintenant », un
-       simple chevron pour le reste. 44 px, toujours. */
-    .cl-card-go { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem; }
-    .cl-card-go.now { background: var(--c-primary, #8D1D2C); color: #fff; }
-    .cl-card-go.soft { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
+    .cl-card-r2 { display: flex; align-items: center; gap: 12px; margin-top: 11px; }
+    .cl-card-hh { flex: none; font-size: .82rem; font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; }
+    .cl-dots { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+    .cl-dot { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid #d8cfc4; }
+    .cl-dot.on { background: var(--c-vert, #2D7A3E); border-color: var(--c-vert, #2D7A3E); }
+    .cl-dot.next { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); }
+    /* Au-delà de six tâches, les points encombrent : une barre fine dit la même
+       chose sans compter. */
+    .cl-mini { flex: 1; height: 8px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .cl-mini > i { display: block; height: 100%; }
+    .cl-mini > i.on { background: var(--c-vert, #2D7A3E); }
+    .cl-mini > i.now { background: var(--c-primary, #8D1D2C); }
+    .cl-card-cnt { flex: none; font-size: .82rem; font-weight: 700; color: var(--c-muted, #7a7168); font-variant-numeric: tabular-nums; }
 
     /* ══ CL3 — accordéon de travail ══ */
     .cl-acc { background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-lg, 18px); overflow: hidden; }
@@ -456,30 +459,33 @@
         {# ── CL2 — les cartes d'accueil ── #}
         <div class="cl-cards">
             {% for cl in checklists %}
-                {% set pct = cl.tasks_total > 0 ? (cl.tasks_done / cl.tasks_total * 100)|round : 0 %}
                 {% set cl_done = cl.tasks_total > 0 and cl.tasks_done >= cl.tasks_total %}
                 {% set is_now = cl.id == focus_id %}
-                {% set off = 264 - (264 * pct / 100) %}
+                {% set pct = cl.tasks_total > 0 ? (cl.tasks_done / cl.tasks_total * 100)|round : 0 %}
                 <a class="cl-card {{ is_now ? 'is-now' : '' }}" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}">
-                    <span class="cl-ring">
-                        <svg viewBox="0 0 92 92" aria-hidden="true">
-                            <circle cx="46" cy="46" r="42" fill="none" stroke="#eee" stroke-width="9"/>
-                            {% if pct > 0 %}<circle cx="46" cy="46" r="42" fill="none" stroke="{{ cl_done ? '#2D7A3E' : '#8D1D2C' }}" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="{{ off }}"/>{% endif %}
-                        </svg>
-                        <span class="cl-ring-n" style="color:{{ cl_done ? '#2D7A3E' : (pct > 0 ? '#8D1D2C' : 'var(--c-muted)') }}">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
-                    </span>
-                    <span class="cl-card-mid">
+                    <div class="cl-card-r1">
                         <span class="cl-card-name">{{ cl.name }}</span>
-                        <span class="cl-card-sub">
-                            {% if cl.execution_time %}<span class="cl-card-hh">{{ cl.execution_time|slice(0,5) }}</span>{% endif %}
-                            {% if cl_done %}<span class="cl-card-tag done">{{ translations.cl_tag_done | default('terminée') }}</span>
-                            {% elseif is_now %}<span class="cl-card-tag now">{{ translations.cl_tag_now | default('maintenant') }}</span>
-                            {% else %}<span class="cl-card-tag soon">{{ translations.cl_tag_soon | default('à venir') }}</span>{% endif %}
-                        </span>
-                    </span>
-                    <span class="cl-card-go {{ is_now and not cl_done ? 'now' : 'soft' }}">
-                        <i class="bi bi-chevron-right"></i>
-                    </span>
+                        {% if cl_done %}<span class="cl-card-tag done">{{ translations.cl_tag_done | default('terminée') }}</span>
+                        {% elseif is_now %}<span class="cl-card-tag now">{{ translations.cl_tag_now | default('maintenant') }}</span>
+                        {% else %}<span class="cl-card-tag soon">{{ translations.cl_tag_soon | default('à venir') }}</span>{% endif %}
+                    </div>
+                    <div class="cl-card-r2">
+                        {% if cl.execution_time %}<span class="cl-card-hh">{{ cl.execution_time|slice(0,5) }}</span>{% endif %}
+                        {# L'avancement en points tant qu'ils tiennent (≤ 6 tâches) ;
+                           une barre fine au-delà, pour ne pas encombrer. #}
+                        {% if cl.tasks_total > 0 and cl.tasks_total <= 6 %}
+                            <span class="cl-dots" aria-hidden="true">
+                                {% for i in 1..cl.tasks_total %}
+                                    {% if i <= cl.tasks_done %}<span class="cl-dot on"></span>
+                                    {% elseif is_now and not cl_done and i == cl.tasks_done + 1 %}<span class="cl-dot next"></span>
+                                    {% else %}<span class="cl-dot"></span>{% endif %}
+                                {% endfor %}
+                            </span>
+                        {% else %}
+                            <span class="cl-mini" aria-hidden="true"><i class="{{ is_now and not cl_done ? 'now' : 'on' }}" style="width:{{ pct }}%"></i></span>
+                        {% endif %}
+                        <span class="cl-card-cnt">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+                    </div>
                 </a>
             {% endfor %}
         </div>
