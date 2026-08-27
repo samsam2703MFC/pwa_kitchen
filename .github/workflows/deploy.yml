@@ -158,7 +158,14 @@ jobs:
       # d'où des déploiements « verts » invisibles du public. On remplace
       # cette copie par un symlink vers l'app déployée, en la sauvegardant
       # une seule fois (mv en .bak horodaté).
+      #
+      # DÉSACTIVÉ par défaut : ce workflow cible le serveur de TEST (décision
+      # du 27/08) — le pont vers le vhost public n'a de sens que sur le
+      # serveur qui sert le domaine. Pour l'activer (déploiement public),
+      # définir la variable de dépôt VERIFY_PUBLIC_URL (ex.
+      # https://atelierby.tfbuddy.com/kitchen) — voir deploy-prod.yml.
       - name: Point the PUBLIC vhost docroot at the deployed app
+        if: vars.VERIFY_PUBLIC_URL != ''
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
         run: |
@@ -394,6 +401,15 @@ jobs:
           printf '%s' "$body" | head -c 400
           echo
           echo "  ── fin ──"
+          # La route du module de pilotage doit exister dans la table de
+          # routage servie : 302 (redirection auth) = présente ; 404 = vieux
+          # code encore servi. C'est LE témoin « online » côté test.
+          pcode=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/production/pilotage")
+          echo "  route /production/pilotage → HTTP $pcode (302 attendu sans session)"
+          if [ "$pcode" != "302" ] && [ "$pcode" != "200" ]; then
+            echo "  ÉCHEC — la route du pilotage ne répond pas sur le serveur"
+            exit 1
+          fi
           case "$code" in
             200|301|302) echo "OK — l'app est servie sur $BASE/";;
             403) echo "ATTENTION : 403 — vérifier Options +FollowSymLinks et AllowOverride All sur le docroot";;
@@ -406,9 +422,14 @@ jobs:
       # Le contrôle qui compte : ce que voit un CLIENT, depuis l'extérieur.
       # Un déploiement dont la page publique ne porte pas le commit poussé
       # est un échec, quel que soit ce que dit localhost.
+      # Ne tourne que quand VERIFY_PUBLIC_URL est définie : sur le serveur de
+      # test, le domaine public n'est pas servi par cette machine et ce
+      # contrôle échouerait toujours. La preuve « test » reste le contrôle
+      # localhost ci-dessus (commit servi + sélecteur peuplé + route pilotage).
       - name: Verify PUBLIC URL serves this commit (bloquant)
+        if: vars.VERIFY_PUBLIC_URL != ''
         run: |
-          BASE="https://atelierby.tfbuddy.com/${{ vars.URL_PATH || 'kitchen' }}"
+          BASE="${{ vars.VERIFY_PUBLIC_URL }}"
           SHORT='${{ github.sha }}'; SHORT=${SHORT:0:7}
           # Les caches (realpath, opcache re-forké) mettent quelques secondes
           # à converger après le reload : on laisse jusqu'à 5 essais.
