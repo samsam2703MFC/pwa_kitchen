@@ -175,3 +175,90 @@ la brique 1 malgré le Trou #1.
 2. Confirmer que **`sales-dayparts`** porte `time_from`/`time_to`.
 3. Faire ajouter côté ERP les endpoints des Trous #1, #3, #5 (contrats au §4)
    pour débloquer la validation, les conflits et l'exclusion des ruptures.
+
+
+---
+
+## 7. CONTRATS CONFIRMÉS au jeton (27/08/2026, prod, lecture seule)
+
+Un jeton admin prod a permis de relever les formes réelles. Trois d'entre elles
+invalident des hypothèses du §1 — à lire avant de coder.
+
+### `GET /shops/{id}/statistics/production-planning`
+Réponse RÉELLE — **hiérarchie groupe → catégorie → produit**, pas un `products[]`
+plat :
+```
+{ summary:{ total_products_sold, distribution_mode, … },
+  products:[ { group_name, total_quantity,
+               categories:[ { category_name, total_quantity,
+                              products:[ { product_name, quantity,
+                                           full_product_equivalent } ] } ] } ],
+  time_distribution:[ { code:"WHOLE_DAY", time_from, time_to,
+                        sold_quantity, full_product_equivalent } ] }
+```
+Trois constats **décisifs** :
+1. **Pas d'identifiant produit** — seulement `product_name`. Le croisement par id
+   est impossible tel quel.
+2. **Quantité AGRÉGÉE** sur `[date_from, date_to]`, pas par date. Appelé sur UNE
+   date, il donne le total de ce jour (utilisable), mais jamais la série
+   quotidienne en un appel.
+3. **Toujours `whole_day`.** Testé : `day_part`, `daypart`, `time_from/to`,
+   `group_by`, `hourly`, `split` — **aucun** ne ventile par tranche. Cet
+   endpoint **ne sait pas** découper la journée.
+
+### `GET /shops/{id}/statistics/sales/hourly-distribution/{date}`
+Réponse RÉELLE — **totaux par heure, sans détail produit** :
+```
+[ { hour_from, hour_to, transactions_qty, eat_in_qty, take_away_qty,
+    delivery_qty, income, material_cost, employee_qty, total_margin } ]
+```
+`transactions_qty` = nombre de tickets, **pas** des unités d'un produit. Aucun
+produit ici.
+
+### `GET /shops/{id}/transactions?date=…`
+En-têtes de tickets (`insert_timestamp`, `id_employee`, montant…), **sans les
+lignes produit**. Le détail par produit vit dans la table `transaction_product`,
+que l'API n'expose pas par ticket de façon exploitable (il faudrait un GET par
+ticket — 127/jour ici).
+
+### `GET /admin/sales-dayparts`
+Structure confirmée — `{id, name, time_from, time_to, sort_order, is_active}` —
+mais **une seule tranche existe, nommée « Test » (10:06–18:00)** : les vraies
+périodes ne sont pas encore configurées au back-office.
+
+### `GET /employees/{id}/positions`
+Contrat confirmé (§ précédent), mais **vide** pour les employés testés :
+positions non renseignées. P1 dégrade correctement (pas de poste → pas de
+sous-titre).
+
+---
+
+## 8. LE TROU DÉCISIF, et la décision qu'il impose
+
+**« Ventes par produit ET par tranche horaire, jour par jour » n'existe dans
+AUCUN endpoint.** production-planning = par produit mais journée entière et
+agrégé ; hourly-distribution = par heure mais sans produit ; transactions = par
+heure mais sans ligne produit. La donnée est en base (`transaction_product`),
+pas au bout d'une route.
+
+Deux voies, à trancher :
+
+**A. Prévision JOURNÉE ENTIÈRE (faisable tout de suite).**
+Appeler `production-planning?date_from=D&date_to=D` sur chaque même-jour-de-
+semaine des N dernières semaines → quantité par produit et par jour → le moteur
+pondère (il est déjà écrit et testé). On abandonne le découpage 06:00–11:00 :
+l'écran « période 1 » devient « prévision du jour ». Clé produit = `product_name`
+(pas d'id).
+
+**B. Prévision PAR TRANCHE (le brief d'origine) — bloquée côté ERP.**
+Il faut un endpoint qui rende, pour une date, la quantité vendue **par produit
+et par tranche** — par exemple :
+`GET /shops/{id}/statistics/sales/product-hourly/{date}`
+→ `[ { product_id, product_name, dayparts:[ { code, time_from, time_to,
+        quantity } ] } ]`.
+Sans lui, la brique 1 telle qu'écrite dans le brief ne peut pas être calculée,
+et je ne la code pas en attendant (contrainte du brief).
+
+**Recommandation :** livrer **A** maintenant (prévision journée, réelle et
+utile), et demander l'endpoint de **B** pour le découpage par tranche. Le moteur
+et l'assemblage ne changent pas — seule la source des échantillons diffère.
