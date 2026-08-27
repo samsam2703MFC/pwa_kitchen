@@ -69,6 +69,16 @@
         background: var(--c-primary, #8D1D2C); color: #fff;
         box-shadow: 0 6px 14px -8px rgba(141,29,44,.55);
     }
+    /* Chaque mode porte sa couleur, la même que son badge dans la liste :
+       Click & Collect en encre, Livraison en abricot. « Toutes » reste bordeaux. */
+    .ff-seg-collect.is-active {
+        background: var(--c-encre, #1F4F6B); box-shadow: 0 6px 14px -8px rgba(31,79,107,.55);
+    }
+    .ff-seg-delivery.is-active {
+        background: var(--c-ambre, #C17A2A); box-shadow: 0 6px 14px -8px rgba(193,122,42,.55);
+    }
+    .ff-seg-collect.is-active .ff-seg-count  { color: var(--c-encre, #1F4F6B); }
+    .ff-seg-delivery.is-active .ff-seg-count { color: #8a5518; }
     .ff-seg-note { font-size: .76rem; color: var(--c-muted, #7a7168); margin: 8px 2px 0; }
     .ff-seg-count {
         min-width: 20px; height: 20px; padding: 0 6px; margin-left: 7px;
@@ -154,7 +164,7 @@
                 <input type="hidden" id="pendingOnlyInput" name="pending_only" value="{{ pending_only ? '1' : '0' }}">
                 <button type="button" class="ff-toggle" id="filterPendingOnly"
                         aria-pressed="{{ pending_only ? 'true' : 'false' }}">
-                    {{ translations.filter_pending_only | default("En attente uniquement") }}
+                    {{ translations.filter_pending_only | default("En attente") }}
                 </button>
             </div>
 
@@ -182,7 +192,7 @@
                         'collect':  translations.click_and_collect ?? 'Click & Collect',
                         'delivery': translations.delivery_mode ?? 'Livraison'
                     } %}
-                        <a class="ff-seg-btn {{ fulfilment == key ? 'is-active' : '' }}"
+                        <a class="ff-seg-btn ff-seg-{{ key }} {{ fulfilment == key ? 'is-active' : '' }}"
                            href="{{ ROOT }}/orders?{{ (_q|merge({'fulfilment': key}))|url_encode }}"
                            aria-current="{{ fulfilment == key ? 'true' : 'false' }}">
                             <span>{{ label }}</span>

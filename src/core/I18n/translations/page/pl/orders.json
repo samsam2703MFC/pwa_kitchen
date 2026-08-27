@@ -5,7 +5,7 @@
   "filter_date": "Dzień odbioru",
   "filter_client_name": "Nazwa klienta",
   "filter_client_name_placeholder": "Wpisz fragment nazwy...",
-  "filter_pending_only": "Tylko oczekujące",
+  "filter_pending_only": "Oczekujące",
   "filter_search": "Szukaj",
   "filter_clear": "Wyczyść",
   "filter_all_orders": "Wszystkie statusy",
