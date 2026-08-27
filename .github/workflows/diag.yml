@@ -52,10 +52,12 @@ jobs:
           curl -sk -m 10 -o /tmp/pub.html -w "HTTP %{http_code} · %{size_download} o\n" "https://atelierby.tfbuddy.com/kitchen/auth"
           grep -o 'name="app-build" content="[^"]*"' /tmp/pub.html | head -1 || echo "(pas de stamp)"
           echo
-          echo "== conf COMPLÈTE du vhost atelierby (Alias/Proxy compris) =="
-          for f in /etc/apache2/sites-enabled/atelierby.tfbuddy.com.conf /etc/apache2/sites-enabled/atelierby.tfbuddy.com-le-ssl.conf; do
-            echo "── \$f ──"; sed -n '1,80p' "\$f" 2>/dev/null || echo "(illisible)"
-          done
+          echo "== conf du vhost atelierby (SSL) =="
+          cat /etc/apache2/sites-enabled/atelierby.tfbuddy.com-le-ssl.conf 2>&1 | head -80
+          echo "== conf du vhost atelierby (80) =="
+          cat /etc/apache2/sites-enabled/atelierby.tfbuddy.com.conf 2>&1 | head -40
+          echo "== tous les Alias/Proxy de la conf Apache =="
+          grep -rniE "alias .*/kitchen|proxypass.*kitchen" /etc/apache2/ 2>/dev/null | head -10
           echo "== handler PHP du serveur =="
           apache2ctl -M 2>/dev/null | grep -iE "php|proxy|fcgi" || true
           REMOTE
