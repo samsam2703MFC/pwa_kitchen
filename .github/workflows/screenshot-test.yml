@@ -25,12 +25,14 @@ jobs:
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
         run: |
-          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+          # Port 80 : l'app génère ses URLs d'assets sur http://localhost/…
+          # (port 80) — le navigateur doit donc voir le serveur sur CE port.
+          sudo -E sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
             -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -o ExitOnForwardFailure=yes -f -N -L 127.0.0.1:8080:localhost:80 \
+            -o ExitOnForwardFailure=yes -f -N -L 127.0.0.1:80:localhost:80 \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
           for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" -m 10 "http://127.0.0.1:8080/${{ vars.URL_PATH || 'kitchen' }}/auth" || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" -m 10 "http://127.0.0.1/${{ vars.URL_PATH || 'kitchen' }}/auth" || true)
             echo "tunnel check $i → HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 3
@@ -45,9 +47,11 @@ jobs:
           mkdir -p shots
           cat > shots.js << 'JS'
           const { chromium } = require('playwright-core');
-          const B = 'http://127.0.0.1:8080/${{ vars.URL_PATH || 'kitchen' }}';
+          const B = 'http://localhost/${{ vars.URL_PATH || 'kitchen' }}';
           (async () => {
-            const browser = await chromium.launch({ channel: 'chrome' });
+            // Chrome résout localhost en ::1 : on l'épingle sur l'IPv4 du tunnel.
+            const browser = await chromium.launch({ channel: 'chrome',
+              args: ['--host-resolver-rules=MAP localhost 127.0.0.1'] });
             const page = await (await browser.newContext({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2 })).newPage();
             // Le bouchon peut mettre quelques minutes à être actif si le
             // déploiement précédent tourne encore : on réessaie le login.
