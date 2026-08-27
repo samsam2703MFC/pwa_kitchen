@@ -37,12 +37,12 @@
     /* Le commutateur de Bootstrap fait 19 px de haut : sous le doigt, on
        vise le libellé et on rate la case. On agrandit les deux, qui sont déjà
        liés par « for ». */
-    /* Une pastille-bascule, comme les autres filtres de l'app : creuse quand
-       elle est éteinte, pleine (encre) et cochée quand elle est active. Bien
-       plus nette que l'interrupteur Bootstrap, et une cible large. */
+    /* Pastille-bascule minimaliste : juste le libellé. Creuse quand elle est
+       éteinte, pleine (encre) quand elle est active. Une seule ligne, largeur
+       ajustée au texte — plus discrète que l'interrupteur. */
     .ff-toggle {
-        display: inline-flex; align-items: center; gap: 9px;
-        min-height: 44px; padding: 0 18px; width: 100%;
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 44px; padding: 0 18px; white-space: nowrap;
         border-radius: var(--r-pill, 999px);
         border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
         font-size: .88rem; font-weight: 600; color: var(--c-muted, #7a7168);
@@ -52,20 +52,11 @@
     .ff-toggle:active { transform: scale(.99); }
     .ff-toggle:focus { outline: none; }
     .ff-toggle:focus-visible { outline: 3px solid rgba(31,79,107,.35); outline-offset: 2px; }
-    .ff-toggle span:last-child, .ff-toggle { white-space: normal; line-height: 1.15; text-align: left; }
-    .ff-toggle .ff-tick {
-        width: 18px; height: 18px; flex: none; border-radius: 50%;
-        border: 2px solid var(--c-line-2, rgba(36,26,22,.2));
-        display: grid; place-items: center; font-size: .7rem; color: transparent;
-    }
     .ff-toggle[aria-pressed="true"] {
         background: var(--c-encre, #1F4F6B); border-color: var(--c-encre, #1F4F6B); color: #fff;
     }
-    .ff-toggle[aria-pressed="true"] .ff-tick {
-        background: #fff; border-color: #fff; color: var(--c-encre, #1F4F6B);
-    }
 
-    .ff-seg-btn {
+.ff-seg-btn {
         flex: 1; min-height: 44px;
         display: inline-flex; align-items: center; justify-content: center;
         border-radius: 999px; padding: 0 14px;
@@ -163,7 +154,6 @@
                 <input type="hidden" id="pendingOnlyInput" name="pending_only" value="{{ pending_only ? '1' : '0' }}">
                 <button type="button" class="ff-toggle" id="filterPendingOnly"
                         aria-pressed="{{ pending_only ? 'true' : 'false' }}">
-                    <span class="ff-tick" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
                     {{ translations.filter_pending_only | default("En attente uniquement") }}
                 </button>
             </div>
