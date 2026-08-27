@@ -137,28 +137,40 @@
         border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff; font-size: .88rem; font-weight: 600; color: var(--c-ink, #241f1c); }
     .cl-top .btn { min-height: 44px; border-radius: var(--r-pill, 999px); padding: 0 18px; }
 
-    /* ══ CL2 — cartes d'accueil à anneau ══ */
-    .cl-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    @media (max-width: 900px) { .cl-cards { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 560px) { .cl-cards { grid-template-columns: 1fr; } }
-    .cl-card { display: flex; flex-direction: column; gap: 13px; padding: 20px; background: #fff;
-        border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-xl, 22px);
-        text-decoration: none; color: inherit; box-shadow: 0 10px 24px -20px rgba(36,26,22,.5); }
-    .cl-card.is-now { border: 2px solid var(--c-primary, #8D1D2C); }
-    .cl-card-top { display: flex; align-items: center; justify-content: space-between; }
+    /* ══ CL2 — l'accueil, compact et pensé mobile ══
+       Des lignes serrées plutôt que de grandes cartes : sur un téléphone,
+       trois listes tiennent sans défiler, et le pouce atteint tout. Deux
+       colonnes seulement au-delà de 720 px, jamais trois — une carte de
+       checklist n'a pas assez à dire pour mériter un tiers d'écran. */
+    .cl-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 720px) { .cl-cards { grid-template-columns: 1fr 1fr; } }
+    .cl-card {
+        display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px); text-decoration: none; color: inherit;
+        box-shadow: 0 4px 12px -10px rgba(36,26,22,.4);
+        -webkit-tap-highlight-color: transparent;
+    }
+    .cl-card:active { transform: scale(.99); }
+    .cl-card.is-now { border-color: var(--c-primary, #8D1D2C); border-width: 1.5px; }
+    /* L'anneau, petit : 46 px, le chiffre au centre. Il dit l'avancement sans
+       prendre la place d'une vignette. */
+    .cl-ring { width: 46px; height: 46px; flex: none; position: relative; display: grid; place-items: center; }
+    .cl-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .cl-ring-n { font-size: .82rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .cl-card-mid { flex: 1; min-width: 0; }
+    .cl-card-name { font-size: 1.02rem; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cl-card-sub { margin-top: 2px; font-size: .8rem; color: var(--c-muted, #7a7168); display: flex; align-items: center; gap: 8px; }
     .cl-card-hh { font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; }
-    .cl-card-tag { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 10px; border-radius: 999px; }
+    .cl-card-tag { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; }
     .cl-card-tag.now { background: var(--c-primary, #8D1D2C); color: #fff; }
     .cl-card-tag.done { background: rgba(45,122,62,.14); color: var(--c-vert, #2D7A3E); }
     .cl-card-tag.soon { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
-    .cl-ring { width: 92px; height: 92px; margin: 2px auto; position: relative; display: grid; place-items: center; }
-    .cl-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
-    .cl-ring-n { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-    .cl-card-name { font-size: 1.12rem; font-weight: 700; text-align: center; }
-    .cl-card-sub { font-size: .82rem; color: var(--c-muted, #7a7168); text-align: center; }
-    .cl-card-go { margin-top: 2px; min-height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: .92rem; }
+    /* L'action à droite : un rond plein sous le pouce pour « maintenant », un
+       simple chevron pour le reste. 44 px, toujours. */
+    .cl-card-go { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem; }
     .cl-card-go.now { background: var(--c-primary, #8D1D2C); color: #fff; }
-    .cl-card-go.soft { background: var(--c-bg-2, #F4EFE8); color: var(--c-ink, #241f1c); }
+    .cl-card-go.soft { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
 
     /* ══ CL3 — accordéon de travail ══ */
     .cl-acc { background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-lg, 18px); overflow: hidden; }
@@ -449,29 +461,24 @@
                 {% set is_now = cl.id == focus_id %}
                 {% set off = 264 - (264 * pct / 100) %}
                 <a class="cl-card {{ is_now ? 'is-now' : '' }}" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}">
-                    <div class="cl-card-top">
-                        <span class="cl-card-hh">{{ cl.execution_time ? cl.execution_time|slice(0,5) : '' }}</span>
-                        {% if cl_done %}<span class="cl-card-tag done">{{ translations.cl_tag_done | default('terminée') }}</span>
-                        {% elseif is_now %}<span class="cl-card-tag now">{{ translations.cl_tag_now | default('maintenant') }}</span>
-                        {% else %}<span class="cl-card-tag soon">{{ translations.cl_tag_soon | default('à venir') }}</span>{% endif %}
-                    </div>
-                    <div class="cl-ring">
+                    <span class="cl-ring">
                         <svg viewBox="0 0 92 92" aria-hidden="true">
-                            <circle cx="46" cy="46" r="42" fill="none" stroke="#eee" stroke-width="8"/>
-                            {% if pct > 0 %}<circle cx="46" cy="46" r="42" fill="none" stroke="{{ cl_done ? '#2D7A3E' : '#8D1D2C' }}" stroke-width="8" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="{{ off }}"/>{% endif %}
+                            <circle cx="46" cy="46" r="42" fill="none" stroke="#eee" stroke-width="9"/>
+                            {% if pct > 0 %}<circle cx="46" cy="46" r="42" fill="none" stroke="{{ cl_done ? '#2D7A3E' : '#8D1D2C' }}" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="{{ off }}"/>{% endif %}
                         </svg>
                         <span class="cl-ring-n" style="color:{{ cl_done ? '#2D7A3E' : (pct > 0 ? '#8D1D2C' : 'var(--c-muted)') }}">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
-                    </div>
-                    <div class="cl-card-name">{{ cl.name }}</div>
-                    <div class="cl-card-sub">
-                        {% if cl_done %}{{ translations.cl_all_done | default('tout est fait') }}
-                        {% elseif cl.execution_time %}{{ translations.from_time | default('à partir de') }} {{ cl.execution_time|slice(0,5) }}
-                        {% else %}{{ cl.tasks_total }} {{ translations.cl_tasks | default('tâches') }}{% endif %}
-                    </div>
+                    </span>
+                    <span class="cl-card-mid">
+                        <span class="cl-card-name">{{ cl.name }}</span>
+                        <span class="cl-card-sub">
+                            {% if cl.execution_time %}<span class="cl-card-hh">{{ cl.execution_time|slice(0,5) }}</span>{% endif %}
+                            {% if cl_done %}<span class="cl-card-tag done">{{ translations.cl_tag_done | default('terminée') }}</span>
+                            {% elseif is_now %}<span class="cl-card-tag now">{{ translations.cl_tag_now | default('maintenant') }}</span>
+                            {% else %}<span class="cl-card-tag soon">{{ translations.cl_tag_soon | default('à venir') }}</span>{% endif %}
+                        </span>
+                    </span>
                     <span class="cl-card-go {{ is_now and not cl_done ? 'now' : 'soft' }}">
-                        {% if cl_done %}{{ translations.cl_review | default('Revoir') }}
-                        {% elseif is_now %}{{ translations.cl_start | default('Commencer') }} →
-                        {% else %}{{ translations.cl_open | default('Ouvrir') }}{% endif %}
+                        <i class="bi bi-chevron-right"></i>
                     </span>
                 </a>
             {% endfor %}
