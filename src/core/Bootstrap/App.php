@@ -90,7 +90,29 @@ class App {
                     );
                 }
                 // wywołaj z parametrami z {shopId}, {supplierId}
-                $result = call_user_func_array([$controller, $action], $vars);
+                try {
+                    $result = call_user_func_array([$controller, $action], $vars);
+                } catch (\Throwable $e) {
+                    // Une exception qui traverse un contrôleur ne doit jamais
+                    // finir en 500 nu. Cas vécu : une session dont le jeton
+                    // API n'est plus accepté (bouchon coupé, back redéployé…)
+                    // fait échouer le premier appel réseau du contrôleur — la
+                    // seule réponse utile est de purger cette session et de
+                    // repasser par le login. On trace toujours la cause.
+                    error_log('[kitchen] exception non rattrapée sur ' . $uri . ' : '
+                        . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+                    if (!in_array($controllerFQCN, $this->publicControllers, true)) {
+                        try {
+                            $container->get(\App\Kitchen\core\Cookie\CookieManager::class)->unsetCookies();
+                        } catch (\Throwable $ignore) {
+                        }
+                        Redirect('/auth');
+                        exit;
+                    }
+                    http_response_code(500);
+                    echo 'Erreur interne — voir le journal du serveur.';
+                    exit;
+                }
 
                 if ($result instanceof Response) {
                     $result->send();
