@@ -238,10 +238,10 @@
    droite. Le mode ne réordonne rien : il retire ce qui ne sert pas ici. Le
    profil reste dans tous les modes, c'est par lui qu'on revient aux réglages —
    une tablette dont on ne peut plus changer le mode serait à réinstaller. #}
+{# L'onglet Production mène au module de pilotage (prévision → cuisson →
+   rayon → solder) ; l'ancien écran planning reste accessible sur /production. #}
 {% set tabs = {
     'dashboard':  { href: ROOT ~ '/dashboard',  icon: 'home',            label: translations.nav_dashboard  ?? 'Pulpit' },
-    {# L'onglet mène au module de pilotage (prévision → cuisson → rayon →
-       solder) ; l'ancien écran planning reste accessible sur /production. #}
     'production': { href: ROOT ~ '/production/pilotage', icon: 'list-checks',     label: translations.nav_production ?? 'Production' },
     'checklists': { href: ROOT ~ '/checklists', icon: 'clipboard-check', label: translations.nav_checklists ?? 'Checklists' },
     'orders':     { href: ROOT ~ '/orders',     icon: 'receipt',         label: translations.nav_orders     ?? 'Commandes' },
