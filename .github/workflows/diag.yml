@@ -52,7 +52,7 @@ jobs:
           for f in /var/log/apache2/error.log /var/log/apache2/*error*.log; do
             [ -f "$f" ] || continue
             echo "-- $f --"
-            (tail -n 200 "$f" 2>/dev/null || sudo -n tail -n 200 "$f") | grep -iE "fatal|uncaught|kitchen|pwa_kitchen" | tail -25
+            (tail -n 500 "$f" 2>/dev/null || sudo -n tail -n 500 "$f") | grep -vE "PHP Warning" | tail -40
           done
           echo
           echo "== le domaine public, appelé du serveur =="
