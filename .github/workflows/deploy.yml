@@ -200,8 +200,19 @@ jobs:
             echo "reset via \$base/$TOKEN : \$(curl -sk -m 10 "\$base/$TOKEN" || echo injoignable)"
           done
           rm -f "$APP_DIR/public/$TOKEN"
-          # Si l'utilisateur de déploiement peut recharger FPM, autant le faire.
-          sudo -n systemctl reload php8.2-fpm 2>/dev/null || sudo -n systemctl reload apache2 2>/dev/null || true
+          # Le vhost public tourne avec opcache.validate_timestamps=0 : le
+          # reset par URL ne suffit pas quand l'ancien bytecode répond encore
+          # (il rend son propre 404 avant d'exécuter quoi que ce soit). Seul
+          # un reload du service PHP purge vraiment. L'utilisateur de
+          # déploiement écrit déjà dans /var/www : on tente le reload en
+          # direct d'abord, sudo -n en repli, et on IMPRIME le résultat.
+          echo "== services php présents =="
+          systemctl list-units 'php*' --no-legend 2>/dev/null || true
+          for svc in php8.2-fpm php-fpm apache2; do
+            if systemctl reload "\$svc" 2>&1; then echo "reload \$svc : OK"; \
+            elif sudo -n systemctl reload "\$svc" 2>&1; then echo "sudo reload \$svc : OK"; \
+            else echo "reload \$svc : refusé"; fi
+          done
           REMOTE
 
       - name: Mock API — start or stop, then point .htaccess at it
