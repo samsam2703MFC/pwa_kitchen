@@ -520,82 +520,43 @@ function mock_device_config(): array
 }
 
 /**
- * Le parcours de preparation d'un produit.
+ * Chargement de la fixture reelle de la boutique 2.
  *
- * Reproduit la forme decrite par la documentation du back (tag « Product
- * preparation ») : etapes ordonnees, duree en secondes, groupe de batch
- * facultatif, parametres de four, et jusqu'a trois photos.
+ * ── Un vrai releve, pas une invention ──
+ * tools/mock-api/fixtures/shop2-real.json est une CAPTURE des reponses reelles
+ * de la prod (atelierby.tfbuddy.com, boutique 2 « Corbais », relevee le
+ * 27/08/2026) : ventes par produit sur 7 dates (le jour meme + les 6 memes
+ * jours de semaine precedents) et parcours de preparation reels. Le bouchon ne
+ * fabrique plus de produits : il rejoue ce que l'API a servi, pour que l'ecran
+ * se developpe sur le vrai catalogue et la vraie prevision.
  *
- * La derniere etape est volontairement MUETTE — aucun texte. C'est le cas qui
- * ferait afficher un geste sans consigne : la PWA doit l'ecarter et dire
- * combien elle en a ecarte, pas la montrer vide ni la passer sous silence.
+ * @return array<string, mixed>
+ */
+function mock_shop2_fixture(): array
+{
+    static $fx = null;
+    if ($fx === null) {
+        $path = __DIR__ . '/fixtures/shop2-real.json';
+        $fx = is_file($path) ? (json_decode((string)file_get_contents($path), true) ?: []) : [];
+    }
+    return $fx;
+}
+
+/**
+ * Le parcours de preparation d'un produit — releve reel.
+ *
+ * Rejoue la reponse reelle : la Baguette Tradition 500 g. (1300003) porte ses
+ * 3 gestes reels (mettre sur grille ; cuisson au four, batch « Boulangerie »,
+ * capacite 30 ; ressuage). Un produit sans parcours repond `configured: false`,
+ * exactement comme l'API — la PWA doit distinguer « pas de parcours » d'une
+ * route muette.
  */
 function mock_preparation_path(int $productId): array
 {
-    // Produit test : la Baguette tradition (6700120). Quatre gestes, un four
-    // en sole 20 x 4 — la capacite (80) et la duree (3 h 25) sont celles
-    // qu'on veut voir apparaitre sur la ligne « a lancer » de la production.
-    if ($productId === 6700120) {
-        return [
-            'product_id' => $productId,
-            'configured' => true,
-            'steps' => [
-                ['id' => 11, 'sort_order' => 1,
-                 'description' => 'Frasage et pétrissage, 8 minutes en première vitesse.',
-                 'duration_seconds' => 480],
-                ['id' => 12, 'sort_order' => 2,
-                 'description' => 'Pointage en bac, 2 heures à température ambiante.',
-                 'duration_seconds' => 7200,
-                 'batch_group_id' => 3, 'batch_group_name' => 'Pointage bacs', 'batch_capacity' => 6],
-                ['id' => 13, 'sort_order' => 3,
-                 'description' => 'Division et façonnage en baguettes de 350 g.',
-                 'duration_seconds' => 2700],
-                ['id' => 14, 'sort_order' => 4,
-                 'description' => 'Cuisson sur sole à 250 °C, buée à l\'enfournement.',
-                 'duration_seconds' => 1320,
-                 'uses_oven' => true,
-                 'batch_group_id' => 8, 'batch_group_name' => 'Four sole 250°',
-                 'batch_capacity' => 80, 'products_per_tray' => 20, 'trays_per_oven' => 4],
-            ],
-        ];
-    }
+    $paths = mock_shop2_fixture()['preparation_paths'] ?? [];
+    $p = $paths[(string)$productId] ?? null;
 
-    return [
-        'product_id' => $productId,
-        'configured' => true,
-        'steps' => [
-            [
-                'id' => 1, 'sort_order' => 1,
-                'description' => 'Peser la farine et le levain, puis frasage 3 minutes en première vitesse.',
-                'duration_seconds' => 240, 'uses_oven' => false,
-            ],
-            [
-                'id' => 2, 'sort_order' => 2,
-                'description' => 'Pointage en bac filé, à 24 °C.',
-                'duration_seconds' => 5400,
-                'batch_group_id' => 3, 'batch_group_name' => 'Pointage bacs',
-                'batch_capacity' => 6,
-            ],
-            [
-                'id' => 3, 'sort_order' => 3,
-                'description' => 'Façonnage en boules de 350 g, serrage régulier.',
-                'duration_seconds' => 900,
-                'photo_1_url' => 'https://atelierby.tfbuddy.com/shared-assets/mock/prep-faconnage-1.jpg',
-                'photo_2_url' => 'https://atelierby.tfbuddy.com/shared-assets/mock/prep-faconnage-2.jpg',
-            ],
-            [
-                'id' => 4, 'sort_order' => 4,
-                'description' => 'Cuisson à 240 °C, buée 3 secondes, puis 220 °C.',
-                'duration_seconds' => 1320,
-                'uses_oven' => true,
-                'batch_group_id' => 7, 'batch_group_name' => 'Four 240°',
-                'batch_capacity' => 48, 'products_per_tray' => 12, 'trays_per_oven' => 4,
-            ],
-            // Servie, mais sans instruction : la PWA doit la compter, pas
-            // l'afficher vide.
-            ['id' => 5, 'sort_order' => 5, 'duration_seconds' => 600],
-        ],
-    ];
+    return is_array($p) ? $p : ['product_id' => $productId, 'configured' => false, 'steps' => []];
 }
 
 /**
@@ -642,4 +603,18 @@ function mock_employee_positions(int $id): array
         44 => [['id' => 3, 'name' => 'Traiteur',  'level_id' => 1, 'level_name' => 'Base',     'level_order' => 1]],
     ];
     return $map[$id] ?? [];
+}
+
+/**
+ * Ventes par produit d'une journee — releve reel de la boutique 2.
+ *
+ * Rejoue la capture : pour une date presente dans la fixture (le jour meme ou
+ * l'un des 6 memes jours de semaine precedents), renvoie les vraies lignes
+ * produit servies par l'API — identifiants, noms, `group_name` (la vraie
+ * structure de production), et `sold_qty` reels. Une date hors capture renvoie
+ * une liste vide : le bouchon n'invente aucune vente.
+ */
+function mock_product_category_groups(string $date): array
+{
+    return mock_shop2_fixture()['sales_by_date'][$date] ?? [];
 }

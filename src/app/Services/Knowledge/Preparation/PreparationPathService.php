@@ -136,6 +136,55 @@ class PreparationPathService
         return ['available' => true, 'missing' => null, 'map' => $map];
     }
 
+    /**
+     * Le parcours COMPLET (étapes comprises) de chaque produit configuré d'une
+     * liste — pour afficher la gamme de production directement sur la ligne.
+     *
+     * Comme summaries(), on n'interroge QUE les produits que la route des
+     * identifiants déclare configurés : un appel réseau par produit configuré
+     * présent dans la liste, jamais un par produit affiché. La différence :
+     * on garde les étapes et on dégage la capacité du four, pour que l'écran
+     * puisse dire « combien de fournées » sans second calcul.
+     *
+     * @param array<int, int> $productIds
+     * @return array{available: bool, missing: ?string,
+     *               map: array<int, array{state: string, steps: array<int, array>,
+     *                    total: ?string, total_seconds: int, oven_capacity: ?int}>}
+     */
+    public function detailsFor(array $productIds): array
+    {
+        $configured = $this->repository->configuredProductIds();
+        if ($configured === null) {
+            return ['available' => false,
+                    'missing'   => 'GET /preparation-paths/configured-product-ids',
+                    'map'       => []];
+        }
+
+        $map = [];
+        foreach (array_intersect(array_map('intval', $productIds), $configured) as $id) {
+            $path = $this->forProduct($id);
+            if ($path['state'] !== 'served') {
+                continue;
+            }
+            $capacity = null;
+            foreach ($path['steps'] as $step) {
+                if ($step['oven'] && $step['batch_capacity'] !== null) {
+                    $capacity = $step['batch_capacity'];
+                    break;
+                }
+            }
+            $map[$id] = [
+                'state'         => 'served',
+                'steps'         => $path['steps'],
+                'total'         => $path['total'],
+                'total_seconds' => $path['total_seconds'],
+                'oven_capacity' => $capacity,
+            ];
+        }
+
+        return ['available' => true, 'missing' => null, 'map' => $map];
+    }
+
     /** @return array{state: string, steps: array, total_seconds: int, total: ?string, unreadable: int, missing: ?string} */
     private static function none(string $state, ?string $missing): array
     {

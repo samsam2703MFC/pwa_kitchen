@@ -422,6 +422,53 @@ if ($method === 'GET' && $m('/devices/\d+/configuration')) {
     ok(mock_device_config());
 }
 
+// Ventes par produit d'une journee — product-category-groups (forme reelle).
+// Sert le pilotage de production (version journee entiere).
+if ($method === 'GET' && $m('/shops/\\d+/statistics/sales/product-category-groups')) {
+    ok(mock_product_category_groups($q['date_from'] ?? date('Y-m-d')));
+}
+
+// Les commandes clients d'un jour de retrait — releve reel (avec lignes
+// produit, include=products). Sert la mise en rayon : ce qu'il faut reserver.
+if ($method === 'GET' && $m('/shops/\\d+/client-orders')) {
+    ok(mock_shop2_fixture()['client_orders_by_date'][(string)($q['date_from'] ?? '')] ?? []);
+}
+
+// Les reductions programmees actives — releve reel (aucune le 27/08 : la
+// liste vide est une reponse, pas une panne).
+if ($method === 'GET' && $m('/shops/\\d+/scheduled-product-discounts/active')) {
+    ok(mock_shop2_fixture()['discounts_active'] ?? ['items' => []]);
+}
+
+// Fin de journee — les ecritures du volet « Solder ». Le bouchon accepte et
+// repond comme un back qui a enregistre ; la prod, elle, repondra ce qu'elle
+// veut et la PWA affichera l'erreur en nommant la route.
+if ($method === 'POST' && $m('/shops/(\\d+)/products/(\\d+)/waste', $vars)) {
+    ok(['status' => 'ok', 'id_product' => (int)$vars[2]]);
+}
+if ($method === 'POST' && $m('/product-movements')) {
+    ok(['status' => 'ok', 'id' => 1]);
+}
+
+// La demarque produits — releve reel. Un jour seul (journee en cours) est
+// vide ; une plage de plusieurs jours rejoue la semaine capturee (4 produits,
+// raison « expiration »).
+if ($method === 'GET' && $m('/shops/\\d+/products/waste')) {
+    $from = (string)($q['date_from'] ?? '');
+    $to   = (string)($q['date_to'] ?? '');
+    $fx   = mock_shop2_fixture();
+    ok($from !== '' && $from === $to
+        ? ($fx['waste_today'] ?? ['products' => []])
+        : ($fx['waste_week'] ?? ['products' => []]));
+}
+
+// Le catalogue vendable de la boutique — releve reel (583 produits). Porte les
+// drapeaux du pilotage : is_pdm, is_prepared_before_sales, tenue en vitrine
+// (shelf_life_minutes) et parametres de recuisson.
+if ($method === 'GET' && $m('/shops/\\d+/products/available')) {
+    ok(mock_shop2_fixture()['products_available'] ?? []);
+}
+
 // Le poste d'un employe — GET /employees/{id}/positions (contrat confirme).
 if ($method === 'GET' && $m('/employees/(\\d+)/positions', $vars)) {
     ok(mock_employee_positions((int)$vars[1]));
@@ -439,10 +486,11 @@ if ($method === 'GET' && $m('/products/(\\d+)/technical-sheet/raw', $vars)) {
 //   ?configured=0 — le produit n'a pas de parcours. Un fait, pas une panne.
 //   ?dead=1       — la route ne repond pas. La PWA doit alors la NOMMER.
 //   defaut        — un parcours complet, four et batch compris.
-// Les produits qui ont un parcours : un appel pour tout le reseau. La
-// baguette est le produit test — 6700120 dans ce jeu.
+// Les produits qui ont un parcours : un appel pour tout le reseau. Releve
+// reel — la Baguette Tradition 500 g. (1300003) est le produit test.
 if ($method === 'GET' && $m('/preparation-paths/configured-product-ids')) {
-    ok(['product_ids' => [6700120, 12]]);
+    // Liste nue, comme l'API reelle la sert.
+    ok(mock_shop2_fixture()['configured_product_ids'] ?? []);
 }
 
 if ($method === 'GET' && $m('/products/(\d+)/preparation-path', $vars)) {

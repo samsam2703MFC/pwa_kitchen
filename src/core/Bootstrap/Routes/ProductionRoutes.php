@@ -13,6 +13,18 @@ return function (RouteCollector $r) {
         'method'     => 'period1',
     ]);
 
+    // Fin de journée — les gestes du volet « Solder » : jeter (photo +
+    // quantité) et reporter au stock de demain. Écritures via l'API, jamais
+    // de succès inventé.
+    $r->addRoute('POST', '/ajax/production/pilotage/waste', [
+        'controller' => \App\Kitchen\app\Http\Controllers\Production\PilotageController::class,
+        'method'     => 'wasteAction',
+    ]);
+    $r->addRoute('POST', '/ajax/production/pilotage/stock-in', [
+        'controller' => \App\Kitchen\app\Http\Controllers\Production\PilotageController::class,
+        'method'     => 'stockAction',
+    ]);
+
     // Écran unique, quatre vues : matin, midi, après-midi, stock.
     $r->addRoute('GET', '/production', [
         'controller' => $controller,

@@ -80,6 +80,175 @@ $rows2 = $svc->rows(
 $tp2 = $svc->toProduce($rows2);
 check('avance ne compense pas retard', $tp2['total'], 8.0);
 
+// ── Séparation matin / PDM ─────────────────────────────────────────────────
+$flags = [
+    301 => ['pdm' => true,  'shelf_minutes' => 240, 'reheat_minutes' => 10, 'reheat_celsius' => 180],
+    302 => ['pdm' => false, 'shelf_minutes' => null, 'reheat_minutes' => null, 'reheat_celsius' => null],
+];
+$mix = [
+    ['product_id' => 301, 'name' => 'Quiche',    'ecart' => 5.0],
+    ['product_id' => 302, 'name' => 'Baguette',  'ecart' => 36.0],
+    ['product_id' => 303, 'name' => 'Cake',      'ecart' => 2.0],   // absent du catalogue
+];
+$split = $svc->splitByPdm($mix, $flags);
+check('PDM : produit coché part la veille', array_column($split['pdm'], 'product_id'), [301]);
+check('PDM : le reste part au matin',       array_column($split['morning'], 'product_id'), [302, 303]);
+check('PDM : drapeau absent = matin',       count($split['morning']), 2);
+check('PDM : rien ne se perd', count($split['pdm']) + count($split['morning']), count($mix));
+
+// ── File de recuisson ──────────────────────────────────────────────────────
+$rq = $svc->reheatQueue([
+    ['product_id' => 301, 'name' => 'Quiche',   'ecart' => 5.0],
+    ['product_id' => 302, 'name' => 'Baguette', 'ecart' => 36.0],
+    ['product_id' => 304, 'name' => 'Avance',   'ecart' => -3.0],  // en avance : hors file
+    ['product_id' => 305, 'name' => 'Inconnu',  'ecart' => null],  // sans prévision : hors file
+], $flags);
+check('recuisson : manques seuls, urgents en tête', array_column($rq, 'product_id'), [302, 301]);
+check('recuisson : reheat du catalogue accroché', $rq[1]['reheat_minutes'], 10);
+check('recuisson : température accrochée',        $rq[1]['reheat_celsius'], 180);
+check('recuisson : produit hors catalogue = sans reheat', $rq[0]['reheat_minutes'], null);
+$rqEq = $svc->reheatQueue([
+    ['product_id' => 1, 'name' => 'Zeta', 'ecart' => 4.0],
+    ['product_id' => 2, 'name' => 'Alpha', 'ecart' => 4.0],
+], []);
+check('recuisson : à écart égal, ordre alphabétique', array_column($rqEq, 'name'), ['Alpha', 'Zeta']);
+
+// ── Candidats vente flash ──────────────────────────────────────────────────
+$fc = $svc->flashCandidates([
+    ['product_id' => 1, 'name' => 'FlipFlap', 'ecart' => 14.0, 'shelf_minutes' => 720],
+    ['product_id' => 2, 'name' => 'Pain',     'ecart' => 36.0, 'shelf_minutes' => 1444], // tenue longue : hors liste
+    ['product_id' => 3, 'name' => 'Wrap',     'ecart' => 5.0,  'shelf_minutes' => 360],
+    ['product_id' => 4, 'name' => 'Soupe',    'ecart' => -2.0, 'shelf_minutes' => 240],  // en avance : hors liste
+    ['product_id' => 5, 'name' => 'Cake',     'ecart' => 9.0,  'shelf_minutes' => null], // tenue inconnue : hors liste
+]);
+check('flash : tenue courte et manque seuls', array_column($fc, 'product_id'), [3, 1]);
+check('flash : la tenue la plus courte en tête', $fc[0]['shelf_minutes'], 360);
+check('flash : rien → liste vide', $svc->flashCandidates([]), []);
+
+// ── Chronologie de gamme (heures de fin, fournées) ─────────────────────────
+// La gamme réelle de la baguette : 5 s ; four 720 s ; ressuage 60 s.
+$tl = $svc->ovenTimeline([
+    ['seconds' => 5,   'oven' => false],
+    ['seconds' => 720, 'oven' => true],
+    ['seconds' => 60,  'oven' => false],
+], 2);
+check('chrono : fins d\'étapes cumulées', $tl['step_ends'], [5, 725, 785]);
+check('chrono : fournée 1 sort après la gamme entière', $tl['batch_ready'][0], 785);
+check('chrono : fournée 2 = un tour de four de plus', $tl['batch_ready'][1], 785 + 720);
+$tl2 = $svc->ovenTimeline([['seconds' => 300, 'oven' => false]], 3);
+check('chrono : sans four, une seule sortie', $tl2['batch_ready'], [300]);
+$tl3 = $svc->ovenTimeline([
+    ['seconds' => null, 'oven' => false],
+    ['seconds' => 600,  'oven' => true],
+], 1);
+check('chrono : durée inconnue → fins inconnues ensuite', $tl3['step_ends'], [null, null]);
+
+// ── Volumes du jour ────────────────────────────────────────────────────────
+$vol = $svc->volumesOfDay(
+    [   // toutes les lignes du jour
+        ['prevu' => 44.0, 'vendu' => 8.0,  'ecart' => 36.0],
+        ['prevu' => 20.0, 'vendu' => 25.0, 'ecart' => -5.0],
+        ['prevu' => null, 'vendu' => 3.0,  'ecart' => null],
+    ],
+    [   // la file enrichie
+        ['ecart' => 36.0, 'fournees' => 2, 'prep' => ['oven_capacity' => 30]],
+        ['ecart' => 4.0,  'fournees' => null, 'prep' => null],
+    ]
+);
+check('volumes : prévu additionne les connus', $vol['prevu'], 64.0);
+check('volumes : vendu additionne tout',       $vol['vendu'], 36.0);
+check('volumes : % réalisé arrondi',           $vol['pct'], 56);
+check('volumes : reste = manques de la file',  $vol['reste'], 40.0);
+check('volumes : fournées comptées',           $vol['fournees'], 2);
+check('volumes : pièces = fournées × capacité', $vol['pieces'], 60.0);
+check('volumes : sans prévision, pas de %',    $svc->volumesOfDay([['prevu' => null, 'vendu' => 2.0, 'ecart' => null]], [])['pct'], null);
+
+// ── Commandes appliquées au jour ───────────────────────────────────────────
+$withRes = $svc->applyReservations([
+    ['product_id' => 501, 'name' => 'Sandwich', 'section' => 's', 'prevu' => 21.0, 'vendu' => 9.0, 'ecart' => 12.0],
+    ['product_id' => 502, 'name' => 'Baguette', 'section' => 's', 'prevu' => 44.0, 'vendu' => 8.0, 'ecart' => 36.0],
+    ['product_id' => 503, 'name' => 'Sans prévision', 'section' => 's', 'prevu' => null, 'vendu' => 0.0, 'ecart' => null],
+], [
+    ['id' => 501, 'name' => 'Sandwich', 'qty' => 15.0],   // commandes > écart
+    ['id' => 502, 'name' => 'Baguette', 'qty' => 2.0],    // commandes < écart
+    ['id' => 999, 'name' => 'Plateau traiteur', 'qty' => 4.0],  // inconnu de la prévision
+]);
+$byId = array_column($withRes, null, 'product_id');
+check('réservation : commandes > prévision → besoin = commandes', $byId[501]['need'], 15.0);
+check('réservation : vente libre plancher zéro', $byId[501]['libre'], 0.0);
+check('réservation : commandes < prévision → besoin = écart', $byId[502]['need'], 36.0);
+check('réservation : libre = écart − réservé', $byId[502]['libre'], 34.0);
+check('réservation : sans commande, besoin = écart (null compris)', $byId[503]['need'], null);
+check('réservation : produit commandé inconnu entre en liste', $byId[999]['need'], 4.0);
+check('réservation : l\'inconnu porte sa commande', $byId[999]['reserved'], 4.0);
+
+// ── Préparation du soir : prévision + commandes fermes ─────────────────────
+$prep = $svc->tomorrowPrep(
+    [
+        ['product_id' => 601, 'name' => 'Cerise', 'section' => '', 'prevu' => 3.0, 'vendu' => 0.0, 'ecart' => 3.0],
+        ['product_id' => 602, 'name' => 'Spaghetti', 'section' => '', 'prevu' => 2.0, 'vendu' => 0.0, 'ecart' => 2.0],
+    ],
+    [
+        ['id' => 601, 'name' => 'Cerise', 'qty' => 8.0],     // commande > prévision
+        ['id' => 603, 'name' => 'Cannelloni', 'qty' => 5.0], // PDM commandé, hors prévision
+        ['id' => 604, 'name' => 'Pain', 'qty' => 20.0],      // PAS PDM : n'entre pas
+    ],
+    [
+        601 => ['pdm' => true], 602 => ['pdm' => true],
+        603 => ['pdm' => true], 604 => ['pdm' => false],
+    ]
+);
+check('soir : besoin = max(prévision, commande)', array_column($prep, 'need'),  [8.0, 5.0, 2.0]);
+check('soir : ordre = besoin décroissant', array_column($prep, 'product_id'), [601, 603, 602]);
+check('soir : le non-PDM commandé reste dehors', in_array(604, array_column($prep, 'product_id'), true), false);
+
+// ── Classes de conservation ────────────────────────────────────────────────
+check('classe : 12 h pile = courte',  \App\Kitchen\app\Services\Production\Period1Service::shelfClass(720), 'courte');
+check('classe : 24 h = moyenne',      \App\Kitchen\app\Services\Production\Period1Service::shelfClass(1444), 'moyenne');
+check('classe : 3 jours = longue',    \App\Kitchen\app\Services\Production\Period1Service::shelfClass(4320), 'longue');
+check('classe : inconnue reste null', \App\Kitchen\app\Services\Production\Period1Service::shelfClass(null), null);
+
+// ── Vue stock ──────────────────────────────────────────────────────────────
+$sp = $svc->stockPanels(
+    [
+        701 => ['name' => 'Baguette',  'shelf_minutes' => 1444],
+        702 => ['name' => 'FlipFlap',  'shelf_minutes' => 720],
+        703 => ['name' => 'Conserve',  'shelf_minutes' => 100000],
+        704 => ['name' => 'Mystère',   'shelf_minutes' => null],
+    ],
+    [701 => 'Boulangerie', 702 => 'Traiteur', 703 => 'Épicerie'],   // 704 jamais vendu
+    [701 => ['vendu' => 8.0, 'ecart' => 36.0, 'reserved' => 2.0]]
+);
+$names = array_map(static fn($p) => $p['section'], $sp);
+check('stock : secteurs triés, Autres en dernier', $names, ['Boulangerie', 'Traiteur', 'Épicerie', '']);
+check('stock : le jour s\'accroche à la ligne', $sp[0]['rows'][0]['need'], 36.0);
+check('stock : compteur par classe', $sp[0]['counts']['moyenne'] ?? 0, 1);
+check('stock : classe portée par la ligne', $sp[1]['rows'][0]['class'], 'courte');
+check('stock : l\'inconnu garde une classe nulle', $sp[3]['rows'][0]['class'], null);
+
+// ── Plan par four ──────────────────────────────────────────────────────────
+$plan = $svc->ovenPlan([
+    ['name' => 'Baguette', 'ecart' => 36.0, 'need' => 36.0,
+     'prep' => ['steps' => [['oven' => true, 'batch_group' => 'Boulangerie', 'batch_capacity' => 30]]]],
+    ['name' => 'Pistolet', 'ecart' => 10.0, 'need' => 10.0,
+     'prep' => ['steps' => [['oven' => true, 'batch_group' => 'Boulangerie', 'batch_capacity' => 30]]]],
+    ['name' => 'Quiche',   'ecart' => 5.0,  'need' => 5.0,
+     'prep' => ['steps' => [['oven' => true, 'batch_group' => 'Four 180°', 'batch_capacity' => 12]]]],
+    ['name' => 'Sans gamme', 'ecart' => 9.0, 'need' => 9.0, 'prep' => null],
+]);
+check('four : les groupes partagés se réunissent', count($plan), 2);
+check('four : le plus chargé en tête', $plan[0]['group'], 'Boulangerie');
+check('four : fournée mixte remplie par urgence', array_column($plan[0]['items'], 'take'), [30.0, 0.0]);
+check('four : le total et les fournées', [$plan[0]['total'], $plan[0]['fournees']], [46.0, 2]);
+check('four : sans gamme, hors plan', in_array('Sans gamme', array_merge(...array_map(fn($g) => array_column($g['items'], 'name'), $plan)), true), false);
+
+// ── Bilan du jour (part servie) ────────────────────────────────────────────
+$base = $svc->dayReportBase([
+    ['prevu' => 44.0, 'vendu' => 8.0], ['prevu' => null, 'vendu' => 3.0],
+]);
+check('bilan : vendu additionne tout', $base['vendu'], 11.0);
+check('bilan : prévu additionne les connus', $base['prevu'], 44.0);
+
 // ── Rien à assembler ────────────────────────────────────────────────────────
 check('aucun produit → aucune ligne', $svc->rows([], [], [], $C), []);
 check('aucun produit → rien à produire', $svc->toProduce([])['total'], 0.0);

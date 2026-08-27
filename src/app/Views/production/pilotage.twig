@@ -4,40 +4,270 @@
 
 {% block head %}
 <style>
-    .pl-head { margin-bottom: 16px; }
+    .pl-head { margin-bottom: 12px; }
     .pl-when { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; color: var(--c-muted, #7a7168); }
     .pl-when b { color: var(--c-ink, #241f1c); }
     .pl-hint { margin-top: 4px; font-size: .78rem; color: var(--c-muted, #7a7168); }
+    .pl-hint code { font-size: .72rem; }
+    /* Les aides se replient : un ⓘ, le texte ne sort qu'à la demande. */
+    .pl-info { display: inline; }
+    .pl-info > summary { list-style: none; display: inline-flex; align-items: center; gap: 4px;
+        cursor: pointer; color: var(--c-muted, #7a7168); font-size: .82rem; }
+    .pl-info > summary::-webkit-details-marker { display: none; }
+    .pl-info[open] > summary { color: var(--c-encre, #1F4F6B); }
+    .pl-info .pl-hint { margin: 6px 0 2px; }
 
-    /* Le bandeau « à produire » : la conclusion, en tête. */
-    .pl-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px;
+    /* La recherche : un champ discret, pleine largeur. */
+    .pl-search { display: flex; align-items: center; gap: 8px; background: #fff;
+        border: 1.5px solid var(--c-line, rgba(36,26,22,.12)); border-radius: var(--r-md, 13px);
+        padding: 8px 14px; margin-bottom: 10px; }
+    .pl-search input { flex: 1; border: 0; outline: none; font-size: .9rem; background: transparent; color: var(--c-ink, #241f1c); }
+    .pl-search i { color: var(--c-muted, #7a7168); }
+
+    /* ── Stepper : barre segmentée compacte (variante C validée) ── */
+    .pl-flow { display: flex; gap: 3px; margin-bottom: 14px; background: #fff;
+        border: 1.5px solid var(--c-line, rgba(36,26,22,.12)); border-radius: var(--r-md, 13px); padding: 3px; }
+    .pl-flow-step { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+        background: transparent; border: 0; border-radius: calc(var(--r-md, 13px) - 4px);
+        padding: 10px 10px; cursor: pointer; min-width: 0; }
+    .pl-flow-n { flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center;
+        justify-content: center; font-size: .7rem; font-weight: 800; background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
+    .pl-flow-txt { min-width: 0; }
+    .pl-flow-name { display: block; font-size: .8rem; font-weight: 700; color: var(--c-ink, #241f1c);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-flow-sub { display: none; }
+    .pl-flow-step.is-active { background: var(--c-primary, #8D1D2C); }
+    .pl-flow-step.is-active .pl-flow-name { color: #fff; }
+    .pl-flow-step.is-active .pl-flow-n { background: rgba(255,255,255,.25); color: #fff; }
+    @media (max-width: 640px) { .pl-flow-n { display: none; } .pl-flow-step { padding: 8px 6px; } }
+
+    .pl-pane { display: none; }
+    .pl-pane.is-active { display: block; }
+
+    /* Bandeau compact. */
+    .pl-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
         background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-left: 5px solid var(--c-primary, #8D1D2C);
-        border-radius: var(--r-lg, 18px); padding: 16px 20px; margin-bottom: 16px; }
-    .pl-sum-big { font-family: Vank, Gotham, sans-serif; font-size: 1.5rem; color: var(--c-primary, #8D1D2C); line-height: 1; }
-    .pl-sum-lbl { font-size: .85rem; color: var(--c-muted, #7a7168); }
-    .pl-sum-sec { font-size: .82rem; color: var(--c-encre, #1F4F6B); font-weight: 700; }
-    .pl-sum-unknown { font-size: .78rem; color: var(--c-ambre, #C17A2A); }
+        border-radius: var(--r-lg, 18px); padding: 13px 18px; margin-bottom: 14px; }
+    .pl-sum-big { font-family: Vank, Gotham, sans-serif; font-size: 1.4rem; color: var(--c-primary, #8D1D2C); line-height: 1; }
+    .pl-sum-lbl { font-size: .84rem; color: var(--c-muted, #7a7168); }
+    .pl-sum-rest { font-size: .76rem; color: var(--c-muted, #7a7168); margin-left: auto; }
 
-    .pl-panel { background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-lg, 18px); overflow: hidden; }
-    .pl-sec-hd { padding: 11px 18px; background: #fcfaf7; border-top: 1px solid var(--c-line, rgba(36,26,22,.09));
-        font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--c-muted, #7a7168); }
-    .pl-sec-hd:first-child { border-top: 0; }
-    .pl-row { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-top: 1px solid var(--c-line, rgba(36,26,22,.09)); }
-    .pl-name { flex: 1; min-width: 0; font-size: 1.02rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pl-cell { flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+    /* Ligne 1 : les trois compteurs, parts égales de la largeur. */
+    .pl-kpis { display: flex; gap: 8px; margin-bottom: 8px; }
+    .pl-kpi { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px); padding: 8px 10px; }
+    .pl-kpi b { font-family: Vank, Gotham, sans-serif; font-size: 1.2rem; line-height: 1;
+        color: var(--c-primary, #8D1D2C); font-variant-numeric: tabular-nums; }
+    .pl-kpi:first-child b { color: var(--c-vert, #2D7A3E); }
+    .pl-kpi:nth-child(2) b { color: var(--c-ambre, #C17A2A); }
+    .pl-kpi small { font-size: .64rem; letter-spacing: .03em; text-transform: uppercase;
+        color: var(--c-muted, #7a7168); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Ligne 2 : la bascule 4 phases — pleine largeur, rectangles arrondis. */
+    .pl-when-toggle { display: flex; width: 100%; background: #fff; border: 1.5px solid var(--c-line, rgba(36,26,22,.12));
+        border-radius: var(--r-md, 13px); padding: 3px; gap: 3px; margin-bottom: 12px; }
+    .pl-when-btn { flex: 1; min-width: 0; border: 0; background: transparent; font-size: .8rem; font-weight: 700;
+        color: var(--c-muted, #7a7168); padding: 10px 6px; border-radius: calc(var(--r-md, 13px) - 4px);
+        cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-when-btn.is-active { background: var(--c-encre, #1F4F6B); color: #fff; }
+
+    /* Rail de sections (dans l'étape 1). */
+    /* Le rail des secteurs : volontairement plus léger que la bascule de
+       phase — des chips, pas des boutons, pour qu'on ne les confonde pas. */
+    .pl-wz-rail { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .pl-wz-rail::-webkit-scrollbar { display: none; }
+    .pl-wz-step { flex: none; display: flex; align-items: baseline; gap: 6px;
+        background: transparent; border: 1px solid var(--c-line, rgba(36,26,22,.14)); border-radius: var(--r-md, 13px);
+        padding: 6px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .pl-wz-step-name { font-size: .76rem; font-weight: 700; color: var(--c-ink, #241f1c); white-space: nowrap; }
+    .pl-wz-step-tot { font-size: .68rem; font-weight: 800; color: var(--c-muted, #7a7168); white-space: nowrap; }
+    .pl-wz-step.is-active { border-color: var(--c-primary, #8D1D2C); background: rgba(141,29,44,.05); }
+    .pl-wz-step.is-active .pl-wz-step-tot { color: var(--c-primary, #8D1D2C); }
+
+    .pl-wz-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+        gap: 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .pl-wz-track::-webkit-scrollbar { display: none; }
+    .pl-wz-panel { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+    .pl-panel-in { background: transparent; border: 0; }
+
+    .pl-panel-hd { display: flex; align-items: baseline; gap: 10px; padding: 13px 18px; margin-bottom: 10px;
+        border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-md, 13px); background: #fcfaf7; }
+    .pl-panel-name { font-family: Vank, Gotham, sans-serif; font-size: 1.05rem; color: var(--c-encre, #1F4F6B); }
+    .pl-panel-tot { margin-left: auto; font-size: .82rem; color: var(--c-muted, #7a7168); }
+    .pl-panel-tot b { font-size: 1.05rem; color: var(--c-primary, #8D1D2C); }
+
+    .pl-row { display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px;
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px); margin-bottom: 10px; }
+    .pl-body { flex: 1; min-width: 0; }
+    .pl-name { font-size: 1.02rem; font-weight: 700; line-height: 1.25; }
+    .pl-eta { margin-top: 2px; font-size: .74rem; color: var(--c-muted, #7a7168); }
+    .pl-cell { flex: none; text-align: right; font-variant-numeric: tabular-nums; padding-top: 2px; }
     .pl-cell b { display: block; font-size: 1.02rem; font-weight: 700; line-height: 1.1; }
-    .pl-cell small { display: block; font-size: .64rem; letter-spacing: .07em; text-transform: uppercase; color: var(--c-muted, #7a7168); margin-top: 1px; }
-    .pl-prevu b  { color: var(--c-encre, #1F4F6B); } .pl-prevu  { width: 66px; }
-    .pl-vendu b  { color: var(--c-ink, #241f1c); }   .pl-vendu  { width: 66px; }
-    .pl-ecart    { width: 78px; }
-    .pl-ecart.short b { color: var(--c-primary, #8D1D2C); }   /* il en manque */
-    .pl-ecart.ahead b { color: var(--c-vert, #2D7A3E); }      /* on est en avance */
-    .pl-ecart.zero b  { color: var(--c-muted, #7a7168); }
-    .pl-unknown { color: var(--c-ambre, #C17A2A); font-size: .82rem; font-style: italic; }
+    .pl-cell small { display: block; font-size: .62rem; letter-spacing: .07em; text-transform: uppercase; color: var(--c-muted, #7a7168); margin-top: 1px; }
+    .pl-prevu { width: 54px; } .pl-prevu b { color: var(--c-encre, #1F4F6B); }
+    .pl-vendu { width: 54px; } .pl-vendu b { color: var(--c-ink, #241f1c); }
+    .pl-ecart { width: 66px; } .pl-ecart b { color: var(--c-primary, #8D1D2C); }
+    .pl-big { width: 84px; } .pl-big b { font-family: Vank, Gotham, sans-serif; font-size: 1.4rem; }
+    .pl-unknown { color: var(--c-ambre, #C17A2A); }
 
-    .pl-state { text-align: center; color: var(--c-muted, #7a7168); padding: 46px 20px; }
-    .pl-state svg, .pl-state i { font-size: 2.3rem; opacity: .3; }
+    /* Gamme. */
+    .pl-tags { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .pl-fournees { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; font-weight: 800;
+        color: var(--c-primary, #8D1D2C); background: rgba(141,29,44,.08); border: 1px solid rgba(141,29,44,.18);
+        padding: 2px 9px; border-radius: var(--r-pill, 999px); }
+    .pl-gamme { margin-top: 6px; }
+    .pl-gamme > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+        font-size: .74rem; font-weight: 700; color: var(--c-encre, #1F4F6B); }
+    .pl-gamme > summary::-webkit-details-marker { display: none; }
+    .pl-gamme > summary .chev { transition: transform .15s ease; font-size: .68rem; }
+    .pl-gamme[open] > summary .chev { transform: rotate(90deg); }
+    /* Gamme HORIZONTALE : une carte par étape, l'heure de fin en évidence. */
+    .pl-steps { list-style: none; margin: 8px 0 2px; padding: 2px; display: flex; gap: 6px;
+        overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; align-items: stretch; }
+    .pl-steps::-webkit-scrollbar { display: none; }
+    /* Chaque étape prend une part égale de la ligne — 3, 4 ou 5 étapes,
+       toujours toute la largeur. En dessous de 110 px par carte, ça défile. */
+    .pl-steps li { flex: 1 1 0; min-width: 110px; display: flex; flex-direction: column; gap: 4px;
+        background: #fcfaf7; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px); padding: 8px 12px; position: relative; }
+    .pl-steps li:not(:last-child)::after { content: '›'; position: absolute; right: -7px; top: 50%;
+        transform: translateY(-50%); color: var(--c-muted, #7a7168); font-weight: 800; z-index: 1; }
+    .pl-step-top { display: flex; align-items: center; gap: 6px; }
+    .pl-step-n { flex: none; width: 17px; height: 17px; border-radius: 50%; background: var(--c-bg-2, #F4EFE8);
+        color: var(--c-encre, #1F4F6B); font-size: .64rem; font-weight: 800; display: inline-flex;
+        align-items: center; justify-content: center; }
+    .pl-step-end { margin-left: auto; font-size: .74rem; font-weight: 800; color: var(--c-encre, #1F4F6B);
+        font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pl-step-txt { font-size: .78rem; color: var(--c-ink, #241f1c); line-height: 1.3;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .pl-step-txt em { font-style: normal; color: var(--c-muted, #7a7168); }
+    .pl-etas { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; font-weight: 800;
+        color: var(--c-vert, #2D7A3E); background: rgba(45,122,62,.08); border: 1px solid rgba(45,122,62,.18);
+        padding: 2px 9px; border-radius: var(--r-pill, 999px); font-variant-numeric: tabular-nums; }
+    .pl-badge { display: inline-block; font-size: .66rem; font-weight: 700; padding: 1px 7px; border-radius: var(--r-pill, 999px);
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); margin-left: 4px; white-space: nowrap; }
+    .pl-badge-oven { background: rgba(193,122,42,.12); color: var(--c-ambre, #C17A2A); }
+    .pl-badge-res { background: rgba(31,79,107,.1); color: var(--c-encre, #1F4F6B); }
+    /* Les classes de conservation : courte rubis, moyenne ambre, longue vert. */
+    .pl-badge-courte  { background: rgba(141,29,44,.1);  color: var(--c-primary, #8D1D2C); }
+    .pl-badge-moyenne { background: rgba(193,122,42,.12); color: var(--c-ambre, #C17A2A); }
+    .pl-badge-longue  { background: rgba(45,122,62,.1);  color: var(--c-vert, #2D7A3E); }
+
+    /* La vue stock : le compteur EN STOCK est la porte d'entrée. */
+    .pl-kpi-stock { cursor: pointer; transition: border-color .15s, background .15s; }
+    .pl-kpi-stock.is-active { border-color: var(--c-vert, #2D7A3E); background: rgba(45,122,62,.05); }
+    .pl-st-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px); margin-bottom: 8px; }
+    .pl-st-name { flex: 1; min-width: 0; font-size: .92rem; font-weight: 700;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-st-info { flex: none; font-size: .72rem; color: var(--c-muted, #7a7168); font-variant-numeric: tabular-nums; }
+    .pl-eod-row.is-done { opacity: .55; }
+    .pl-eod-photo.has-photo { background: rgba(45,122,62,.1) !important; border-color: rgba(45,122,62,.35) !important; color: var(--c-vert, #2D7A3E) !important; }
+
+    /* Navigation sections. */
+    .pl-wz-nav { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+    .pl-wz-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 700;
+        color: var(--c-encre, #1F4F6B); background: #fff; border: 1.5px solid var(--c-line, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px); padding: 10px 18px; cursor: pointer; }
+    .pl-wz-btn[disabled] { opacity: .38; cursor: default; }
+    .pl-wz-pos { font-size: .8rem; color: var(--c-muted, #7a7168); font-variant-numeric: tabular-nums; }
+    .pl-wz-next { margin-left: auto; }
+    .pl-wz-foot { margin-top: 10px; font-size: .76rem; color: var(--c-muted, #7a7168); text-align: center; }
+
+    /* File de recuisson (étape 3). */
+    .pl-rq-filter { display: flex; width: 100%; gap: 3px; background: #fff; border: 1.5px solid var(--c-line, rgba(36,26,22,.12));
+        border-radius: var(--r-md, 13px); padding: 3px; margin-bottom: 12px; }
+    .pl-rq-fbtn { flex: 1; min-width: 0; border: 0; background: transparent; font-size: .8rem; font-weight: 700;
+        color: var(--c-muted, #7a7168); padding: 10px 8px; border-radius: calc(var(--r-md, 13px) - 4px); cursor: pointer;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-rq-fbtn.is-active { background: var(--c-ambre, #C17A2A); color: #fff; }
+    .pl-rq-fbtn:first-child.is-active { background: var(--c-encre, #1F4F6B); }
+
+    /* Le geste de recuisson : lancer une fournée, la sortir. Suivi LOCAL
+       tablette (aucune écriture API tant que le contrat ERP n'existe pas). */
+    /* La zone d'enfournement : pleine largeur, une ou deux infos par ligne,
+       tout en rectangles à coins arrondis, hauteurs identiques. */
+    .pl-launch { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .pl-fbtn { display: flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; min-height: 50px; font-size: .88rem; font-weight: 800; letter-spacing: .01em;
+        border-radius: var(--r-md, 13px); padding: 10px 16px; cursor: pointer; border: 1.5px solid transparent;
+        font-variant-numeric: tabular-nums;
+        transition: background .15s, border-color .15s, transform .08s, box-shadow .15s; }
+    .pl-fbtn i { font-size: 1.05em; }
+    .pl-fbtn:active { transform: scale(.985); }
+    .pl-fbtn[disabled] { opacity: .5; cursor: default; }
+
+    /* La hiérarchie des gestes : chaque action porte sa couleur.
+       Plein = définitif, contour = préparatoire. */
+    .pl-fbtn-danger { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C);
+        color: #fff; box-shadow: 0 2px 8px rgba(141,29,44,.25); }
+    .pl-fbtn-amber { background: var(--c-ambre, #C17A2A); border-color: var(--c-ambre, #C17A2A);
+        color: #fff; box-shadow: 0 2px 8px rgba(193,122,42,.25); }
+    .pl-fbtn-ink { background: #fff; border-color: var(--c-encre, #1F4F6B); color: var(--c-encre, #1F4F6B); }
+    .pl-fbtn-neutral { background: #fff; border-color: var(--c-line, rgba(36,26,22,.18)); color: var(--c-muted, #7a7168); }
+    .pl-fbtn-idle { background: #fff; border-color: var(--c-primary, #8D1D2C); color: var(--c-primary, #8D1D2C); }
+    .pl-fbtn-cooking { background: rgba(193,122,42,.12); border-color: var(--c-ambre, #C17A2A); color: var(--c-ambre, #C17A2A); }
+    .pl-fbtn-late { background: var(--c-ambre, #C17A2A); border-color: var(--c-ambre, #C17A2A); color: #fff;
+        animation: pl-pulse 1.2s ease-in-out infinite; }
+    @keyframes pl-pulse { 50% { opacity: .65; } }
+    .pl-fbtn-done { background: rgba(45,122,62,.1); border-color: rgba(45,122,62,.3); color: var(--c-vert, #2D7A3E); cursor: default; }
+    .pl-gauge-cuit { height: 100%; background: var(--c-ambre, #C17A2A); opacity: .55; }
+
+    /* La tuile produit et son tiroir d'actions. */
+    .pl-row-click:active { background: #fcfaf7; }
+    .pl-chev { flex: none; color: var(--c-muted, #7a7168); padding-top: 6px; transition: transform .18s ease; }
+    .pl-row-click.is-open .pl-chev { transform: rotate(180deg); }
+    .pl-row-click { cursor: pointer; }
+    .pl-row-click.is-open { border-radius: var(--r-md, 13px) var(--r-md, 13px) 0 0; margin-bottom: 0; border-bottom: 0; }
+    .pl-drawer { padding: 4px 18px 16px; background: #fffdfa;
+        border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-top: 1px dashed var(--c-line, rgba(36,26,22,.12));
+        border-radius: 0 0 var(--r-md, 13px) var(--r-md, 13px); margin-bottom: 10px; }
+    .pl-drawer-sec { margin: 12px 0 6px; font-size: .74rem; font-weight: 800; letter-spacing: .04em;
+        text-transform: uppercase; color: var(--c-muted, #7a7168); }
+    .pl-drawer-none { padding: 12px 0 4px; font-size: .82rem; color: var(--c-muted, #7a7168); }
+    .pl-launch--tiles { padding-top: 12px; }
+
+    /* Le stepper de quantité : une seule ligne pleine largeur —
+       [−] quantité [+] | Enfourner N — hauteurs identiques (48 px). */
+    .pl-qty { display: flex; align-items: stretch; gap: 8px; width: 100%; }
+    .pl-qty-btn { flex: none; width: 48px; min-height: 48px; border-radius: var(--r-md, 13px);
+        border: 1.5px solid var(--c-line, rgba(36,26,22,.16));
+        background: #fff; font-size: 1.3rem; font-weight: 800; color: var(--c-ink, #241f1c); cursor: pointer; line-height: 1; }
+    .pl-qty-btn:disabled { opacity: .3; cursor: default; }
+    .pl-qty-num { flex: none; min-width: 56px; display: flex; align-items: center; justify-content: center;
+        font-family: Vank, Gotham, sans-serif; font-size: 1.5rem; color: var(--c-ink, #241f1c);
+        font-variant-numeric: tabular-nums; background: var(--c-bg-2, #F4EFE8); border-radius: var(--r-md, 13px); }
+    .pl-fbtn-go { flex: 1; width: auto; min-height: 50px; font-size: .95rem;
+        background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C);
+        color: #fff; box-shadow: 0 2px 8px rgba(141,29,44,.25); }
+    .pl-qty-hint { font-size: .72rem; color: var(--c-muted, #7a7168); }
+
+    /* Jauge horizontale : la journée du produit — vendu, puis reste à couvrir. */
+    .pl-gauge { margin-top: 7px; display: flex; align-items: center; gap: 8px; }
+    .pl-gauge-track { flex: 1; height: 9px; border-radius: var(--r-pill, 999px); background: var(--c-bg-2, #F4EFE8);
+        overflow: hidden; display: flex; }
+    .pl-gauge-sold { height: 100%; background: var(--c-vert, #2D7A3E); border-radius: var(--r-pill, 999px) 0 0 var(--r-pill, 999px); }
+    .pl-gauge-rest { height: 100%; background: rgba(141,29,44,.28); }
+    .pl-gauge-pct { flex: none; font-size: .72rem; font-weight: 800; color: var(--c-muted, #7a7168);
+        font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
+    .pl-rq-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px); margin-bottom: 10px; }
+    .pl-rq-need { flex: none; width: 62px; text-align: center; }
+    .pl-rq-need b { display: block; font-family: Vank, Gotham, sans-serif; font-size: 1.35rem; color: var(--c-primary, #8D1D2C); line-height: 1; }
+    .pl-rq-need small { font-size: .6rem; letter-spacing: .07em; text-transform: uppercase; color: var(--c-muted, #7a7168); }
+    .pl-rq-chips { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .pl-state { text-align: center; color: var(--c-muted, #7a7168); padding: 46px 20px;
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-md, 13px); }
+    .pl-state svg { opacity: .3; }
     .pl-state p { margin: 14px 0 0; }
+    .pl-state.ok svg { opacity: 1; }
+    .pl-state small { display: block; margin-top: 8px; font-size: .74rem; }
+    .pl-state code { font-size: .74rem; }
 </style>
 {% endblock %}
 
@@ -49,73 +279,1090 @@
     {% include "page_components/alerts.twig" %}
 
     <div class="pl-head">
-        {% if period %}
-            <span class="pl-when">
-                <i class="bi bi-sunrise"></i>
-                <b>{{ period.label ?: (translations.pilot_period1 | default('Période 1')) }}</b>
-                {% if period.from %}· {{ period.from }}–{{ period.to }}{% endif %}
-                · {{ selected_date }}
-            </span>
-        {% endif %}
-        <div class="pl-hint">
-            {{ (translations.pilot_basis | default('Prévision : moyenne pondérée des %s dernières semaines, même jour, même tranche.'))|replace({'%s': weeks}) }}
-        </div>
+        <span class="pl-when"><i class="bi bi-graph-up-arrow"></i>
+            <b>{{ translations.pilot_day | default('Prévision du jour') }}</b> · {{ selected_date }}</span>
+        <details class="pl-info">
+            <summary><i class="bi bi-info-circle"></i></summary>
+            <div class="pl-hint">
+                {{ (translations.pilot_basis_day | default('Moyenne pondérée des %s mêmes jours de semaine précédents.'))|replace({'%s': weeks}) }}
+                {% if history_days is defined and history_days < weeks %}
+                    · {{ (translations.pilot_partial | default('%s journées d\'historique servies'))|replace({'%s': history_days}) }}
+                {% endif %}
+            </div>
+        </details>
     </div>
 
     {% if state == 'served' %}
-        {# La conclusion d'abord : combien il reste à produire. #}
-        <div class="pl-sum">
-            <span class="pl-sum-big">{{ to_produce.total|number_format(0, ',', ' ') }}</span>
-            <span class="pl-sum-lbl">{{ translations.pilot_to_produce | default('à produire sur la période') }}</span>
-            {% for sec, qty in to_produce.by_section %}
-                <span class="pl-sum-sec">{{ translations['sector_' ~ sec] ?? sec }} : {{ qty|number_format(0, ',', ' ') }}</span>
-            {% endfor %}
-            {% if to_produce.unknown > 0 %}
-                <span class="pl-sum-unknown">
-                    {{ (translations.pilot_unknown | default('%s sans prévision'))|replace({'%s': to_produce.unknown}) }}
+        {% if prep_missing %}
+            <div class="pl-hint" style="margin:-4px 0 10px;color:var(--c-ambre,#C17A2A);">
+                <i class="bi bi-exclamation-triangle"></i>
+                {{ translations.pilot_prep_missing | default('Gammes indisponibles') }} — <code>{{ prep_missing }}</code>
+            </div>
+        {% endif %}
+        {% if flags_missing %}
+            <div class="pl-hint" style="margin:-4px 0 10px;color:var(--c-ambre,#C17A2A);">
+                <i class="bi bi-exclamation-triangle"></i>
+                {{ translations.pilot_flags_missing | default('Catalogue indisponible (PDM, recuisson)') }} — <code>{{ flags_missing }}</code>
+            </div>
+        {% endif %}
+
+        {# ── Stepper du flux : Production · Mise en rayon · Solder.
+             La cuisson du jour vit DANS Production (toggle 4 phases). ── #}
+        <div class="pl-flow" id="flowBar">
+            <button type="button" class="pl-flow-step is-active" data-pane="p1">
+                <span class="pl-flow-n">1</span>
+                <span class="pl-flow-txt">
+                    <span class="pl-flow-name">{{ translations.pilot_step_prod | default('Production') }}</span>
                 </span>
-            {% endif %}
+            </button>
+            <button type="button" class="pl-flow-step is-blocked" data-pane="p2">
+                <span class="pl-flow-n">2</span>
+                <span class="pl-flow-txt">
+                    <span class="pl-flow-name">{{ translations.pilot_step2 | default('Mise en rayon') }}</span>
+                </span>
+            </button>
+            <button type="button" class="pl-flow-step" data-pane="p4">
+                <span class="pl-flow-n">3</span>
+                <span class="pl-flow-txt">
+                    <span class="pl-flow-name">{{ translations.pilot_step4 | default('Solder') }}</span>
+                </span>
+            </button>
         </div>
 
-        <div class="pl-panel">
-            {% set current_section = '__none__' %}
-            {% for r in rows %}
-                {% if r.section != current_section %}
-                    {% set current_section = r.section %}
-                    <div class="pl-sec-hd">{{ translations['sector_' ~ r.section] ?? (r.section ?: (translations.pilot_no_section | default('Autres'))) }}</div>
-                {% endif %}
-                <div class="pl-row">
-                    <span class="pl-name">{{ r.name }}</span>
-                    <span class="pl-cell pl-prevu">
-                        {% if r.prevu is not null %}<b>{{ r.prevu|round }}</b>{% else %}<b class="pl-unknown">—</b>{% endif %}
-                        <small>{{ translations.pilot_col_prevu | default('prévu') }}</small>
-                    </span>
-                    <span class="pl-cell pl-vendu">
-                        <b>{{ r.vendu|round }}</b>
-                        <small>{{ translations.pilot_col_vendu | default('vendu') }}</small>
-                    </span>
-                    <span class="pl-cell pl-ecart {{ r.ecart is null ? '' : (r.ecart > 0 ? 'short' : (r.ecart < 0 ? 'ahead' : 'zero')) }}">
-                        {% if r.ecart is not null %}
-                            <b>{{ r.ecart > 0 ? '+' : '' }}{{ r.ecart|round }}</b>
-                        {% else %}
-                            <b class="pl-unknown">?</b>
-                        {% endif %}
-                        <small>{{ translations.pilot_col_ecart | default('écart') }}</small>
-                    </span>
+        {# ════ Étape 1 — Production ════
+             Ligne 1 : les compteurs (en stock · en production · prévision).
+             Ligne 2 : le toggle 4 phases, pleine largeur.
+             Ligne 3 : les catégories, puis les cartes produit. #}
+        <div class="pl-pane is-active" id="p1">
+            <div class="pl-kpis">
+                <div class="pl-kpi pl-kpi-stock" id="kpiStockCard" role="button" tabindex="0"
+                     title="{{ translations.pilot_stock_open | default('Voir tout le stock') }}">
+                    <b id="kpiStock">0</b>
+                    <small>{{ translations.pilot_kpi_stock | default('en stock · tout voir') }} <i class="bi bi-chevron-down"></i></small>
                 </div>
-            {% endfor %}
+                <div class="pl-kpi">
+                    <b id="kpiProd">0</b>
+                    <small>{{ translations.pilot_kpi_prod | default('en production · au four') }}</small>
+                </div>
+                <div class="pl-kpi">
+                    <b>{{ to_produce.total|number_format(0, ',', ' ') }}</b>
+                    <small>{{ translations.pilot_kpi_prev | default('prévision · reste à cuire') }}</small>
+                </div>
+            </div>
+
+            <div class="pl-when-toggle" id="pdmToggle">
+                <button type="button" class="pl-when-btn" data-bucket="pdm">
+                    {{ translations.pilot_eve_done | default('Préparé la veille') }} ({{ pdm_rows|length }})</button>
+                <button type="button" class="pl-when-btn is-active" data-bucket="morning">
+                    {{ translations.pilot_bake_morning | default('Cuisson matin') }} ({{ shown - pdm_rows|length }})</button>
+                <button type="button" class="pl-when-btn" data-bucket="day">
+                    {{ translations.pilot_bake_day | default('Cuisson jour') }} ({{ reheat_rows|length }})</button>
+                <button type="button" class="pl-when-btn" data-bucket="tomorrow">
+                    {{ translations.pilot_for_tomorrow | default('Préparation pour demain') }} ({{ tomorrow_rows|length }})</button>
+            </div>
+
+            <div class="pl-search">
+                <i class="bi bi-search"></i>
+                <input type="search" id="plSearch" placeholder="{{ translations.pilot_search | default('Chercher un produit…') }}" autocomplete="off">
+            </div>
+
+            <div id="bucketMorning">
+            {% if panels|length == 0 %}
+                <div class="pl-panel-in"><div class="pl-state ok">
+                    {{ icons.svg('check', 38) }}
+                    <p>{{ translations.pilot_all_level | default('Rien à produire pour l\'instant — tout est à niveau.') }}</p>
+                </div></div>
+            {% else %}
+                <div class="pl-wz-rail" id="wzRail">
+                    {% for panel in panels %}
+                        <button type="button" class="pl-wz-step{{ loop.first ? ' is-active' : '' }}" data-i="{{ loop.index0 }}">
+                            <span class="pl-wz-step-name">{{ translations['sector_' ~ panel.section] ?? (panel.section ?: (translations.pilot_no_section | default('Autres'))) }}</span>
+                            <span class="pl-wz-step-tot">{{ panel.total|number_format(0, ',', ' ') }} {{ translations.pilot_to_make_short | default('à faire') }}</span>
+                        </button>
+                    {% endfor %}
+                </div>
+
+                <div class="pl-wz-track" id="wzTrack">
+                    {% for panel in panels %}
+                        <div class="pl-wz-panel" data-i="{{ loop.index0 }}">
+                            <div class="pl-panel-in">
+                                <div class="pl-panel-hd">
+                                    <span class="pl-panel-name">{{ translations['sector_' ~ panel.section] ?? (panel.section ?: (translations.pilot_no_section | default('Autres'))) }}</span>
+                                    <span class="pl-panel-tot">{{ translations.pilot_to_produce_day | default('à produire') }} <b>{{ panel.total|number_format(0, ',', ' ') }}</b></span>
+                                </div>
+                                {% for r in panel.rows %}
+                                    {# La tuile produit : un clic déroule le panneau d'actions. #}
+                                    <div class="pl-row pl-row-click" role="button" tabindex="0" aria-expanded="false">
+                                        <div class="pl-body">
+                                            <div class="pl-name">{{ r.name }}</div>
+                                            <div class="pl-eta">{{ (translations.pilot_sold_of | default('%v vendus sur %p prévus'))|replace({'%v': r.vendu|round, '%p': r.prevu is not null ? r.prevu|round : '—'}) }}</div>
+                                            <div class="pl-rq-chips">
+                                                {% if r.shelf_minutes is defined and r.shelf_minutes %}
+                                                    {% set cls = r.shelf_minutes <= 720 ? 'courte' : (r.shelf_minutes <= 2880 ? 'moyenne' : 'longue') %}
+                                                    <span class="pl-badge pl-badge-{{ cls }}"><i class="bi bi-hourglass-split"></i>
+                                                        {{ r.shelf_minutes < 60 ? '< 1 h' : ((r.shelf_minutes / 60)|round ~ ' h') }}</span>
+                                                {% endif %}
+                                            </div>
+                                            {% if r.reserved is defined and r.reserved > 0 %}
+                                                <div class="pl-rq-chips"><span class="pl-badge pl-badge-res"><i class="bi bi-bookmark"></i>
+                                                    {{ (translations.pilot_reserved_chip | default('dont %r réservés · libre %l'))|replace({'%r': r.reserved|round, '%l': r.libre is not null ? r.libre|round : '—'}) }}</span></div>
+                                            {% endif %}
+                                        </div>
+                                        <span class="pl-cell pl-ecart pl-big">
+                                            <b>{{ (r.need ?? r.ecart)|round }}</b>
+                                            <small>{{ translations.pilot_to_bake | default('à cuire') }}</small>
+                                        </span>
+                                        <span class="pl-chev"><i class="bi bi-chevron-down"></i></span>
+                                    </div>
+                                    <div class="pl-drawer" hidden>
+                                        {% if r.prep %}
+                                            {# Les fournées : quantité choisie à l'écran, bornée par la
+                                               prévision — on ne met pas au four plus que ce que la
+                                               journée demande encore. #}
+                                            <div class="pl-launch pl-launch--tiles"
+                                                 data-pid="{{ r.product_id }}"
+                                                 data-total-s="{{ r.prep.total_seconds }}"
+                                                 data-cap="{{ r.prep.oven_capacity ?: 0 }}"
+                                                 data-ecart="{{ (r.need ?? r.ecart)|round }}"></div>
+                                            <div class="pl-drawer-sec">{{ (translations.pilot_gamme | default('Comment faire · %s étapes'))|replace({'%s': r.prep.steps|length}) }}
+                                                {% if r.prep.total %} · {{ (translations.pilot_prep_total | default('durée totale %s'))|replace({'%s': r.prep.total}) }}{% endif %}</div>
+                                            <ol class="pl-steps">
+                                                {% for st in r.prep.steps %}
+                                                    <li>
+                                                        <span class="pl-step-top">
+                                                            <span class="pl-step-n">{{ st.n }}</span>
+                                                            {% if st.oven %}<span class="pl-badge pl-badge-oven" style="margin-left:0;"><i class="bi bi-fire"></i>{% if st.batch_capacity %} {{ st.batch_capacity }}{% endif %}</span>{% endif %}
+                                                            {% if st.end_at %}<span class="pl-step-end">→ {{ st.end_at }}</span>{% endif %}
+                                                        </span>
+                                                        <span class="pl-step-txt">{{ st.text }}
+                                                            {% if st.duration %}<em>· {{ st.duration }}</em>{% endif %}
+                                                        </span>
+                                                    </li>
+                                                {% endfor %}
+                                            </ol>
+                                        {% else %}
+                                            <div class="pl-drawer-none">{{ translations.pilot_no_gamme | default('« Comment faire » pas encore rempli au back-office pour ce produit.') }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="pl-wz-nav">
+                    <button type="button" class="pl-wz-btn" id="wzPrev" disabled><i class="bi bi-chevron-left"></i> {{ translations.pilot_prev | default('Précédent') }}</button>
+                    <span class="pl-wz-pos" id="wzPos">1 / {{ panels|length }}</span>
+                    <button type="button" class="pl-wz-btn pl-wz-next" id="wzNext">{{ translations.pilot_next | default('Suivant') }} <i class="bi bi-chevron-right"></i></button>
+                </div>
+                <div class="pl-wz-foot">
+                    {{ (translations.pilot_at_level | default('%s déjà à niveau'))|replace({'%s': at_level}) }}
+                    {% if unknown_count > 0 %} · {{ (translations.pilot_unknown | default('%s sans prévision'))|replace({'%s': unknown_count}) }}{% endif %}
+                </div>
+            {% endif %}
+            </div>
+
+            <div id="bucketPdm" style="display:none;">
+                {% if pdm_rows|length == 0 %}
+                    <div class="pl-panel-in"><div class="pl-state">
+                        {{ icons.svg('package', 38) }}
+                        <p>{{ translations.pilot_pdm_empty | default('Aucun produit en manque marqué « préparation la veille ».') }}</p>
+                        <small>{{ translations.pilot_pdm_hint | default('Le marquage PDM se coche au back-office, sur la fiche produit.') }}</small>
+                    </div></div>
+                {% else %}
+                    <div class="pl-panel-in">
+                        <div class="pl-panel-hd">
+                            <span class="pl-panel-name">{{ translations.pilot_eve | default('La veille · PDM') }}</span>
+                            <span class="pl-panel-tot"><b>{{ pdm_rows|length }}</b></span>
+                        </div>
+                        {% for r in pdm_rows %}
+                            <div class="pl-row">
+                                <div class="pl-body">
+                                    <div class="pl-name">{{ r.name }}</div>
+                                    {% if r.prep and r.prep.total %}
+                                        <div class="pl-eta"><i class="bi bi-clock-history"></i>
+                                            {{ (translations.pilot_prep_total | default('préparation %s'))|replace({'%s': r.prep.total}) }}</div>
+                                    {% endif %}
+                                </div>
+                                <span class="pl-cell pl-prevu">
+                                    {% if r.prevu is not null %}<b>{{ r.prevu|round }}</b>{% else %}<b class="pl-unknown">—</b>{% endif %}
+                                    <small>{{ translations.pilot_col_prevu | default('prévu') }}</small>
+                                </span>
+                                <span class="pl-cell pl-vendu"><b>{{ r.vendu|round }}</b><small>{{ translations.pilot_col_vendu | default('vendu') }}</small></span>
+                                <span class="pl-cell pl-ecart"><b>+{{ r.ecart|round }}</b><small>{{ translations.pilot_col_ecart | default('écart') }}</small></span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div id="bucketDay" style="display:none;">
+
+            {% if reheat_rows|length == 0 %}
+                <div class="pl-panel-in"><div class="pl-state ok">
+                    {{ icons.svg('check', 38) }}
+                    <p>{{ translations.pilot_queue_empty | default('File vide — la vitrine est au niveau de la prévision.') }}</p>
+                </div></div>
+            {% else %}
+                <details class="pl-info" style="margin-bottom:8px;">
+                    <summary><i class="bi bi-info-circle"></i> {{ translations.pilot_how | default('Comment ça compte ?') }}</summary>
+                <div class="pl-hint" style="margin-bottom:10px;">
+                    {{ translations.pilot_reheat_hint | default('Reste à vendre = prévu du jour − vendu jusqu\'ici. La file se recalcule à chaque ouverture.') }}
+                    · {{ translations.pilot_stock_note | default('Le stock catalogue affiché n\'est pas encore maintenu — il deviendra fiable avec l\'écriture MEP (étape 2).') }}
+                </div>
+                    <div class="pl-hint"><i class="bi bi-hand-index-thumb"></i>
+                        {{ translations.pilot_local_note | default('Le suivi des fournées reste sur cette tablette pour l\'instant.') }}</div>
+                </details>
+                {% if oven_plan|length > 0 %}
+                    {# Le plan par four : ce que les groupes de batch permettent
+                       de cuire ENSEMBLE, rempli par urgence. #}
+                    {% for g in oven_plan %}
+                        <div class="pl-row" style="align-items:center;">
+                            <div class="pl-body">
+                                <div class="pl-name"><i class="bi bi-fire" style="color:var(--c-ambre,#C17A2A);"></i>
+                                    {{ (translations.pilot_oven_group | default('Four · %s'))|replace({'%s': g.group}) }}
+                                    {% if g.capacity %}<span class="pl-badge">{{ g.capacity }}/{{ translations.pilot_batch_unit | default('fournée') }}</span>{% endif %}</div>
+                                <div class="pl-eta">
+                                    {{ (translations.pilot_oven_mix | default('1re fournée :'))  }}
+                                    {% for it in g.items %}{% if it.take > 0 %}{{ it.name }} × {{ it.take|round }}{% if not loop.last %} · {% endif %}{% endif %}{% endfor %}
+                                </div>
+                            </div>
+                            <span class="pl-cell pl-ecart pl-big">
+                                <b>{{ g.fournees }}</b>
+                                <small>{{ (translations.pilot_oven_batches | default('fournée(s) · %s p.'))|replace({'%s': g.total|round}) }}</small>
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="pl-rq-filter" id="rqFilter">
+                    <button type="button" class="pl-rq-fbtn is-active" data-f="main">
+                        {{ (translations.pilot_filter_all | default('Plus urgents (%s)'))|replace({'%s': 12 > reheat_rows|length ? reheat_rows|length : 12}) }}</button>
+                    <button type="button" class="pl-rq-fbtn" data-f="cycle">
+                        {{ (translations.pilot_filter_cycle | default('Fin de cycle (%s)'))|replace({'%s': flash_rows|length}) }}</button>
+                </div>
+
+                <div class="pl-panel-in">
+                    {% for r in queue_rows %}
+                        <div class="pl-rq-row" data-main="{{ r.in_main ? 1 : 0 }}" data-cycle="{{ r.in_cycle ? 1 : 0 }}">
+                            <span class="pl-rq-need"><b>+{{ (r.need ?? r.ecart)|round }}</b>
+                                <small>{{ translations.pilot_remaining | default('à vendre') }}</small></span>
+                            <div class="pl-body">
+                                <div class="pl-name">{{ r.name }}</div>
+                                {% if r.fournees %}
+                                    {# Le geste : chaque fournée est un bouton. Lancer → au four
+                                       (sortie calculée sur la gamme réelle) → Sortir → fait.
+                                       Suivi local tablette, en attente du contrat ERP. #}
+                                    <div class="pl-launch"
+                                         data-pid="{{ r.product_id }}"
+                                         data-total-s="{{ r.prep and r.prep.total_seconds ? r.prep.total_seconds : 0 }}"
+                                         data-cap="{{ r.prep and r.prep.oven_capacity ? r.prep.oven_capacity : 0 }}"
+                                         data-ecart="{{ (r.need ?? r.ecart)|round }}"></div>
+                                {% endif %}
+                                <div class="pl-rq-chips">
+                                    {% if r.reserved is defined and r.reserved > 0 %}
+                                        <span class="pl-badge pl-badge-res"><i class="bi bi-bookmark"></i>
+                                            {{ (translations.pilot_reserved_chip | default('dont %r réservés · libre %l'))|replace({'%r': r.reserved|round, '%l': r.libre is not null ? r.libre|round : '—'}) }}</span>
+                                    {% endif %}
+                                    {% if r.reheat_minutes %}
+                                        <span class="pl-badge pl-badge-oven"><i class="bi bi-fire"></i>
+                                            {{ (translations.pilot_reheat_at | default('recuisson %s min'))|replace({'%s': r.reheat_minutes}) }}{% if r.reheat_celsius %} · {{ r.reheat_celsius }} °C{% endif %}</span>
+                                    {% endif %}
+                                    {% if r.shelf_minutes %}
+                                        {% set cls = r.shelf_minutes <= 720 ? 'courte' : (r.shelf_minutes <= 2880 ? 'moyenne' : 'longue') %}
+                                        <span class="pl-badge pl-badge-{{ cls }}"><i class="bi bi-hourglass-split"></i>
+                                            {{ (translations.pilot_shelf | default('se garde %s h'))|replace({'%s': r.shelf_minutes < 60 ? '< 1' : (r.shelf_minutes / 60)|round}) }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if r.prevu is not null and r.prevu > 0 %}
+                                    {% set pct = (100 * r.vendu / r.prevu)|round %}
+                                    <div class="pl-gauge" title="{{ r.vendu|round }} / {{ r.prevu|round }}"
+                                         data-prevu="{{ r.prevu|round }}" data-vendu="{{ r.vendu|round }}">
+                                        <span class="pl-gauge-track">
+                                            <span class="pl-gauge-sold" style="width: {{ pct > 100 ? 100 : pct }}%;"></span>
+                                            <span class="pl-gauge-rest" style="width: {{ pct >= 100 ? 0 : (100 - pct) }}%;"></span>
+                                        </span>
+                                        <span class="pl-gauge-pct">{{ r.vendu|round }}/{{ r.prevu|round }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if reheat_rows|length > 12 %}
+                    <div class="pl-wz-foot" id="rqMore">{{ (translations.pilot_queue_more | default('+ %s autres produits en manque, moins urgents'))|replace({'%s': reheat_rows|length - 12}) }}</div>
+                {% endif %}
+            {% endif %}
+        
+            </div>
+
+            <div id="bucketTomorrow" style="display:none;">
+                {% if tomorrow_served is defined and tomorrow_served == 0 %}
+                    <div class="pl-state">
+                        {{ icons.svg('package', 38) }}
+                        <p>{{ (translations.pilot_tomorrow_missing | default('Pas encore d\'historique servi pour demain (%s).'))|replace({'%s': tomorrow_date}) }}</p>
+                    </div>
+                {% elseif tomorrow_rows|length == 0 %}
+                    <div class="pl-state ok">
+                        {{ icons.svg('check', 38) }}
+                        <p>{{ translations.pilot_tomorrow_empty | default('Aucun produit « préparation la veille » attendu demain.') }}</p>
+                        <small>{{ translations.pilot_pdm_hint | default('Le marquage PDM se coche au back-office, sur la fiche produit.') }}</small>
+                    </div>
+                {% else %}
+                    <div class="pl-panel-hd">
+                        <span class="pl-panel-name">{{ (translations.pilot_tomorrow_title | default('À préparer ce soir pour demain · %s'))|replace({'%s': tomorrow_date}) }}</span>
+                        <span class="pl-panel-tot"><b>{{ tomorrow_rows|length }}</b></span>
+                    </div>
+                    {% for r in tomorrow_rows %}
+                        <div class="pl-row">
+                            <div class="pl-body">
+                                <div class="pl-name">{{ r.name }}</div>
+                                <div class="pl-eta">{{ (translations.pilot_tomorrow_basis | default('prévision de demain, %s derniers jours identiques'))|replace({'%s': weeks}) }}</div>
+                                {% if r.ordered is defined and r.ordered > 0 %}
+                                    <div class="pl-rq-chips"><span class="pl-badge pl-badge-res"><i class="bi bi-bookmark"></i>
+                                        {{ (translations.pilot_firm_order | default('commande ferme %s'))|replace({'%s': r.ordered|round}) }}</span></div>
+                                {% endif %}
+                            </div>
+                            <span class="pl-cell pl-ecart pl-big">
+                                <b>{{ (r.need ?? r.ecart)|round }}</b>
+                                <small>{{ translations.pilot_to_prepare | default('à préparer') }}</small>
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            {# ════ Vue stock — tout le catalogue, secteur × conservation.
+                 Ouverte par le compteur « EN STOCK » de la ligne 1. ════ #}
+            <div id="bucketStock" style="display:none;">
+                <div class="pl-wz-rail" id="stRail">
+                    {% for panel in stock_panels %}
+                        <button type="button" class="pl-wz-step{{ loop.first ? ' is-active' : '' }}" data-st="{{ loop.index0 }}">
+                            <span class="pl-wz-step-name">{{ panel.section ?: (translations.pilot_no_section | default('Autres')) }}</span>
+                            <span class="pl-wz-step-tot">{{ panel.rows|length }}
+                                {% if panel.counts.courte is defined %}· {{ panel.counts.courte }} {{ translations.pilot_cls_courte_short | default('courte') }}{% endif %}</span>
+                        </button>
+                    {% endfor %}
+                </div>
+                {% for panel in stock_panels %}
+                    <div class="pl-st-panel" data-st="{{ loop.index0 }}" {% if not loop.first %}style="display:none;"{% endif %}>
+                        <div class="pl-panel-hd">
+                            <span class="pl-panel-name">{{ panel.section ?: (translations.pilot_no_section | default('Autres')) }}</span>
+                            <span class="pl-panel-tot">
+                                {% if panel.counts.courte is defined %}<span class="pl-badge pl-badge-courte">{{ panel.counts.courte }} C</span>{% endif %}
+                                {% if panel.counts.moyenne is defined %}<span class="pl-badge pl-badge-moyenne">{{ panel.counts.moyenne }} M</span>{% endif %}
+                                {% if panel.counts.longue is defined %}<span class="pl-badge pl-badge-longue">{{ panel.counts.longue }} L</span>{% endif %}
+                            </span>
+                        </div>
+                        {% for r in panel.rows %}
+                            <div class="pl-st-row">
+                                <span class="pl-st-name">{{ r.name }}</span>
+                                {% if r.reserved > 0 %}
+                                    <span class="pl-badge pl-badge-res"><i class="bi bi-bookmark"></i> {{ r.reserved|round }}</span>
+                                {% endif %}
+                                {% if r.vendu is not null and r.need is not null %}
+                                    <span class="pl-st-info">{{ r.vendu|round }} {{ translations.pilot_col_vendu | default('vendus') }} · {{ r.need|round }} {{ translations.pilot_to_bake | default('à cuire') }}</span>
+                                {% endif %}
+                                {% if r.class %}
+                                    <span class="pl-badge pl-badge-{{ r.class }}"><i class="bi bi-hourglass-split"></i>
+                                        {{ r.shelf_minutes < 60 ? '< 1 h' : ((r.shelf_minutes / 60)|round ~ ' h') }}</span>
+                                {% else %}
+                                    <span class="pl-badge">{{ translations.pilot_cls_unknown | default('tenue ?') }}</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
         </div>
 
-    {% elseif state == 'no_period' %}
-        <div class="pl-panel"><div class="pl-state">
-            {{ icons.svg('clock', 38) }}
-            <p>{{ translations.pilot_no_period | default("La production n'est pas encore ventilée par tranche horaire par l'API.") }}</p>
-        </div></div>
+        {# ════ Étape 2 — MEP · Stock (écriture en attente du contrat ERP) ════ #}
+        <div class="pl-pane" id="p2">
+            {# Les précommandes sortent du rayon avant la vente libre :
+               la mise en place commence par les réserver. #}
+            {% if orders_missing %}
+                <div class="pl-state"><small>{{ translations.pilot_not_served_short | default('Route non servie :') }} <code>{{ orders_missing }}</code></small></div>
+            {% else %}
+                <div class="pl-panel-hd">
+                    <span class="pl-panel-name">{{ (translations.pilot_orders_title | default('Commandes à réserver aujourd\'hui · %o commandes'))|replace({'%o': orders_today.orders}) }}</span>
+                    <span class="pl-panel-tot"><b>{{ orders_today.lines|length }}</b></span>
+                </div>
+                {% if orders_today.lines|length == 0 %}
+                    <div class="pl-state ok" style="padding:22px 20px;"><p style="margin:0;">{{ translations.pilot_orders_none | default('Aucune commande à réserver pour aujourd\'hui.') }}</p></div>
+                {% else %}
+                    {% for l in orders_today.lines %}
+                        <div class="pl-row">
+                            <div class="pl-body"><div class="pl-name">{{ l.name }}</div></div>
+                            <span class="pl-cell pl-ecart pl-big">
+                                <b>{{ l.qty|round }}</b>
+                                <small>{{ translations.pilot_to_reserve | default('à réserver') }}</small>
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if orders_tomorrow is not null and orders_tomorrow.lines|length > 0 %}
+                    <div class="pl-panel-hd" style="margin-top:14px;">
+                        <span class="pl-panel-name">{{ (translations.pilot_orders_tomorrow | default('Commandes pour demain · %o commandes'))|replace({'%o': orders_tomorrow.orders}) }}</span>
+                        <span class="pl-panel-tot"><b>{{ orders_tomorrow.lines|length }}</b></span>
+                    </div>
+                    {% for l in orders_tomorrow.lines %}
+                        <div class="pl-row">
+                            <div class="pl-body"><div class="pl-name">{{ l.name }}</div></div>
+                            <span class="pl-cell pl-ecart pl-big">
+                                <b>{{ l.qty|round }}</b>
+                                <small>{{ translations.pilot_to_prepare | default('à préparer') }}</small>
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endif %}
+
+            <div class="pl-hint" style="margin-top:10px;">
+                <i class="bi bi-exclamation-triangle"></i>
+                {{ translations.pilot_step2_blocked | default('L\'écriture du stock attend le contrat de l\'ERP :') }}
+                <code>{{ inventory_api }}</code>
+            </div>
+        </div>
+
+        {# ════ Étape 4 — Fin de journée · Réductions ════ #}
+        <div class="pl-pane" id="p4">
+            {# Le bilan de la journée : la part servie (vendu/prévu) vient du
+               serveur, les gestes (cuit, jeté, reporté, ventes rapides) du
+               suivi tablette — le navigateur assemble. #}
+            <div class="pl-sum" id="eodReport" style="gap:6px 20px;"
+                 data-vendu="{{ report_base.vendu|round }}" data-prevu="{{ report_base.prevu|round }}">
+                <span><span class="pl-sum-big">{{ report_base.vendu|number_format(0, ',', ' ') }}</span>
+                    <span class="pl-sum-lbl">{{ translations.pilot_rep_sold | default('vendus') }} / {{ report_base.prevu|number_format(0, ',', ' ') }} {{ translations.pilot_rep_prevu | default('prévus') }}</span></span>
+                <span><span class="pl-sum-big" id="repCuit">0</span> <span class="pl-sum-lbl">{{ translations.pilot_rep_baked | default('cuits (tablette)') }}</span></span>
+                <span><span class="pl-sum-big" id="repJete">0</span> <span class="pl-sum-lbl">{{ translations.pilot_rep_thrown | default('jetés') }}</span></span>
+                <span><span class="pl-sum-big" id="repReporte">0</span> <span class="pl-sum-lbl">{{ translations.pilot_rep_kept | default('reportés') }}</span></span>
+                <span><span class="pl-sum-big" id="repCasse">—</span> <span class="pl-sum-lbl">{{ translations.pilot_rep_waste_rate | default('taux de casse') }}</span></span>
+            </div>
+            <div class="pl-hint" style="margin-bottom:10px;">
+                {{ translations.pilot_step4_hint | default('En fin de journée : ce qui reste au-dessus de la prévision est candidat à la réduction plutôt qu\'à la démarque.') }}
+            </div>
+
+            <div class="pl-panel-in" style="margin-bottom:6px;">
+                <div class="pl-panel-hd">
+                    <span class="pl-panel-name">{{ translations.pilot_flash | default('Candidats vente flash') }}</span>
+                    <span class="pl-panel-tot"><b>{{ flash_rows|length }}</b></span>
+                </div>
+                {% if flash_rows|length == 0 %}
+                    <div class="pl-state ok" style="padding:22px 20px;"><p style="margin:0;">{{ translations.pilot_flash_none | default('Aucun produit à tenue courte au-dessus de la prévision.') }}</p></div>
+                {% else %}
+                    {% for r in flash_rows|slice(0, 8) %}
+                        {# Un clic ouvre les gestes de fin de journée : jeter
+                           (photo + quantité), vente rapide, ou report au stock
+                           de demain. #}
+                        <div class="pl-row pl-row-click pl-eod-row" role="button" tabindex="0"
+                             data-pid="{{ r.product_id }}" data-max="{{ (r.need ?? r.ecart)|round }}"
+                             data-keeps="{{ r.shelf_minutes and r.shelf_minutes >= 1440 ? 1 : 0 }}">
+                            <div class="pl-body">
+                                <div class="pl-name">{{ r.name }}</div>
+                                <div class="pl-rq-chips">
+                                    {% set cls = r.shelf_minutes <= 720 ? 'courte' : (r.shelf_minutes <= 2880 ? 'moyenne' : 'longue') %}
+                                    <span class="pl-badge pl-badge-{{ cls }}"><i class="bi bi-hourglass-split"></i>
+                                        {{ (translations.pilot_shelf | default('se garde %s h'))|replace({'%s': r.shelf_minutes < 60 ? '< 1' : (r.shelf_minutes / 60)|round}) }}</span>
+                                    <span class="pl-eod-state"></span>
+                                </div>
+                            </div>
+                            <span class="pl-cell pl-ecart"><b>+{{ (r.need ?? r.ecart)|round }}</b><small>{{ translations.pilot_remaining | default('à vendre') }}</small></span>
+                            <span class="pl-chev"><i class="bi bi-chevron-down"></i></span>
+                        </div>
+                        <div class="pl-drawer pl-eod-drawer" hidden>
+                            <div class="pl-qty" style="margin-top:12px;">
+                                <button type="button" class="pl-qty-btn" data-a="minus">−</button>
+                                <span class="pl-qty-num">1</span>
+                                <button type="button" class="pl-qty-btn" data-a="plus">+</button>
+                                <label class="pl-fbtn pl-fbtn-neutral pl-eod-photo" style="flex:1;">
+                                    <i class="bi bi-camera"></i> <span>{{ translations.pilot_photo | default('Photo') }}</span>
+                                    <input type="file" accept="image/*" capture="environment" hidden>
+                                </label>
+                            </div>
+                            <div class="pl-qty" style="margin-top:8px;">
+                                <button type="button" class="pl-fbtn pl-fbtn-danger pl-eod-act" data-act="waste" style="flex:1;">
+                                    <i class="bi bi-trash3"></i> {{ translations.pilot_throw | default('Jeter') }}</button>
+                                <button type="button" class="pl-fbtn pl-fbtn-amber pl-eod-act" data-act="flash" style="flex:1;">
+                                    <i class="bi bi-lightning-charge"></i> {{ translations.pilot_flash_btn | default('Vente rapide') }}</button>
+                            </div>
+                            <div class="pl-qty" style="margin-top:8px;">
+                                <button type="button" class="pl-fbtn pl-fbtn-ink pl-eod-act" data-act="keep" style="flex:1;">
+                                    <i class="bi bi-box-arrow-in-down"></i> {{ translations.pilot_keep | default('Reporter au stock de demain') }}</button>
+                            </div>
+                            <div class="pl-qty-hint pl-eod-err" style="color:var(--c-primary,#8D1D2C);display:none;"></div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <div class="pl-panel-in" style="margin-bottom:14px;">
+                <div class="pl-panel-hd">
+                    <span class="pl-panel-name">{{ translations.pilot_disc_active | default('Réductions actives') }}</span>
+                    <span class="pl-panel-tot"><b>{{ discounts is not null ? discounts|length : '—' }}</b></span>
+                </div>
+                {% if discounts_missing %}
+                    <div class="pl-state"><small>{{ translations.pilot_not_served_short | default('Route non servie :') }} <code>{{ discounts_missing }}</code></small></div>
+                {% elseif discounts|length == 0 %}
+                    <div class="pl-state" style="padding:22px 20px;"><p style="margin:0;">{{ translations.pilot_disc_none | default('Aucune réduction programmée en ce moment.') }}</p></div>
+                {% else %}
+                    {% for d in discounts %}
+                        <div class="pl-row">
+                            <div class="pl-body"><div class="pl-name">{{ d.product_name ?? d.name ?? ('#' ~ (d.product_id ?? '?')) }}</div></div>
+                            {% if d.discount_percent is defined %}<span class="pl-cell"><b>-{{ d.discount_percent }}%</b></span>{% endif %}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <div class="pl-panel-in">
+                <div class="pl-panel-hd">
+                    <span class="pl-panel-name">{{ translations.pilot_waste_week | default('Démarque · 7 derniers jours') }}</span>
+                    <span class="pl-panel-tot"><b>{{ waste_week is not null ? waste_week|length : '—' }}</b></span>
+                </div>
+                {% if waste_missing %}
+                    <div class="pl-state"><small>{{ translations.pilot_not_served_short | default('Route non servie :') }} <code>{{ waste_missing }}</code></small></div>
+                {% elseif waste_week|length == 0 %}
+                    <div class="pl-state ok" style="padding:22px 20px;"><p style="margin:0;">{{ translations.pilot_waste_none | default('Rien n\'a été jeté sur la période.') }}</p></div>
+                {% else %}
+                    {% for w in waste_week %}
+                        <div class="pl-row">
+                            <div class="pl-body">
+                                <div class="pl-name">{{ w.name }}</div>
+                                {% if w.reason %}<div class="pl-eta">{{ translations.pilot_waste_reason | default('raison') }} : {{ w.reason }}</div>{% endif %}
+                            </div>
+                            <span class="pl-cell"><b>{{ w.qty|round }}</b><small>{{ translations.pilot_waste_qty | default('jetés') }}</small></span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+
+        <script>
+        (function () {
+            // ── Stepper : bascule entre les 3 volets ──
+            var flow = document.getElementById('flowBar');
+            if (flow) {
+                var stepsBtns = [].slice.call(flow.querySelectorAll('.pl-flow-step'));
+                stepsBtns.forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        stepsBtns.forEach(function (x) { x.classList.toggle('is-active', x === b); });
+                        ['p1', 'p2', 'p4'].forEach(function (id) {
+                            var pane = document.getElementById(id);
+                            if (pane) pane.classList.toggle('is-active', id === b.dataset.pane);
+                        });
+                    });
+                });
+            }
+
+            // ── Bascule matin / veille ──
+            var tgl = document.getElementById('pdmToggle');
+            if (tgl) {
+                var btns = [].slice.call(tgl.querySelectorAll('.pl-when-btn'));
+                btns.forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        btns.forEach(function (x) { x.classList.toggle('is-active', x === b); });
+                        [['bucketMorning', 'morning'], ['bucketPdm', 'pdm'],
+                         ['bucketDay', 'day'], ['bucketTomorrow', 'tomorrow']].forEach(function (pair) {
+                            var el = document.getElementById(pair[0]);
+                            if (el) el.style.display = b.dataset.bucket === pair[1] ? '' : 'none';
+                        });
+                    });
+                });
+            }
+
+            // ── Le geste de recuisson : enfourner une quantité, la sortir ──
+            // Suivi LOCAL tablette (localStorage, par jour et par produit).
+            // La quantité se choisit à l'écran et reste BORNÉE par ce que la
+            // prévision demande encore : on ne met pas au four plus que la
+            // journée ne doit en vendre — pas de poubelle, pas de vide.
+            (function () {
+                var zones = [].slice.call(document.querySelectorAll('.pl-launch'));
+                if (!zones.length) return;
+                var day = '{{ selected_date }}';
+                var qtyWanted = {};   // pid → quantité affichée au stepper
+                function store(pid) {
+                    try { return JSON.parse(localStorage.getItem('pl.fournees.' + day + '.' + pid)) || []; }
+                    catch (e) { return []; }
+                }
+                function save(pid, v) {
+                    try { localStorage.setItem('pl.fournees.' + day + '.' + pid, JSON.stringify(v)); } catch (e) {}
+                }
+                function hhmm(ts) {
+                    var d = new Date(ts);
+                    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+                }
+                function engaged(pid) {
+                    // Déjà au four ou sorti : ces pièces comptent contre la prévision.
+                    return store(pid).reduce(function (t, e) { return t + (e ? (e.qty || 0) : 0); }, 0);
+                }
+                function maxNow(zone) {
+                    var left = Math.max(0, +zone.dataset.ecart - engaged(zone.dataset.pid));
+                    var cap = +zone.dataset.cap;
+                    return cap > 0 ? Math.min(cap, left) : left;
+                }
+                function renderAll(pid) {
+                    zones.forEach(function (z) { if (z.dataset.pid === pid) { render(z); gauge(z); } });
+                }
+                function render(zone) {
+                    var pid = zone.dataset.pid, total = +zone.dataset.totalS * 1000;
+                    var st = store(pid), left = Math.max(0, +zone.dataset.ecart - engaged(pid));
+                    zone.innerHTML = '';
+
+                    // Les fournées déjà engagées, dans l'ordre.
+                    st.forEach(function (e, idx) {
+                        if (!e) return;
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        var fn = '{{ translations.pilot_batch_word | default('fournée') }} ' + (idx + 1) + ' · ' + e.qty + ' {{ translations.pilot_pieces | default('p.') }}';
+                        if (e.state === 'cooking') {
+                            var late = Date.now() > e.out;
+                            if (late && !e.alerted) {
+                                // Un seul rappel par fournée : bip + vibration.
+                                e.alerted = true;
+                                var cur0 = store(pid); cur0[idx] = e; save(pid, cur0);
+                                try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (x) {}
+                                try {
+                                    var ac = new (window.AudioContext || window.webkitAudioContext)();
+                                    var o = ac.createOscillator(), g = ac.createGain();
+                                    o.connect(g); g.connect(ac.destination);
+                                    o.frequency.value = 880; g.gain.value = .15;
+                                    o.start(); o.stop(ac.currentTime + .35);
+                                } catch (x) {}
+                            }
+                            b.className = 'pl-fbtn ' + (late ? 'pl-fbtn-late' : 'pl-fbtn-cooking');
+                            b.innerHTML = late
+                                ? '<i class="bi bi-alarm"></i> ' + fn + ' — {{ translations.pilot_take_out | default('à sortir du four !') }}'
+                                : '<i class="bi bi-fire"></i> ' + fn + ' — {{ translations.pilot_in_oven | default('au four · prête à') }} ' + hhmm(e.out);
+                            b.addEventListener('click', function () {
+                                var cur = store(pid);
+                                cur[idx] = { qty: e.qty, state: 'done', out: e.out, doneAt: Date.now() };
+                                save(pid, cur); renderAll(pid);
+                            });
+                        } else {
+                            b.className = 'pl-fbtn pl-fbtn-done';
+                            b.innerHTML = '<i class="bi bi-check2"></i> ' + fn + ' — {{ translations.pilot_out_done | default('sortie à') }} ' + hhmm(e.doneAt);
+                        }
+                        zone.appendChild(b);
+                    });
+
+                    if (left <= 0) {
+                        // Le blocage : la prévision est couverte, on ne surcuit pas.
+                        var okEl = document.createElement('span');
+                        okEl.className = 'pl-fbtn pl-fbtn-done';
+                        okEl.innerHTML = '<i class="bi bi-check2-circle"></i> {{ translations.pilot_covered | default('Prévision couverte — on ne remet pas au four') }}';
+                        zone.appendChild(okEl);
+                        return;
+                    }
+
+                    // La prochaine fournée : quantité au stepper, bornée.
+                    var max = maxNow(zone);
+                    var want = Math.min(qtyWanted[pid] || max, max);
+                    qtyWanted[pid] = want;
+
+                    var row = document.createElement('div');
+                    row.className = 'pl-qty';
+                    var minus = document.createElement('button'); minus.type = 'button';
+                    minus.className = 'pl-qty-btn'; minus.textContent = '−';
+                    minus.disabled = want <= 1;
+                    var num = document.createElement('span'); num.className = 'pl-qty-num';
+                    num.textContent = want;
+                    var plus = document.createElement('button'); plus.type = 'button';
+                    plus.className = 'pl-qty-btn'; plus.textContent = '+';
+                    plus.disabled = want >= max;   // la borne : pas au-delà de la prévision (ni du four)
+                    var go = document.createElement('button'); go.type = 'button';
+                    go.className = 'pl-fbtn pl-fbtn-idle pl-fbtn-go';
+                    go.innerHTML = '<i class="bi bi-fire"></i> {{ translations.pilot_launch | default('Enfourner') }} ' + want;
+                    minus.addEventListener('click', function () { qtyWanted[pid] = want - 1; render(zone); });
+                    plus.addEventListener('click', function () { qtyWanted[pid] = want + 1; render(zone); });
+                    go.addEventListener('click', function () {
+                        var cur = store(pid);
+                        cur.push({ qty: want, state: 'cooking', started: Date.now(), out: Date.now() + total });
+                        save(pid, cur); delete qtyWanted[pid]; renderAll(pid);
+                    });
+                    row.appendChild(minus); row.appendChild(num); row.appendChild(plus); row.appendChild(go);
+                    zone.appendChild(row);
+
+                    var hint = document.createElement('div');
+                    hint.className = 'pl-qty-hint';
+                    hint.textContent = (+zone.dataset.cap > 0 && max === +zone.dataset.cap)
+                        ? '{{ translations.pilot_max_oven | default('maximum du four : %s') }}'.replace('%s', max)
+                        : '{{ translations.pilot_max_forecast | default('maximum selon la prévision : %s') }}'.replace('%s', max);
+                    zone.appendChild(hint);
+                }
+                function gauge(zone) {
+                    var row = zone.closest('.pl-rq-row');
+                    if (!row) return;
+                    var g = row.querySelector('.pl-gauge');
+                    if (!g) return;
+                    var prevu = +g.dataset.prevu, vendu = +g.dataset.vendu;
+                    if (!prevu) return;
+                    var cuit = store(zone.dataset.pid).reduce(function (t, e) {
+                        return t + (e && e.state === 'done' ? (e.qty || 0) : 0);
+                    }, 0);
+                    cuit = Math.min(cuit, Math.max(0, prevu - vendu));
+                    var track = g.querySelector('.pl-gauge-track');
+                    var old = track.querySelector('.pl-gauge-cuit');
+                    if (old) old.remove();
+                    if (cuit > 0) {
+                        var seg = document.createElement('span');
+                        seg.className = 'pl-gauge-cuit';
+                        seg.style.width = Math.round(100 * cuit / prevu) + '%';
+                        var rest = track.querySelector('.pl-gauge-rest');
+                        track.insertBefore(seg, rest);
+                        if (rest) rest.style.width = Math.max(0, Math.round(100 * (prevu - vendu - cuit) / prevu)) + '%';
+                    }
+                }
+                // Ligne 1 : « en stock » = pièces sorties du four aujourd'hui
+                // (suivi tablette) ; « en production » = pièces au four, là,
+                // maintenant. Recalculés après chaque geste.
+                function kpis() {
+                    var stock = 0, prod = 0, seen = {};
+                    zones.forEach(function (z) {
+                        var pid = z.dataset.pid;
+                        if (seen[pid]) return;
+                        seen[pid] = 1;
+                        store(pid).forEach(function (e) {
+                            if (!e) return;
+                            if (e.state === 'done') stock += e.qty || 0;
+                            if (e.state === 'cooking') prod += e.qty || 0;
+                        });
+                    });
+                    var a = document.getElementById('kpiStock');
+                    var b = document.getElementById('kpiProd');
+                    if (a) a.textContent = stock;
+                    if (b) b.textContent = prod;
+                }
+                var _renderAll = renderAll;
+                renderAll = function (pid) { _renderAll(pid); kpis(); };
+                zones.forEach(function (z) { render(z); gauge(z); });
+                kpis();
+                setInterval(function () { zones.forEach(render); }, 30000);
+            })();
+
+            // ── La vue stock : le compteur EN STOCK l'ouvre et la referme ──
+            (function () {
+                var card = document.getElementById('kpiStockCard');
+                var stock = document.getElementById('bucketStock');
+                if (!card || !stock) return;
+                var buckets = ['bucketMorning', 'bucketPdm', 'bucketDay', 'bucketTomorrow'];
+                function open() {
+                    buckets.forEach(function (id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+                    stock.style.display = '';
+                    card.classList.add('is-active');
+                    [].slice.call(document.querySelectorAll('#pdmToggle .pl-when-btn')).forEach(function (b) { b.classList.remove('is-active'); });
+                }
+                function close() {
+                    stock.style.display = 'none';
+                    card.classList.remove('is-active');
+                }
+                card.addEventListener('click', function () {
+                    if (stock.style.display === 'none') { open(); } else { close();
+                        var first = document.querySelector('#pdmToggle [data-bucket="morning"]');
+                        if (first) first.click(); }
+                });
+                // Reprendre une phase referme la vue stock.
+                [].slice.call(document.querySelectorAll('#pdmToggle .pl-when-btn')).forEach(function (b) {
+                    b.addEventListener('click', close);
+                });
+                // Le rail de secteurs du stock.
+                var rail = document.getElementById('stRail');
+                if (rail) {
+                    var steps = [].slice.call(rail.querySelectorAll('.pl-wz-step'));
+                    var panels = [].slice.call(stock.querySelectorAll('.pl-st-panel'));
+                    steps.forEach(function (st) {
+                        st.addEventListener('click', function () {
+                            steps.forEach(function (x) { x.classList.toggle('is-active', x === st); });
+                            panels.forEach(function (pn) { pn.style.display = pn.dataset.st === st.dataset.st ? '' : 'none'; });
+                        });
+                    });
+                }
+            })();
+
+            // ── Mémoire du dernier état servi (pour les pannes réseau) ──
+            try {
+                localStorage.setItem('pl.lastServed', JSON.stringify({
+                    date: '{{ selected_date }}',
+                    at: new Date().toTimeString().slice(0, 5),
+                    total: '{{ to_produce.total|round }}'
+                }));
+            } catch (e) {}
+
+            // ── La recherche : filtre le volet visible, par nom de produit ──
+            (function () {
+                var input = document.getElementById('plSearch');
+                if (!input) return;
+                function apply() {
+                    var q = input.value.trim().toLowerCase();
+                    var rows = [].slice.call(document.querySelectorAll(
+                        '#p1 .pl-row, #p1 .pl-rq-row, #p1 .pl-st-row'));
+                    rows.forEach(function (r) {
+                        var nameEl = r.querySelector('.pl-name, .pl-st-name');
+                        if (!nameEl) return;
+                        var hit = q === '' || nameEl.textContent.toLowerCase().indexOf(q) !== -1;
+                        r.style.display = hit ? '' : 'none';
+                        // La tuile fermée cache aussi son tiroir.
+                        var d = r.nextElementSibling;
+                        if (d && d.classList.contains('pl-drawer') && !hit) d.setAttribute('hidden', '');
+                    });
+                    // En recherche dans la vue stock : tous les secteurs répondent.
+                    if (q !== '') {
+                        [].slice.call(document.querySelectorAll('.pl-st-panel')).forEach(function (pn) {
+                            var any = [].slice.call(pn.querySelectorAll('.pl-st-row'))
+                                .some(function (r) { return r.style.display !== 'none'; });
+                            pn.style.display = any ? '' : 'none';
+                        });
+                    }
+                }
+                input.addEventListener('input', apply);
+            })();
+
+            // ── Hygiène : purge du suivi local des jours passés ──
+            (function () {
+                var today = '{{ selected_date }}';
+                try {
+                    Object.keys(localStorage).forEach(function (k) {
+                        var m = k.match(/^pl\.(?:fournees|eod)\.(\d{4}-\d{2}-\d{2})\./);
+                        if (m && m[1] < today) localStorage.removeItem(k);
+                    });
+                } catch (e) {}
+            })();
+
+            // ── Fin de journée : jeter / vente rapide / reporter ──
+            // Chaque geste part à l'API par la route AJAX du module ; en cas
+            // de refus, l'erreur s'affiche avec le nom de la route — aucun
+            // succès inventé. L'état du jour est retenu sur la tablette pour
+            // que la carte reste marquée après rechargement.
+            (function () {
+                var rows = [].slice.call(document.querySelectorAll('.pl-eod-row'));
+                if (!rows.length) return;
+                var day = '{{ selected_date }}';
+                function state(pid) {
+                    try { return JSON.parse(localStorage.getItem('pl.eod.' + day + '.' + pid)); }
+                    catch (e) { return null; }
+                }
+                function saveState(pid, v) {
+                    try { localStorage.setItem('pl.eod.' + day + '.' + pid, JSON.stringify(v)); } catch (e) {}
+                }
+                var LBL = {
+                    waste: '{{ translations.pilot_thrown | default('jeté') }}',
+                    flash: '{{ translations.pilot_flashed | default('vente rapide') }}',
+                    keep:  '{{ translations.pilot_kept | default('reporté à demain') }}'
+                };
+                function paint(row) {
+                    var st = state(row.dataset.pid);
+                    var chip = row.querySelector('.pl-eod-state');
+                    if (!st || !chip) return;
+                    row.classList.add('is-done');
+                    chip.className = 'pl-badge pl-badge-res pl-eod-state';
+                    chip.innerHTML = '<i class="bi bi-check2"></i> ' + (LBL[st.action] || st.action) + ' · ' + st.qty;
+                }
+                rows.forEach(function (row) {
+                    paint(row);
+                    var drawer = row.nextElementSibling;
+                    if (!drawer || !drawer.classList.contains('pl-eod-drawer')) return;
+                    var max = Math.max(1, +row.dataset.max || 1);
+                    var qty = max;
+                    var num = drawer.querySelector('.pl-qty-num');
+                    var photoB64 = null;
+                    function syncQty() { num.textContent = qty; }
+                    syncQty();
+                    drawer.querySelector('[data-a="minus"]').addEventListener('click', function () {
+                        qty = Math.max(1, qty - 1); syncQty();
+                    });
+                    drawer.querySelector('[data-a="plus"]').addEventListener('click', function () {
+                        qty = Math.min(max, qty + 1); syncQty();
+                    });
+                    var photoLbl = drawer.querySelector('.pl-eod-photo');
+                    photoLbl.querySelector('input').addEventListener('change', function (e) {
+                        var f = e.target.files && e.target.files[0];
+                        if (!f) return;
+                        var rd = new FileReader();
+                        rd.onload = function () {
+                            photoB64 = String(rd.result).split(',')[1] || null;
+                            photoLbl.classList.add('has-photo');
+                            photoLbl.querySelector('span').textContent = '{{ translations.pilot_photo_ok | default('Photo ✓') }}';
+                        };
+                        rd.readAsDataURL(f);
+                    });
+                    var err = drawer.querySelector('.pl-eod-err');
+                    [].slice.call(drawer.querySelectorAll('.pl-eod-act')).forEach(function (b) {
+                        b.addEventListener('click', function () {
+                            var act = b.dataset.act;
+                            err.style.display = 'none';
+                            b.disabled = true;
+                            function done(ok, routeMsg) {
+                                b.disabled = false;
+                                if (!ok) {
+                                    err.textContent = '{{ translations.pilot_api_refused | default('L\'API a refusé') }} — ' + (routeMsg || '');
+                                    err.style.display = '';
+                                    return;
+                                }
+                                saveState(row.dataset.pid, { action: act, qty: qty, at: Date.now() });
+                                paint(row);
+                                drawer.setAttribute('hidden', '');
+                            }
+                            if (act === 'flash') {
+                                // La vente rapide se valide sur la tablette : aucune
+                                // route boutique n'existe encore côté ERP pour la
+                                // déclarer (voir la demande ERP).
+                                done(true);
+                                return;
+                            }
+                            var url = act === 'waste'
+                                ? '/ajax/production/pilotage/waste'
+                                : '/ajax/production/pilotage/stock-in';
+                            var body = { product_id: +row.dataset.pid, qty: qty };
+                            if (act === 'waste' && photoB64) body.photo_base64 = photoB64;
+                            fetch(url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(body)
+                            }).then(function (r) { return r.json(); })
+                              .then(function (j) { done(!!j.success, j.error); })
+                              .catch(function () { done(false, url); });
+                        });
+                    });
+                });
+            })();
+
+            // ── Le bilan du jour : le navigateur assemble local + serveur ──
+            (function () {
+                var card = document.getElementById('eodReport');
+                if (!card) return;
+                var day = '{{ selected_date }}';
+                function refresh() {
+                    var cuit = 0, jete = 0, reporte = 0;
+                    try {
+                        Object.keys(localStorage).forEach(function (k) {
+                            if (k.indexOf('pl.fournees.' + day + '.') === 0) {
+                                (JSON.parse(localStorage.getItem(k)) || []).forEach(function (e) {
+                                    if (e && e.state === 'done') cuit += e.qty || 0;
+                                });
+                            }
+                            if (k.indexOf('pl.eod.' + day + '.') === 0) {
+                                var st = JSON.parse(localStorage.getItem(k));
+                                if (st && st.action === 'waste') jete += st.qty || 0;
+                                if (st && st.action === 'keep') reporte += st.qty || 0;
+                            }
+                        });
+                    } catch (e) {}
+                    var vendu = +card.dataset.vendu || 0;
+                    document.getElementById('repCuit').textContent = cuit;
+                    document.getElementById('repJete').textContent = jete;
+                    document.getElementById('repReporte').textContent = reporte;
+                    document.getElementById('repCasse').textContent =
+                        (vendu + jete) > 0 ? (Math.round(1000 * jete / (vendu + jete)) / 10) + ' %' : '—';
+                }
+                refresh();
+                // Chaque geste (enfourner, sortir, jeter…) rafraîchit le bilan.
+                document.addEventListener('click', function () { setTimeout(refresh, 400); });
+                setInterval(refresh, 10000);
+            })();
+
+            // ── La tuile produit déroule son panneau d'actions ──
+            [].slice.call(document.querySelectorAll('.pl-row-click')).forEach(function (row) {
+                function toggle() {
+                    var drawer = row.nextElementSibling;
+                    if (!drawer || !drawer.classList.contains('pl-drawer')) return;
+                    var open = drawer.hasAttribute('hidden');
+                    // Un seul tiroir ouvert par panneau : on referme les autres.
+                    var panel = row.closest('.pl-panel-in') || document;
+                    [].slice.call(panel.querySelectorAll('.pl-drawer')).forEach(function (d) { d.setAttribute('hidden', ''); });
+                    [].slice.call(panel.querySelectorAll('.pl-row-click')).forEach(function (r) {
+                        r.classList.remove('is-open'); r.setAttribute('aria-expanded', 'false');
+                    });
+                    if (open) {
+                        drawer.removeAttribute('hidden');
+                        row.classList.add('is-open');
+                        row.setAttribute('aria-expanded', 'true');
+                    }
+                }
+                row.addEventListener('click', toggle);
+                row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+            });
+
+            // ── Filtre de la file de recuisson : urgents / fin de cycle ──
+            var rqf = document.getElementById('rqFilter');
+            if (rqf) {
+                var fb = [].slice.call(rqf.querySelectorAll('.pl-rq-fbtn'));
+                var rowsAll = [].slice.call(document.querySelectorAll('#p3 .pl-rq-row'));
+                var more = document.getElementById('rqMore');
+                fb.forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        fb.forEach(function (x) { x.classList.toggle('is-active', x === b); });
+                        var key = b.dataset.f === 'cycle' ? 'cycle' : 'main';
+                        rowsAll.forEach(function (r) { r.style.display = r.dataset[key] === '1' ? '' : 'none'; });
+                        if (more) more.style.display = key === 'main' ? '' : 'none';
+                    });
+                });
+                // état initial : volet « urgents »
+                rowsAll.forEach(function (r) { r.style.display = r.dataset.main === '1' ? '' : 'none'; });
+            }
+
+            // ── Wizard de sections (volet 1) ──
+            var track = document.getElementById('wzTrack');
+            var rail  = document.getElementById('wzRail');
+            var prev  = document.getElementById('wzPrev');
+            var next  = document.getElementById('wzNext');
+            var pos   = document.getElementById('wzPos');
+            if (!track) return;
+            var panels = [].slice.call(track.querySelectorAll('.pl-wz-panel'));
+            var steps  = [].slice.call(rail.querySelectorAll('.pl-wz-step'));
+            var n = panels.length, cur = 0;
+
+            function go(i) {
+                cur = Math.max(0, Math.min(n - 1, i));
+                track.scrollTo({ left: panels[cur].offsetLeft - track.offsetLeft, behavior: 'smooth' });
+                sync();
+            }
+            function sync() {
+                steps.forEach(function (s, i) { s.classList.toggle('is-active', i === cur); });
+                pos.textContent = (cur + 1) + ' / ' + n;
+                prev.disabled = cur === 0;
+                next.disabled = cur === n - 1;
+                var a = steps[cur]; if (a) a.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+            }
+            var t;
+            track.addEventListener('scroll', function () {
+                clearTimeout(t);
+                t = setTimeout(function () {
+                    var mid = track.scrollLeft + track.clientWidth / 2;
+                    for (var i = 0; i < n; i++) {
+                        var L = panels[i].offsetLeft - track.offsetLeft;
+                        if (mid >= L && mid < L + panels[i].clientWidth) { cur = i; break; }
+                    }
+                    sync();
+                }, 90);
+            });
+            prev.addEventListener('click', function () { go(cur - 1); });
+            next.addEventListener('click', function () { go(cur + 1); });
+            steps.forEach(function (s) { s.addEventListener('click', function () { go(+s.dataset.i); }); });
+            sync();
+        })();
+        </script>
+
     {% else %}
-        {# 'missing' — la route est nommée dans le bandeau du haut (missing_api). #}
-        <div class="pl-panel"><div class="pl-state">
+        <div class="pl-panel-in"><div class="pl-state">
             {{ icons.svg('package', 38) }}
             <p>{{ translations.pilot_not_served | default("Le pilotage de production n'est pas encore servi par l'API. L'écran est prêt : il s'affichera dès que l'endpoint répondra.") }}</p>
+            <small id="plLastSeen" style="display:none;"></small>
         </div></div>
+        <script>
+        // La panne réseau ne doit pas laisser un écran muet : on rappelle
+        // quand les données ont été vues pour la dernière fois.
+        (function () {
+            try {
+                var last = JSON.parse(localStorage.getItem('pl.lastServed'));
+                var el = document.getElementById('plLastSeen');
+                if (last && el) {
+                    el.textContent = '{{ translations.pilot_last_seen | default('Dernières données vues le') }} '
+                        + last.date + ' · ' + last.at + ' — ' + last.total + ' {{ translations.pilot_to_make_short | default('à faire') }}';
+                    el.style.display = '';
+                }
+            } catch (e) {}
+        })();
+        </script>
     {% endif %}
 {% endblock %}
