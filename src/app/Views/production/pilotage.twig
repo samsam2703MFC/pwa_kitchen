@@ -41,6 +41,17 @@
     .pl-flow-step.is-active .pl-flow-n { background: rgba(255,255,255,.25); color: #fff; }
     @media (max-width: 640px) { .pl-flow-n { display: none; } .pl-flow-step { padding: 8px 6px; } }
 
+    /* Pas d'anneau noir de focus sur les bascules : après le toucher, le
+       navigateur laisse le bouton « focus » et dessine son contour par
+       défaut par-dessus le nôtre. L'état actif se voit déjà par la couleur. */
+    .pl-flow-step, .pl-when-btn, .pl-rq-fbtn, .pl-wz-step,
+    .pl-flow-step:focus, .pl-when-btn:focus, .pl-rq-fbtn:focus, .pl-wz-step:focus,
+    .pl-flow-step:focus-visible, .pl-when-btn:focus-visible,
+    .pl-rq-fbtn:focus-visible, .pl-wz-step:focus-visible {
+        outline: none !important;
+        box-shadow: none;
+    }
+
     .pl-pane { display: none; }
     .pl-pane.is-active { display: block; }
 
