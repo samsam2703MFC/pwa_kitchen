@@ -129,16 +129,49 @@ conflit  ⇔  deux lancements se recouvrent sur le même batch_group / four
 
 ---
 
-## 5. Points à trancher ensemble avant de coder
+## 5. Décisions arrêtées (27/08/2026)
 
-1. **Périodes 2, 3, 4** : leurs horaires. `sales-dayparts` est-il la source
-   (à confirmer qu'il porte `time_from`/`time_to`), ou on les paramètre ailleurs ?
-2. **Fenêtre N** : 6 semaines par défaut ? Pondération des semaines récentes
-   (oui/non, et quelle courbe) ?
-3. **Ruptures** : exclure la tranche (proposé) ou corriger la pente ? Et
-   d'abord, **comment connaître les heures de rupture** (Trou #5) ?
-4. **Périmètre** : par boutique seulement, ou aussi consolidé labo central ?
-5. **Définition de l'« écart »** : prévu − vendu, ou prévu − (produit − vendu) ?
-6. **Traçage des mouvements** (Trou #1) : sans relecture, on ne peut ni bloquer
-   les périodes suivantes de façon fiable, ni corriger/annuler. C'est le
-   préalable technique n°1.
+| # | Question | Décision |
+|---|---|---|
+| 1 | Source et horaires des périodes | **`sales-dayparts`** — période 1 = 06:00–11:00, suivantes définies au back-office. *(à confirmer : la route porte bien `time_from`/`time_to`.)* |
+| 2 | Fenêtre N + pondération | **N = 6 semaines**, **pondérées** en faveur des semaines récentes : `poids(k) = (N+1−k)`, normalisé. |
+| 3 | Heures de rupture | **Exclues** de l'historique (demande inconnue, pas nulle). |
+| 4 | Périmètre de calcul | **Par boutique ET par section** (boulangerie / traiteur) — pas de consolidation labo. |
+| 5 | Définition de l'écart | **écart = prévu − vendu.** |
+
+Conséquence de la décision 5, importante : **l'écart ne dépend PAS de la
+quantité déjà produite.** L'écran période 1 peut donc afficher prévu / vendu /
+écart **sans** relire les mouvements de production — ce qui débloque le cœur de
+la brique 1 malgré le Trou #1.
+
+---
+
+## 6. Statut : ce qui est prêt à coder, ce qui reste bloqué
+
+### ✅ Prêt (dès que 2 contrats sont confirmés avec un jeton)
+- **Moteur de prévision** — pur, testable sans réseau (comme l'actuel
+  `bin/forecast-test.php`) : N=6 semaines pondérées, même jour, même tranche,
+  ruptures exclues. Je peux l'écrire maintenant contre la forme relevée de
+  `production-planning` / `hourly-distribution`.
+- **Écran « État période 1 »** — colonnes **prévu / vendu / écart** par produit,
+  par section. Ne dépend que de `production-planning` + `hourly-distribution` +
+  `sales-dayparts`.
+- **Ordonnancement / ETA (brique 4, lecture)** — calcul depuis
+  `preparation-path` (déjà consommé) : durée totale, heure de lancement.
+
+### ⛔ Bloqué tant que l'ERP n'ajoute pas l'endpoint (Trous §4)
+- **Colonne « déjà produit »** et **validation → stock** (brique 2) : besoin de
+  `GET`/`PATCH`/`DELETE` sur `product-movements` (**Trou #1**). Sans relecture,
+  ni traçage, ni correction, ni blocage fiable des périodes suivantes.
+- **Exclusion réelle des ruptures** (décision 3) : besoin d'une source des
+  heures de rupture (**Trou #5**). En attendant, le moteur calcule **sans**
+  exclusion et le signale ; l'exclusion s'active dès que la source existe.
+- **Conflits d'équipement** (brique 4) : besoin d'un inventaire d'équipement
+  (**Trou #3**).
+
+### 🔑 Ce dont j'ai besoin de toi pour démarrer
+1. Un **jeton de test valide** (complet) → je confirme la forme par-tranche de
+   `production-planning` et le corps de `POST /product-movements`, puis je code.
+2. Confirmer que **`sales-dayparts`** porte `time_from`/`time_to`.
+3. Faire ajouter côté ERP les endpoints des Trous #1, #3, #5 (contrats au §4)
+   pour débloquer la validation, les conflits et l'exclusion des ruptures.
