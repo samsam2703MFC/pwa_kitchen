@@ -1,0 +1,40 @@
+{
+  "date": "2026-08-02",
+  "prepared_at": "2026-08-01 15:12:00",
+  "status": "PREPARED",
+  "lines": [
+    {
+      "id": 4501,
+      "id_product": 6700106,
+      "name": "Croissant pur beurre",
+      "category_name": "Viennoiserie",
+      "period": "morning",
+      "quantity_planned": 144,
+      "quantity_validated": null,
+      "unit_name": "pc",
+      "status": "PREPARED"
+    },
+    {
+      "id": 4502,
+      "id_product": 6700110,
+      "name": "Pain au chocolat",
+      "category_name": "Viennoiserie",
+      "period": "morning",
+      "quantity_planned": 96,
+      "quantity_validated": null,
+      "unit_name": "pc",
+      "status": "PREPARED"
+    },
+    {
+      "id": 4503,
+      "id_product": 6700120,
+      "name": "Baguette tradition",
+      "category_name": "Boulangerie",
+      "period": "morning",
+      "quantity_planned": 72,
+      "quantity_validated": null,
+      "unit_name": "pc",
+      "status": "PREPARED"
+    }
+  ]
+}

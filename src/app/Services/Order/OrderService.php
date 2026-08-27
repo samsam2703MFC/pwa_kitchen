@@ -32,6 +32,48 @@ class OrderService
     }
 
     /**
+     * Filtre une liste de commandes sur le mode de remise.
+     *
+     * Le tri se fait ici, en PHP, et non par un paramètre d'API : l'API ne
+     * connaît pas encore ce champ (voir docs/ENDPOINTS_COMMANDES_WEB.md). Le
+     * jour où elle le filtrera elle-même, ce tri deviendra redondant mais pas
+     * faux.
+     *
+     * @param OrderModel[] $orders
+     * @return OrderModel[]
+     */
+    public function filterByFulfilment(array $orders, string $mode): array
+    {
+        if ($mode !== OrderModel::MODE_COLLECT && $mode !== OrderModel::MODE_DELIVERY) {
+            return $orders;
+        }
+
+        return array_values(array_filter(
+            $orders,
+            fn(OrderModel $o) => $o->getFulfilmentMode() === $mode
+        ));
+    }
+
+    /**
+     * Vrai si au moins une commande porte un mode de remise.
+     *
+     * Sert à distinguer « aucune commande en Click & Collect aujourd'hui » de
+     * « l'API ne renvoie pas encore l'information ». Sans cette nuance, le
+     * filtre paraîtrait cassé : il viderait la liste sans rien expliquer.
+     *
+     * @param OrderModel[] $orders
+     */
+    public function hasFulfilmentData(array $orders): bool
+    {
+        foreach ($orders as $o) {
+            if ($o->getFulfilmentMode() !== null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Pobiera szczegóły zamówienia.
      *
      * @param int $id ID zamówienia

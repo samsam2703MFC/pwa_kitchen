@@ -2,15 +2,12 @@
   "kitchen_portal": "Kitchen Portal",
   "kitchen_app_short": "Kitchen",
   "franchise_ecosystem": "Franchise Network Ecosystem",
-
   "menu": "Menu",
   "account": "Account",
   "logout": "Logout",
   "my_profile": "My Profile",
-
   "kitchen_dashboard": "Kitchen Dashboard",
   "kitchen_dashboard_subtitle": "Quick overview of today's production and key tasks.",
-
   "quick_actions": "Quick Actions",
   "todays_production": "Today's Production",
   "todays_production_subtitle": "See what to do today, priorities, and statuses.",
@@ -20,16 +17,17 @@
   "checklists_subtitle": "Check off daily tasks: opening, cleaning, closing.",
   "my_orders": "My Orders",
   "my_orders_subtitle": "Order ingredients from suppliers.",
-
   "tasks_todo": "Tasks To Do",
   "tasks_in_progress": "In Progress",
   "tasks_completed": "Completed Today",
+  "tasks_for_you": "For You",
   "last_update": "Last Update",
   "not_available": "No Data",
-
   "production": "Production",
-  "knowledge": "Knowledge",
+  "knowledge": "Knowledge base",
   "cards": "Cards",
-  "orders": "Orders"
+  "orders": "Orders",
+  "dash_cl_done": "done",
+  "dash_cl_left": "left today",
+  "dash_cl_late": "overdue"
 }
-

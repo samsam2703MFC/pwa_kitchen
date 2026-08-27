@@ -1,0 +1,54 @@
+{
+  "updated_at": "2026-07-31 10:00:00",
+  "items": [
+    {
+      "id_product": 6700106,
+      "name": "Croissant pur beurre",
+      "category_name": "Viennoiserie",
+      "quantity": 10,
+      "unit_name": "pc"
+    },
+    {
+      "id_product": 6700110,
+      "name": "Pain au chocolat",
+      "category_name": "Viennoiserie",
+      "quantity": 60,
+      "unit_name": "pc"
+    },
+    {
+      "id_product": 6700120,
+      "name": "Baguette tradition",
+      "category_name": "Boulangerie",
+      "quantity": 30,
+      "unit_name": "pc"
+    },
+    {
+      "id_product": 6700130,
+      "name": "Tarte au citron meringuée",
+      "category_name": "Pâtisserie",
+      "quantity": 2,
+      "unit_name": "pc"
+    },
+    {
+      "id_product": 6700140,
+      "name": "Macaron pistache",
+      "category_name": "Pâtisserie",
+      "quantity": 3,
+      "unit_name": "pc"
+    },
+    {
+      "id_product": 6700150,
+      "name": "Bûche de Noël",
+      "category_name": "Pâtisserie",
+      "quantity": 0,
+      "unit_name": "pc"
+    },
+    {
+      "id_product": 6700160,
+      "name": "Sandwich club (nouveauté)",
+      "category_name": "Traiteur",
+      "quantity": 0,
+      "unit_name": "pc"
+    }
+  ]
+}

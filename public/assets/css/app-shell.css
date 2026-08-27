@@ -1,0 +1,129 @@
+/* =========================================================================
+   Coque applicative — topbar, feuille de navigation, barre d'onglets
+   -------------------------------------------------------------------------
+   Structure seulement (positions, tailles, transitions). Les couleurs et la
+   typographie viennent d'atelier-theme.css, chargé APRÈS : ce fichier ne
+   fixe donc aucune teinte de marque, il utilise les tokens quand il en a
+   besoin.
+
+   Repris de la coque mobile de pwa_consultant. Le kitchen est une app tenue
+   à une main derrière le plan de travail : la navigation vit en bas, sous le
+   pouce, et le menu complet descend du haut.
+   ========================================================================= */
+
+:root { --app-tabbar-h: 72px; }
+
+/* ---- Contenu ------------------------------------------------------------ */
+.app-content { padding-bottom: 24px; }
+
+/* ---- Barre supérieure --------------------------------------------------- */
+.app-topbar {
+  position: sticky; top: 0; z-index: 1020;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.app-topbar-inner {
+  min-height: 56px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 6px; padding: 8px 0;
+}
+.app-title { margin: 0; }
+.app-subtitle { margin: 0; }
+
+/* Le menu est le bouton le plus utilisé de l'app : il vit sur tous les
+   écrans. On lui garantit une cible d'au moins 44 px. */
+.app-hamburger {
+  background: none; border: none;
+  min-width: 44px; min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0; line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- Voile -------------------------------------------------------------- */
+.app-nav-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 1040;
+  background: rgba(0,0,0,.4); opacity: 0; transition: opacity .25s;
+}
+.app-nav-backdrop.is-open { display: block; opacity: 1; }
+
+/* ---- Feuille de navigation (descend du haut) ---------------------------- */
+.app-nav-sheet {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 1050;
+  background: #fff; border-radius: 0 0 28px 28px;
+  box-shadow: 0 12px 48px rgba(0,0,0,.16);
+  padding-top: env(safe-area-inset-top, 0px);
+  transform: translateY(-100%);
+  transition: transform .32s cubic-bezier(.32,1.08,.64,1);
+  will-change: transform;
+  max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain;
+}
+.app-nav-sheet.is-open { transform: translateY(0); }
+.app-nav-sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px 12px; border-bottom: 1px solid rgba(0,0,0,.06);
+  position: sticky; top: 0; background: #fff; z-index: 1;
+}
+.app-nav-sheet-title { margin: 0; }
+/* Fermer : dans un coin d'écran, l'endroit le plus difficile à viser au
+   pouce — d'où les 44 px. */
+.app-nav-sheet-close {
+  background: rgba(0,0,0,.06); border: none;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background .15s; flex-shrink: 0;
+}
+.app-nav-sheet-close:active { background: rgba(0,0,0,.12); }
+.app-nav-sheet-handle {
+  width: 40px; height: 4px; background: #dee2e6; border-radius: 2px; margin: 6px auto 0;
+}
+
+/* ---- Liste des sections ------------------------------------------------- */
+.app-nav-grid { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 16px; }
+.app-nav-card {
+  text-decoration: none; display: flex; align-items: center; gap: 14px;
+  padding: 11px 12px; border-radius: 14px; background: transparent;
+  transition: background .15s; -webkit-tap-highlight-color: transparent;
+}
+.app-nav-card-icon {
+  width: 38px; height: 38px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.app-nav-card-label { font-weight: 700; font-size: .9rem; flex: 1; }
+
+/* Section en construction : présente pour situer le parcours, mais pas
+   cliquable — mieux vaut une entrée grisée qu'une entrée absente. */
+.app-nav-card.is-disabled { opacity: .45; pointer-events: none; }
+.app-nav-card .app-nav-card-tag {
+  font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  border-radius: 999px; padding: 3px 8px; flex-shrink: 0;
+}
+
+/* ---- Profil (ligne pleine, bas du menu) --------------------------------- */
+.app-nav-profile {
+  display: flex; align-items: center; gap: 11px;
+  width: calc(100% - 24px); margin: 8px 12px 6px; min-height: 54px;
+  padding: 0 14px; border-radius: 14px; text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-nav-profile-avatar {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 800; letter-spacing: .02em;
+}
+.app-nav-profile-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.app-nav-profile-name { font-size: .84rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-nav-profile-sub { font-size: .62rem; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-nav-profile-chev { display: inline-flex; opacity: .8; flex-shrink: 0; }
+
+/* ---- Déconnexion -------------------------------------------------------- */
+.app-nav-logout {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: calc(100% - 24px); margin: 0 12px 14px; min-height: 46px;
+  border-radius: 14px; text-decoration: none; font-size: .84rem; font-weight: 700;
+}
+
+/* ---- Icônes en ligne ---------------------------------------------------- */
+.lc-icon { display: inline-block; vertical-align: -.14em; flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-nav-sheet, .app-nav-backdrop { transition: none !important; }
+}

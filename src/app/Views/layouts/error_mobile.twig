@@ -1,21 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang_code ?? 'fr' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Error{% endblock %}</title>
 
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    {# Pas de police distante ici non plus — voir layouts/base.twig. Une page
+       d'erreur qui met treize secondes à s'afficher serait la pire des pages
+       d'erreur : elle passerait pour la panne qu'elle est censée expliquer. #}
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/bootstrap.css">
     <link rel="stylesheet" href="{{ ROOT }}/assets/vendors/bootstrap-icons/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/app.css">
+    <link rel="stylesheet" href="{{ ROOT }}/assets/css/atelier-theme.css">
     <link rel="shortcut icon" href="{{ ROOT }}/assets/images/favicon.svg" type="image/x-icon">
 
     <style>
         body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #ebf3ff;
+            background-color: #F4EFE8;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -28,10 +29,13 @@
             max-width: 480px;
             width: 100%;
         }
-        .merr-illu {
-            max-width: 260px;
-            width: 100%;
-            margin-bottom: 1.5rem;
+        .merr-code {
+            font-size: 5.5rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #8D1D2C;
+            letter-spacing: .04em;
+            margin-bottom: 1.25rem;
         }
         .merr-title {
             font-size: 1.6rem;
@@ -61,7 +65,11 @@
 
         <div class="merr-actions">
             {% block actions %}
-                <a href="{{ ROOT }}" class="btn btn-outline-primary btn-lg w-100">
+                {# « ROOT » nu ne correspond à aucune route : le bouton de secours
+                   renvoyait donc sur la page qu'il devait quitter. On vise
+                   l'accueil DU MODE — en WebShop, le tableau de bord cuisine
+                   n'existe pas au menu. #}
+                <a href="{{ ROOT }}{{ mode_home | default('/dashboard') }}" class="btn btn-outline-primary btn-lg w-100">
                     <i class="bi bi-house me-1"></i>
                     {{ translations.go_home ?? 'Go to home' }}
                 </a>

@@ -1,0 +1,15 @@
+{# production/_cat_filters.twig — badges de filtre par catégorie.
+
+   Attend `categories` (liste de noms) et `target` (sélecteur CSS du conteneur
+   à filtrer). Un seul badge n'est pas un filtre : sous deux catégories, la
+   barre ne s'affiche pas. #}
+{% if categories|length > 1 %}
+    <div class="cat-filters" data-target="{{ target }}">
+        <button type="button" class="cat-chip is-on" data-cat="">
+            {{ translations.cat_all | default('Toutes') }}
+        </button>
+        {% for c in categories %}
+            <button type="button" class="cat-chip" data-cat="{{ c }}">{{ c }}</button>
+        {% endfor %}
+    </div>
+{% endif %}

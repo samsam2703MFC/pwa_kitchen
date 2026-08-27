@@ -98,7 +98,7 @@ class ComplaintController extends Controller
         header('Content-Type: application/json');
         if ($result === null || !($result['success'] ?? false)) {
             http_response_code(400);
-            echo json_encode(['ok' => false, 'message' => 'Nie można pobrać URL załącznika.']);
+            echo json_encode(['ok' => false, 'message' => "Le lien de la pièce jointe n'a pas pu être obtenu."]);
             exit;
         }
         echo json_encode([

@@ -1,20 +1,168 @@
 {% extends "layouts/base.twig" %}
+{% import "components/_icons.twig" as icons %}
 
 {% block title %}{{ translations.products|default('Products') }}{% endblock %}
+
+
+{% block head %}
+<style>
+    /* ── Liste des produits — pensée pour la tablette ──────────────────
+       C'est le poste de consultation réel : une tablette posée ou tenue
+       près du plan de travail, lue à bout de bras, touchée avec des
+       doigts qui viennent de manipuler de la pâte.
+
+       La grille Bootstrap donnait quatre colonnes dès 992 px. Sur une
+       tablette en paysage, les noms de produits se cassaient en deux
+       lignes et les cartes, de hauteurs inégales, faisaient flotter
+       « Voir la fiche » à des niveaux différents — l'œil n'avait aucune
+       ligne de repère pour parcourir la liste.
+
+       Trois colonnes en paysage, deux en portrait, des cartes de même
+       hauteur avec leur pied aligné.
+       ────────────────────────────────────────────────────────────────── */
+
+    .kp-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    @media (min-width: 600px)  { .kp-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (min-width: 900px)  { .kp-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    @media (min-width: 1400px) { .kp-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+
+    .kp-card {
+        display: flex; flex-direction: column;
+        height: 100%; min-height: 190px;
+        padding: 18px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        box-shadow: var(--sh-2);
+        text-decoration: none;
+        transition: transform .16s var(--ease), box-shadow .2s var(--ease), border-color .16s var(--ease);
+        -webkit-tap-highlight-color: transparent;
+    }
+    @media (hover: hover) {
+        .kp-card:hover { transform: translateY(-3px); box-shadow: var(--sh-3); border-color: var(--c-line-2, rgba(36,26,22,.14)); }
+    }
+    .kp-card:active { transform: scale(.985); }
+
+    /* ── Photo en tête de carte ──
+       573 produits coiffés de la même icône ne se parcourent pas : entre
+       « Assiette - Carpaccio » et « Assiette - Saumon belle-vue », c'est
+       l'image qui tranche, pas le nom. La photo prend donc le haut de la
+       carte, et les repères se posent dessus.
+
+       Sans photo servie par l'API, la zone retombe sur la pastille d'icône
+       d'avant — la carte reste lisible, elle perd seulement son atout. */
+    .kp-photo {
+        position: relative;
+        margin: -18px -18px 12px; /* déborde le padding de la carte */
+        aspect-ratio: 4 / 3;
+        background: linear-gradient(145deg, rgba(141,29,44,.07), rgba(141,29,44,.02));
+        border-bottom: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px) var(--r-lg, 18px) 0 0;
+        overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .kp-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* Sans photo, la zone en 4/3 mangeait la moitié de la carte pour ne rien
+       montrer : sur 573 produits sans image, la liste devenait trois fois
+       plus longue sans rien gagner. Le repli est un simple bandeau. */
+    .kp-photo.is-empty {
+        aspect-ratio: auto; height: 74px;
+        justify-content: flex-end; padding-right: 16px;
+    }
+    /* Dans le bandeau, l'icône centrée passait sous les pastilles : elle se
+       range à droite, les repères restent à gauche, centrés en hauteur. */
+    .kp-photo.is-empty .kp-photo-flags {
+        top: 0; bottom: 0; right: 58px; align-items: center;
+    }
+    .kp-photo-empty { color: var(--c-primary, #8D1D2C); opacity: .35; }
+    .kp-photo-empty svg { width: 26px; height: 26px; }
+
+    /* Repères posés sur la photo, en bas — lus sans descendre. */
+    .kp-photo-flags {
+        position: absolute; left: 10px; right: 10px; bottom: 10px;
+        display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .kp-photo-flags .kp-flag {
+        background: rgba(255,255,255,.94);
+        box-shadow: 0 3px 10px -5px rgba(70,40,25,.5);
+    }
+
+    .kp-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .kp-ic {
+        width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(145deg, rgba(141,29,44,.15), rgba(141,29,44,.04));
+        color: var(--c-primary, #8D1D2C);
+    }
+    .kp-ic svg { width: 22px; height: 22px; display: block; }
+
+    /* Les pastilles portaient une icône qui n'existe pas dans cette
+       version de bootstrap-icons (bi-leaf) : elles s'affichaient vides,
+       deux barres de couleur sans signification. Libellé explicite. */
+    .kp-flags { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+    .kp-flag {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: .68rem; font-weight: 700; letter-spacing: .02em;
+        border-radius: 999px; padding: 4px 9px; white-space: nowrap;
+    }
+    .kp-flag svg { width: 12px; height: 12px; flex-shrink: 0; }
+    .kp-flag-veg  { background: rgba(45,122,62,.13);  color: #2D7A3E; }
+    .kp-flag-prep { background: rgba(193,122,42,.16); color: #8a5a12; }
+
+    /* Nom lisible à bout de bras, borné à deux lignes pour que toutes les
+       cartes gardent le même rythme. */
+    .kp-name {
+        font-size: 1.05rem; font-weight: 700; color: var(--c-ink, #241f1c);
+        line-height: 1.3; margin: 0 0 6px;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .kp-cat { font-size: .82rem; color: var(--c-muted, #7a7168); display: flex; align-items: center; gap: 6px; }
+
+    .kp-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .kp-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: .78rem; color: var(--c-muted, #7a7168);
+        background: var(--c-bg-2, #F4EFE8);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: 999px; padding: 5px 10px;
+    }
+    .kp-chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* Pied poussé en bas : les « Voir la fiche » s'alignent d'une carte à
+       l'autre et donnent une ligne de lecture horizontale. */
+    .kp-foot {
+        margin-top: auto; padding-top: 14px;
+        border-top: 1px solid var(--c-line, rgba(36,26,22,.09));
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        color: var(--c-primary, #8D1D2C); font-weight: 600; font-size: .88rem;
+    }
+    .kp-foot svg { width: 17px; height: 17px; }
+
+    /* ── Recherche ──
+       Sur une liste longue, le champ doit rester à portée sans remonter :
+       il colle sous la barre supérieure. */
+    .kp-search-card { position: sticky; top: 64px; z-index: 5; }
+    .kp-search { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+    .kp-search-field { flex: 1 1 320px; min-width: 0; }
+    .kp-search-field .form-control { min-height: 52px; font-size: 1rem; }
+    .kp-search-cat { flex: 0 1 260px; min-width: 200px; }
+    .kp-search-cat .form-select { min-height: 52px; font-size: 1rem; }
+    @media (max-width: 599px) { .kp-search-card { position: static; } }
+</style>
+{% endblock %}
 
 {% block page_heading %}
     <div class="page-heading">
         <h3>{{ translations.products|default('Products') }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.products_overview_subtitle|default('Znajdź produkt i przeglądaj jego kartę techniczną') }}</p>
+        <p class="text-subtitle text-muted">{{ translations.products_overview_subtitle|default("Trouvez un produit et consultez sa fiche technique") }}</p>
 
         {# Breadcrumb to show user's location #}
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ ROOT }}">{{ translations.home|default('Home') }}</a></li>
-                <li class="breadcrumb-item"><a href="{{ ROOT }}/knowledge">{{ translations.knowledge|default('Knowledge') }}</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ translations.products|default('Products') }}</li>
-            </ol>
-        </nav>
     </div>
 {% endblock %}
 
@@ -25,42 +173,33 @@
 
     <div class="row">
 
-        {# SEARCH & FILTERS #}
+        {# Recherche et filtre — collés sous la barre supérieure sur tablette #}
         <div class="col-12 mb-4">
-            <div class="card">
+            <div class="card kp-search-card">
                 <div class="card-body">
-                    <div class="row g-3">
-
-                        {# Search box #}
-                        <div class="col-12 col-md-8">
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text bg-primary text-white">
-                                    <i class="bi bi-search"></i>
-                                </span>
-                                <input
-                                    type="text"
-                                    class="form-control form-control-lg"
-                                    id="productSearch"
-                                    placeholder="{{ translations.search_products|default('Wyszukaj produkt po nazwie...') }}"
-                                    autocomplete="off"
-                                >
-                            </div>
-                            <div class="mt-2 text-muted small">
-                                <i class="bi bi-info-circle"></i>
-                                {{ translations.search_hint|default('Wpisz nazwę produktu aby szybko go odnaleźć') }}
-                            </div>
+                    <div class="kp-search">
+                        <div class="kp-search-field">
+                            <label for="productSearch" class="form-label fw-semibold">
+                                {{ translations.search|default('Rechercher') }}
+                            </label>
+                            <input
+                                type="search"
+                                class="form-control"
+                                id="productSearch"
+                                placeholder="{{ translations.search_products|default('Wyszukaj produkt po nazwie...') }}"
+                                autocomplete="off"
+                                inputmode="search"
+                            >
                         </div>
 
-                        {# Category filter #}
-                        <div class="col-12 col-md-4">
-                            <label for="categoryFilter" class="form-label fw-bold">
-                                <i class="bi bi-funnel"></i> {{ translations.filter_category|default('Filtruj po kategorii') }}
+                        <div class="kp-search-cat">
+                            <label for="categoryFilter" class="form-label fw-semibold">
+                                {{ translations.filter_category|default('Filtruj po kategorii') }}
                             </label>
-                            <select class="form-select form-select-lg" id="categoryFilter">
+                            <select class="form-select" id="categoryFilter">
                                 <option value="">{{ translations.all_categories|default('Wszystkie kategorie') }}</option>
                             </select>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -70,82 +209,70 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="card-title mb-0">{{ translations.products_list|default('Lista produktów') }}</h4>
-                    <span class="badge bg-primary" id="productCount">{{ products|length }} {{ translations.products_total|default('produktów') }}</span>
+                    <h4 class="card-title mb-0">{{ translations.products_list|default("Liste des produits") }}</h4>
+                    <span class="badge bg-primary" id="productCount">{{ products|length }} {{ translations.products_total|default("produits") }}</span>
                 </div>
                 <div class="card-body">
 
                     {# No results message #}
                     <div id="noResults" class="alert alert-info d-none" role="alert">
                         <i class="bi bi-info-circle me-2"></i>
-                        {{ translations.no_products_found|default('Nie znaleziono produktów pasujących do wyszukiwania') }}
+                        {{ translations.no_products_found|default("Aucun produit trouvé correspondant à la recherche") }}
                     </div>
 
                     {# Products grid #}
-                    <div class="row g-3" id="productsGrid">
+                    <div class="kp-grid" id="productsGrid">
                         {% for product in products %}
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 product-item"
+                            <div class="product-item"
                                  data-product-id="{{ product.getId() }}"
                                  data-product-name="{{ product.getName()|lower }}"
                                  data-category="{{ product.getCategoryName()|lower }}">
-                                <a href="{{ ROOT }}/knowledge/products/{{ product.getId() }}"
-                                   class="card h-100 text-decoration-none product-card hover-lift">
-                                    <div class="card-body">
+                                <a href="{{ ROOT }}/knowledge/products/{{ product.getId() }}" class="kp-card">
 
-                                        {# Product icon/indicator #}
-                                        <div class="d-flex justify-content-between align-items-start mb-3">
-                                            <div class="avatar avatar-lg bg-light-success">
-                                                <i class="bi bi-box-seam text-success fs-4"></i>
-                                            </div>
+                                    <div class="kp-photo {{ product.hasMainPhoto() ? '' : 'is-empty' }}">
+                                        {% if product.hasMainPhoto() %}
+                                            <img src="{{ product.getMainPhotoUrl() }}"
+                                                 alt="{{ product.getName() }}" loading="lazy">
+                                        {% else %}
+                                            <span class="kp-photo-empty" aria-hidden="true">{{ icons.svg('package', 34) }}</span>
+                                        {% endif %}
 
-                                            {# Badges #}
-                                            <div class="d-flex flex-column gap-1">
-                                                {% if product.getIsVegetarian() %}
-                                                    <span class="badge bg-success" title="{{ translations.vegetarian|default('Wegetariańskie') }}">
-                                                        <i class="bi bi-leaf"></i>
-                                                    </span>
-                                                {% endif %}
-                                                {% if product.getIsPreparedBeforeSales() %}
-                                                    <span class="badge bg-warning" title="{{ translations.prepared_before|default('Przygotowane wcześniej') }}">
-                                                        <i class="bi bi-clock-history"></i>
-                                                    </span>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-
-                                        {# Product name #}
-                                        <h5 class="card-title text-dark mb-2 product-name">{{ product.getName() }}</h5>
-
-                                        {# Category #}
-                                        <div class="text-muted small mb-3">
-                                            <i class="bi bi-tag"></i>
-                                            <span class="product-category">{{ product.getCategoryName() ?: translations.no_category|default('Bez kategorii') }}</span>
-                                        </div>
-
-                                        {# Quick info #}
-                                        <div class="d-flex flex-column gap-1 small text-muted">
-                                            {% if product.getStorageName() %}
-                                                <div>
-                                                    <i class="bi bi-thermometer-half"></i>
-                                                    {{ product.getStorageName() }}
-                                                </div>
+                                        <span class="kp-photo-flags">
+                                            {% if product.getIsVegetarian() %}
+                                                <span class="kp-flag kp-flag-veg">
+                                                    {{ icons.svg('leaf', 12) }}{{ translations.vegetarian|default('Végétarien') }}
+                                                </span>
                                             {% endif %}
-                                            {% if product.getShelfLifeMinutes() %}
-                                                <div>
-                                                    <i class="bi bi-clock"></i>
-                                                    {{ (product.getShelfLifeMinutes() / 60)|round }} {{ translations.hours|default('godz.') }}
-                                                </div>
+                                            {% if product.getIsPreparedBeforeSales() %}
+                                                <span class="kp-flag kp-flag-prep">
+                                                    {{ icons.svg('clock', 12) }}{{ translations.prepared_before|default('Préparé à l\'avance') }}
+                                                </span>
                                             {% endif %}
-                                        </div>
+                                        </span>
+                                    </div>
 
-                                        {# View card button #}
-                                        <div class="mt-3 pt-3 border-top">
-                                            <div class="d-flex align-items-center text-primary">
-                                                <span class="fw-semibold small">{{ translations.view_card|default('Zobacz kartę') }}</span>
-                                                <i class="bi bi-arrow-right ms-auto"></i>
-                                            </div>
-                                        </div>
+                                    <p class="kp-name product-name">{{ product.getName() }}</p>
+                                    <div class="kp-cat">
+                                        {{ icons.svg('tag', 13) }}
+                                        <span class="product-category">{{ product.getCategoryName() ?: translations.no_category|default('Sans catégorie') }}</span>
+                                    </div>
 
+                                    <div class="kp-meta">
+                                        {% if product.getStorageName() %}
+                                            <span class="kp-chip">
+                                                {{ icons.svg('thermometer', 13) }}{{ product.getStorageName() }}
+                                            </span>
+                                        {% endif %}
+                                        {% if product.getShelfLifeMinutes() %}
+                                            <span class="kp-chip">
+                                                {{ icons.svg('timer', 13) }}{{ (product.getShelfLifeMinutes() / 60)|round }} {{ translations.hours|default('h') }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="kp-foot">
+                                        <span>{{ translations.view_card|default('Voir la fiche') }}</span>
+                                        {{ icons.svg('chevron-right', 17) }}
                                     </div>
                                 </a>
                             </div>
@@ -209,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Update count and show/hide no results message
-        productCount.textContent = visibleCount + ' {{ translations.products_total|default("produktów") }}';
+        productCount.textContent = visibleCount + ' {{ translations.products_total|default("produits") }}';
 
         if (visibleCount === 0) {
             noResults.classList.remove('d-none');
@@ -222,8 +349,12 @@ document.addEventListener('DOMContentLoaded', function() {
     searchInput.addEventListener('input', filterProducts);
     categoryFilter.addEventListener('change', filterProducts);
 
-    // Focus search on load
-    searchInput.focus();
+    // Focus au chargement seulement au clavier physique. Sur tablette, il
+    // faisait surgir le clavier virtuel par-dessus la liste : on arrivait sur
+    // l'écran sans voir un seul produit.
+    if (window.matchMedia('(pointer: fine)').matches) {
+        searchInput.focus();
+    }
 });
 </script>
 {% endblock %}

@@ -2,8 +2,11 @@
 
 {% block title %}404{% endblock %}
 
+{# Le SVG Mazer référencé ici n'a jamais été déployé : la page
+   d'erreur affichait une image cassée. Le code suffit, et il ne
+   dépend d'aucun fichier. #}
 {% block illustration %}
-    <img class="merr-illu" src="{{ ROOT }}/assets/mazer/static/images/samples/error-404.svg" alt="Not found">
+    <div class="merr-code" aria-hidden="true">404</div>
 {% endblock %}
 
 {% block error_title %}
@@ -14,6 +17,3 @@
     {{ translations.not_found_subtitle ?? 'The page you’re looking for doesn’t exist or has been moved.' }}
 {% endblock %}
 
-{% block footer %}
-    <div class="small text-muted mt-3">Error code: 404</div>
-{% endblock %}

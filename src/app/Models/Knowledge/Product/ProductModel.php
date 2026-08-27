@@ -37,6 +37,19 @@ class ProductModel implements JsonSerializable{
     private $storage_name;
     private $storage_description;
 
+    /**
+     * Chemin de la photo principale.
+     *
+     * Le modèle de liste n'en portait aucune : seul ProductDetailModel avait
+     * des photos. Une liste de 573 produits tous coiffés de la même icône ne
+     * se parcourt pas — c'est l'image qui distingue une assiette d'une autre.
+     *
+     * L'endpoint de liste ne renvoie peut-être pas encore le champ ; dans ce
+     * cas il reste à null et les cartes retombent sur l'icône, sans casser.
+     * Voir docs/ENDPOINTS_PHOTOS_PRODUITS.md.
+     */
+    private $main_photo_path;
+
     public function __construct($data) {
         $this->id = $data['id'] ?? null;
         $this->name = $data['name'] ?? null;
@@ -68,6 +81,10 @@ class ProductModel implements JsonSerializable{
         $this->positioning_description = $data['positioning_description'] ?? null;
         $this->storage_name = $data['storage_name'] ?? null;
         $this->storage_description = $data['storage_description'] ?? null;
+
+        // Accepté à plat ou sous une clé « photos », selon ce que l'API sert.
+        $this->main_photo_path = $data['main_photo_path']
+            ?? ($data['photos']['main_photo_path'] ?? null);
     }
 
     public function jsonSerialize(): mixed
@@ -102,8 +119,28 @@ class ProductModel implements JsonSerializable{
             'positioning_name' => $this->positioning_name,
             'positioning_description' => $this->positioning_description,
             'storage_name' => $this->storage_name,
-            'storage_description' => $this->storage_description
+            'storage_description' => $this->storage_description,
+            'main_photo_path' => $this->main_photo_path
         ];
+    }
+
+    public function hasMainPhoto(): bool { return !empty($this->main_photo_path); }
+
+    /**
+     * URL absolue de la photo principale.
+     *
+     * Même résolution que ProductPhotoModel : les chemins arrivent en
+     * « r2://… » et se résolvent sur SHARED_FILES_URL.
+     */
+    public function getMainPhotoUrl(): ?string
+    {
+        if (empty($this->main_photo_path)) {
+            return null;
+        }
+        if (str_starts_with($this->main_photo_path, 'r2://')) {
+            return rtrim(SHARED_FILES_URL, '/') . '/' . ltrim(substr($this->main_photo_path, 5), '/');
+        }
+        return $this->main_photo_path;
     }
 
     public function getId() { return $this->id; }

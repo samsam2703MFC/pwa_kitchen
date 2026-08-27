@@ -1,0 +1,25 @@
+{
+  "periods": [
+    {
+      "key": "morning",
+      "label": "Matin",
+      "start": "05:00",
+      "end": "11:00"
+    },
+    {
+      "key": "noon",
+      "label": "Midi",
+      "start": "11:00",
+      "end": "14:00"
+    },
+    {
+      "key": "afternoon",
+      "label": "Après-midi",
+      "start": "14:00",
+      "end": "19:00"
+    }
+  ],
+  "forecast_hours": 2,
+  "history_weeks": 6,
+  "safety_margin": 0
+}

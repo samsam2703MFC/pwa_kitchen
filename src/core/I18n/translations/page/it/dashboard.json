@@ -20,10 +20,14 @@
   "tasks_todo": "Attività da fare",
   "tasks_in_progress": "In corso",
   "tasks_completed": "Completate oggi",
+  "tasks_for_you": "Per te",
   "last_update": "Ultimo aggiornamento",
   "not_available": "Nessun dato",
   "production": "Produzione",
-  "knowledge": "Conoscenza",
+  "knowledge": "Base di conoscenza",
   "cards": "Schede",
-  "orders": "Ordini"
+  "orders": "Ordini",
+  "dash_cl_done": "fatte",
+  "dash_cl_left": "rimanenti oggi",
+  "dash_cl_late": "in ritardo"
 }

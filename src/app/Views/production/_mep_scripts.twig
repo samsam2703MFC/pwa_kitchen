@@ -1,0 +1,275 @@
+{# production/_mep_scripts.twig — validation du matin, encodage de l'après-midi.
+
+   Deux boutons, deux endpoints, un seul fichier : les deux écrans partagent la
+   même saisie de quantités, et séparer trente lignes de script coûterait plus
+   qu'il ne clarifie. #}
+<script>
+(function () {
+    var ROOT = {{ ROOT | json_encode | raw }};
+    var MSG  = {
+        errValidate: {{ (translations.mep_error      | default("La validation n'a pas pu être enregistrée.")) | json_encode | raw }},
+        okValidate:  {{ (translations.mep_success    | default('MEP validée : les produits sont en vente.')) | json_encode | raw }},
+        errSave:     {{ (translations.mep_next_error | default("L'enregistrement n'a pas pu être effectué.")) | json_encode | raw }},
+        okSave:      {{ (translations.mep_next_saved | default('MEP de demain enregistrée.')) | json_encode | raw }},
+        batch:       {{ (translations.prod_batch     | default('Fournée')) | json_encode | raw }},
+        byUnit:      {{ (translations.mep_by_unit    | default("à l'unité")) | json_encode | raw }}
+    };
+
+    var alertEl = document.getElementById('mepAlert');
+    function fail(msg) {
+        if (!alertEl) { showSnack(false, msg); return; }
+        alertEl.className = 'alert alert-danger mt-3';
+        alertEl.textContent = msg;
+        alertEl.classList.remove('d-none');
+    }
+    function clearAlert() { if (alertEl) alertEl.classList.add('d-none'); }
+
+    function busy(btn, on) {
+        var sp = document.getElementById('mepSpinner');
+        if (sp) sp.classList.toggle('d-none', !on);
+        btn.disabled = on;
+    }
+
+    function post(url, body, btn, okMsg, errMsg, onOk) {
+        clearAlert();
+        busy(btn, true);
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(body)
+        })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (res) {
+            if (!res || !res.success) { fail(errMsg); return; }
+            showSnack(true, okMsg);
+            if (onOk) onOk();
+        })
+        .catch(function () { fail(errMsg); })
+        .finally(function () { busy(btn, false); });
+    }
+
+    // ── Filtre par catégorie ──
+    // Les badges masquent, ils ne réordonnent pas : la liste garde son ordre
+    // catégorie → produit, on la retrouve au même endroit après un filtre.
+    document.addEventListener('click', function (e) {
+        var chip = e.target.closest('.cat-chip');
+        if (!chip) return;
+
+        var bar  = chip.closest('.cat-filters');
+        var list = document.querySelector(bar.dataset.target || '');
+        if (!list) return;
+
+        bar.querySelectorAll('.cat-chip').forEach(function (c) {
+            c.classList.toggle('is-on', c === chip);
+        });
+
+        var want = chip.dataset.cat || '';
+        list.querySelectorAll('.pr-cat').forEach(function (sec) {
+            // Une section vide reste cachée même quand son badge est choisi :
+            // le filtre ne ressuscite pas une catégorie sans ligne.
+            var isEmpty = sec.dataset.empty === '1';
+            var match   = !want || sec.dataset.cat === want;
+            sec.hidden = isEmpty || !match;
+        });
+    });
+
+    // Le liseré suit la saisie : en parcourant une liste de quarante produits,
+    // on voit d'un coup d'œil ce qui est déjà renseigné.
+    document.addEventListener('input', function (e) {
+        var input = e.target.closest('.mep-qty');
+        if (!input) return;
+        var line = input.closest('.mep-line');
+        if (line) line.classList.toggle('is-filled', parseFloat(input.value) > 0);
+        refreshCount();
+    });
+
+    function refreshCount() {
+        var out = document.getElementById('mepNextCount');
+        if (!out) return;
+        var n = 0;
+        document.querySelectorAll('#mepNextList .mep-qty').forEach(function (i) {
+            if (parseFloat(i.value) > 0) n++;
+        });
+        out.textContent = n;
+    }
+
+    // ── Pas de fournée ──
+    // On travaille en centaines de pièces : « + » monte d'une plaque entière,
+    // pas d'une unité. Le clavier reste là pour le chiffre exact — 117 parce
+    // que trois ont brûlé — mais ce n'est pas le geste courant.
+    document.addEventListener('click', function (e) {
+        var step = e.target.closest('.mep-step');
+        if (!step) return;
+
+        var row   = step.closest('.mep-line');
+        var input = row.querySelector('.mep-qty');
+        if (!input || input.disabled) return;
+
+        var by = Math.max(1, parseFloat(row.dataset.batch) || 1)
+               * (parseInt(step.dataset.step, 10) || 1);
+        input.value = String(Math.max(0, (parseFloat(input.value) || 0) + by));
+        row.classList.toggle('is-filled', parseFloat(input.value) > 0);
+        refreshCount();
+    });
+
+    // ── Écarter une ligne (validation du matin) ──
+    // « pas produit » et « produit zéro » ne racontent pas la même chose au
+    // serveur : la ligne part en `skipped`, pas en quantité nulle.
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('.mep-skip');
+        if (!b) return;
+        var line = b.closest('.mep-line');
+        var on   = !line.classList.contains('is-skipped');
+        line.classList.toggle('is-skipped', on);
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        var qty = line.querySelector('.mep-qty');
+        if (qty) qty.disabled = on;
+        line.querySelectorAll('.mep-step').forEach(function (s) { s.disabled = on; });
+    });
+
+    // ── Valider la MEP du jour ──
+    var validateBtn = document.getElementById('mepValidateBtn');
+    if (validateBtn) {
+        validateBtn.addEventListener('click', function () {
+            var lines = Array.prototype.map.call(
+                document.querySelectorAll('#mepValidateList .mep-line'),
+                function (line) {
+                    var skipped = line.classList.contains('is-skipped');
+                    var qty     = line.querySelector('.mep-qty');
+                    return {
+                        id:       parseInt(line.dataset.lineId, 10),
+                        quantity: skipped ? 0 : Math.max(0, parseFloat(qty && qty.value) || 0),
+                        skipped:  skipped
+                    };
+                }
+            );
+            post(ROOT + '/ajax/production/mep/validate', { lines: lines },
+                 validateBtn, MSG.okValidate, MSG.errValidate,
+                 function () { window.location.reload(); });
+        });
+    }
+
+    // ── Composer la MEP de demain ────────────────────────────────────────
+    var nextList = document.getElementById('mepNextList');
+    if (nextList) {
+        var picker   = document.getElementById('mepPicker');
+        var tpl      = document.getElementById('mepRowTpl');
+        var emptyBox = document.getElementById('mepNextEmpty');
+        var nextBtn  = document.getElementById('mepNextBtn');
+
+        function section(cat) {
+            var secs = nextList.querySelectorAll('.pr-cat');
+            for (var i = 0; i < secs.length; i++) {
+                if (secs[i].dataset.cat === cat) return secs[i];
+            }
+            return null;
+        }
+
+        function activeCat() {
+            var on = document.querySelector('.cat-filters[data-target="#mepNextList"] .cat-chip.is-on');
+            return on ? (on.dataset.cat || '') : '';
+        }
+
+        // Un seul endroit décide de ce qui se voit : compteurs, sections vides,
+        // filtre courant et écran vide se recalculent ensemble, sinon ils
+        // finissent par se contredire.
+        function refresh() {
+            var want  = activeCat();
+            var total = 0;
+
+            nextList.querySelectorAll('.pr-cat').forEach(function (sec) {
+                var n = sec.querySelectorAll('.mep-line').length;
+                total += n;
+                sec.dataset.empty = n ? '0' : '1';
+                var badge = sec.querySelector('.pr-cat-count');
+                if (badge) badge.textContent = n;
+                sec.hidden = !n || (want && sec.dataset.cat !== want);
+            });
+
+            if (emptyBox) emptyBox.classList.toggle('d-none', total > 0);
+
+            var ids = {};
+            nextList.querySelectorAll('.mep-line').forEach(function (l) { ids[l.dataset.productId] = 1; });
+            document.querySelectorAll('.mep-pick').forEach(function (p) {
+                p.classList.toggle('is-in', !!ids[p.dataset.id]);
+            });
+
+            refreshCount();
+        }
+
+        function addProduct(btn) {
+            var id    = btn.dataset.id;
+            var batch = Math.max(1, parseFloat(btn.dataset.batch) || 1);
+            var line  = nextList.querySelector('.mep-line[data-product-id="' + id + '"]');
+
+            // Produit déjà dans la MEP : on ajoute une fournée de plus plutôt
+            // que de créer un doublon que le serveur devrait fusionner.
+            if (line) {
+                var q = line.querySelector('.mep-qty');
+                q.value = String((parseFloat(q.value) || 0) + batch);
+                line.classList.add('is-filled');
+            } else {
+                var sec = section(btn.dataset.cat);
+                if (!sec) return;
+                var node = tpl.content.firstElementChild.cloneNode(true);
+                node.dataset.productId = id;
+                node.dataset.batch     = batch;
+                node.querySelector('.mep-line-name').textContent = btn.dataset.name;
+                node.querySelector('.mep-line-sub').textContent  =
+                    MSG.batch + ' ' + batch + (btn.dataset.unit ? ' ' + btn.dataset.unit : '');
+                node.querySelector('.mep-qty').value = String(batch);
+                sec.querySelector('.mep-grid').appendChild(node);
+                line = node;
+            }
+
+            refresh();
+            line.scrollIntoView({ block: 'nearest' });
+        }
+
+        document.addEventListener('click', function (e) {
+            var open = e.target.closest('#mepAddBtn');
+            if (open && picker) { picker.hidden = false; return; }
+
+            if (picker && !picker.hidden) {
+                // Cliquer sur le fond ferme : c'est le geste attendu, et la
+                // liste ne perd rien puisqu'elle est déjà dans la page.
+                if (e.target.closest('#mepPickerClose') || e.target === picker) {
+                    picker.hidden = true;
+                    return;
+                }
+                var pick = e.target.closest('.mep-pick');
+                if (pick) { addProduct(pick); return; }
+            }
+
+            var del = e.target.closest('#mepNextList .mep-del');
+            if (del) { del.closest('.mep-line').remove(); refresh(); }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && picker && !picker.hidden) picker.hidden = true;
+        });
+
+        // ── Enregistrer : c'est la MEP du lendemain, date portée par la liste ──
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function () {
+                var lines = [];
+                nextList.querySelectorAll('.mep-line').forEach(function (line) {
+                    var qty = parseFloat(line.querySelector('.mep-qty').value) || 0;
+                    if (qty > 0) {
+                        lines.push({ id_product: parseInt(line.dataset.productId, 10), quantity: qty });
+                    }
+                });
+                post(ROOT + '/ajax/production/mep',
+                     { date: nextList.dataset.date, lines: lines },
+                     nextBtn, MSG.okSave, MSG.errSave);
+            });
+        }
+
+        refresh();
+    }
+
+    refreshCount();
+})();
+</script>

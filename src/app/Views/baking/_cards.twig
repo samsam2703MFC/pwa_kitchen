@@ -1,0 +1,148 @@
+{# baking/_cards.twig — une carte par fournée, le geste à faire en bas.
+
+   Les trois pastilles montrent le cycle : celle en cours est allumée, celles
+   franchies portent une coche, celles à venir restent éteintes. #}
+{% set labels = {
+    'prep':   translations.stage_prep   | default('Préparation'),
+    'cook':   translations.stage_cook   | default('Cuisson'),
+    'finish': translations.stage_finish | default('Finition')
+} %}
+
+{% set running = batches|filter(b => not b.isWaiting) %}
+{% set later   = batches|filter(b => b.isWaiting) %}
+
+<div class="bk-list" id="bkCards">
+    {% for b in running %}
+        {% set k = b.stage %}
+        {# Une fournée qui n'a pas commencé n'est à aucune étape : ni liseré de
+           couleur, ni pastille allumée. Elle est là pour dire ce qui arrive. #}
+        <article class="bk-card {{ b.isWaiting ? 'is-waiting' : 'k-' ~ k }} {{ focus_batch == b.id ? 'is-focus' : '' }}"
+                 data-id="{{ b.id }}" data-next="{{ b.nextStatus }}"
+                 data-oven="{{ b.ovenName | default('') }}">
+
+            <div class="bk-top">
+                <div class="bk-name">
+                    <b>{{ b.name | default('—') }}</b>
+                    <span>{{ b.ovenName | default(translations.baking_no_oven | default('Four non précisé')) }}</span>
+                </div>
+                <div class="bk-qty">
+                    <b>{{ b.quantity|number_format(0, ',', ' ') }}</b>
+                    <span>{{ b.unitName | default(translations.baking_pieces | default('pièces')) }}</span>
+                </div>
+            </div>
+
+            <div class="bk-steps">
+                {% for s in ['prep', 'cook', 'finish'] %}
+                    {% set passed = (s == 'prep' and k != 'prep')
+                                 or (s == 'cook' and k == 'finish') %}
+                    {% set sub = s == 'prep' ? b.prepStartClock
+                               : (s == 'cook'
+                                    ? b.cookStartClock ~ (b.temperature ? ' · ' ~ b.temperature ~ '°' : '')
+                                    : b.finishStartClock) %}
+                    <div class="bk-st {{ (k == s and not b.isWaiting) ? 'is-on p-' ~ s : (passed ? 'is-done' : '') }}">
+                        {%- if passed %}<span class="ok">&#10003; {{ labels[s] }}</span>
+                        {%- else %}{{ labels[s] }}{% endif -%}
+                        <em>{{ sub }}</em>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="bk-when">
+                <span class="l">
+                    {% if k == 'cook' %}
+                        {{ translations.baking_out_at | default('Sort du four à') }} <b>{{ b.stageEndClock }}</b>
+                    {% elseif k == 'finish' %}
+                        {{ b.finishLabel | default(translations.stage_finish | default('Finition')) }}
+                        {{ translations.baking_until | default("jusqu'à") }} <b>{{ b.stageEndClock }}</b>
+                        {% if b.isFinishPerPiece %}
+                            {# Une finition à la pièce mobilise quelqu'un, et sa durée
+                               suit la quantité : le dire évite de croire qu'un
+                               nappage de 36 pièces coûte le temps d'un ressuage. #}
+                            <span class="bk-tag bk-tag-piece">
+                                {{ b.quantity|number_format(0, ',', ' ') }} × {{ b.finishPerPieceMinutes|number_format(b.finishPerPieceMinutes == b.finishPerPieceMinutes|round ? 0 : 1, ',', ' ') }} min
+                            </span>
+                        {% else %}
+                            <span class="bk-tag bk-tag-lot">{{ translations.baking_at_batch | default('au lot') }}</span>
+                        {% endif %}
+                    {% elseif b.isWaiting %}
+                        {{ translations.baking_starts_at | default('Commence à') }} <b>{{ b.prepStartClock }}</b>
+                    {% elseif b.isReadyToBake %}
+                        {{ translations.baking_oven_at | default('Au four à') }} <b>{{ b.stageEndClock }}</b>
+                    {% else %}
+                        {{ translations.baking_ready_at | default('Prête à') }} <b>{{ b.stageEndClock }}</b>
+                    {% endif %}
+                </span>
+                <span class="r">
+                    {{ translations.baking_shelf | default('rayon') }} <b>{{ b.shelfClock }}</b>
+                </span>
+            </div>
+
+            {% if not b.isWaiting %}
+                <div class="bk-prog"><i style="width: {{ b.getProgressPercent(now) }}%"></i></div>
+            {% endif %}
+
+            {% if b.isWaiting %}
+                <div class="bk-act a-wait">{{ translations.baking_waiting | default('En attente') }}</div>
+            {% else %}
+                {% set action = k == 'cook'   ? translations.baking_btn_out       | default('Sortir du four')
+                              : k == 'finish' ? (b.finishLabel
+                                                    ? b.finishLabel ~ ' ' ~ (translations.baking_btn_done | default('terminé'))
+                                                    : translations.baking_btn_finish_done | default('Finition terminée'))
+                              : b.isReadyToBake ? translations.baking_btn_bake     | default('Enfourner')
+                                                : translations.baking_btn_prep_done| default('Préparation terminée') %}
+                {# Même geste que dans le panneau d'ordres : qui s'en occupe, en
+                   combien de temps, puis on valide. Deux chemins pour la même
+                   action donnaient deux enregistrements différents — l'un avec
+                   un nom, l'autre sans. #}
+                <button type="button" class="bk-act a-{{ k }}"
+                        data-id="{{ b.id }}"
+                        data-next="{{ b.nextStatus }}"
+                        data-verb="{{ action }}"
+                        data-name="{{ b.name | default('—') }}"
+                        data-minutes="{{ b.plannedMinutes }}"
+                        data-stage="{{ k }}"
+                        data-product="{{ b.idProduct }}"
+                        data-qty="{{ b.quantity|number_format(0, '.', '') }}"
+                        data-unit="{{ b.unitName | default('pc') }}"
+                        data-meta="{{ b.quantity|number_format(0, ',', ' ') }} {{ b.unitName | default('pc') }}
+                                   {{- b.ovenName ? ' · ' ~ b.ovenName : '' }} · {{ b.stageEndClock }}">{{ action }}</button>
+            {% endif %}
+        </article>
+    {% endfor %}
+</div>
+
+{# Ce qui n'a pas commencé n'appelle aucun geste : ça se replie. Une fournée
+   de 10 h affichée à 7 h ne fait qu'allonger la page qu'on parcourt en
+   cherchant celle qui sort du four. #}
+{% if later is not empty %}
+    <details class="bk-later">
+        <summary>
+            {{ translations.baking_later | default('À venir') }}
+            <span class="pr-cat-count">{{ later|length }}</span>
+        </summary>
+        <div class="bk-list">
+            {% for b in later %}
+                <article class="bk-card is-waiting" data-id="{{ b.id }}" data-oven="{{ b.ovenName | default('') }}">
+                    <div class="bk-top">
+                        <div class="bk-name">
+                            <b>{{ b.name | default('—') }}</b>
+                            <span>{{ b.ovenName | default(translations.baking_no_oven | default('Four non précisé')) }}</span>
+                        </div>
+                        <div class="bk-qty">
+                            <b>{{ b.quantity|number_format(0, ',', ' ') }}</b>
+                            <span>{{ b.unitName | default(translations.baking_pieces | default('pièces')) }}</span>
+                        </div>
+                    </div>
+                    <div class="bk-when">
+                        <span class="l">
+                            {{ translations.baking_starts_at | default('Commence à') }} <b>{{ b.prepStartClock }}</b>
+                        </span>
+                        <span class="r">
+                            {{ translations.baking_shelf | default('rayon') }} <b>{{ b.shelfClock }}</b>
+                        </span>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    </details>
+{% endif %}

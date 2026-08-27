@@ -1,0 +1,49 @@
+[
+  {
+    "id_product": 6700120,
+    "name": "Baguette tradition",
+    "id_category": 14,
+    "category_name": "Boulangerie",
+    "periods": ["morning", "noon", "afternoon"],
+    "batch_size": 12,
+    "unit_name": "pc",
+    "production_lead_minutes": 20,
+    "is_active": true,
+    "is_pdb": true,
+    "is_pdm": true,
+    "pdm_minimums": { "morning": 24, "noon": 24, "afternoon": 12 },
+    "sector": "bakery",
+    "sector_name": "Boulangerie"
+  },
+  {
+    "id_product": 6700300,
+    "name": "Sandwich jambon-beurre",
+    "id_category": 20,
+    "category_name": "Sandwichs",
+    "periods": ["morning", "noon"],
+    "batch_size": 10,
+    "unit_name": "pc",
+    "production_lead_minutes": 0,
+    "is_active": true,
+    "is_pdb": false,
+    "is_pdm": true,
+    "pdm_minimums": { "morning": 6, "noon": 24, "afternoon": 8 },
+    "sector": "catering",
+    "sector_name": "Traiteur"
+  },
+  {
+    "id_product": 6700330,
+    "name": "Plateau apéritif 20 pièces",
+    "id_category": 22,
+    "category_name": "Traiteur chaud",
+    "periods": ["afternoon"],
+    "batch_size": 2,
+    "unit_name": "pc",
+    "production_lead_minutes": 30,
+    "is_active": true,
+    "is_pdb": false,
+    "is_pdm": false,
+    "sector": "catering",
+    "sector_name": "Traiteur"
+  }
+]

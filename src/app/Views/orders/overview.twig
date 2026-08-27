@@ -1,6 +1,6 @@
 {% extends "layouts/base.twig" %}
 
-{% block title %}{{ translations.orders_title | default('Zamówienia klientów') }}{% endblock %}
+{% block title %}{{ translations.orders_title | default("Commandes clients") }}{% endblock %}
 
 {% block head %}
 <style>
@@ -11,18 +11,93 @@
         font-size: .75rem;
         font-weight: 600;
     }
-    .status-new         { background: #d1e7ff; color: #084298; }
-    .status-in_production { background: #fff3cd; color: #664d03; }
-    .status-completed   { background: #d1e7dd; color: #0f5132; }
-    .status-picked_up   { background: #cfe2ff; color: #084298; }
-    .status-unpicked    { background: #f8d7da; color: #842029; }
-    .status-unknown     { background: #e2e3e5; color: #41464b; }
+    /* Les statuts gardent leurs couleurs sémantiques — vert pour terminé,
+       rouge pour non retiré — mais reprises dans les teintes de la charte
+       plutôt que dans les bleus Bootstrap d'origine. */
+    .status-new           { background: rgba(31,79,107,.11);  color: #1F4F6B; }
+    .status-in_production { background: rgba(193,122,42,.16); color: #8a5a12; }
+    .status-completed     { background: rgba(45,122,62,.13);  color: #2D7A3E; }
+    .status-picked_up     { background: rgba(45,122,62,.13);  color: #2D7A3E; }
+    .status-unpicked      { background: rgba(141,29,44,.11);  color: #8D1D2C; }
+    .status-unknown       { background: rgba(36,26,22,.07);   color: #7a7168; }
 
-    .type-badge-b2b        { background: #e2e3e5; color: #41464b; }
-    .type-badge-individual { background: #cfe2ff; color: #084298; }
+    .type-badge-b2b        { background: rgba(36,26,22,.07);  color: #7a7168; }
+    .type-badge-individual { background: rgba(92,74,138,.12); color: #5C4A8A; }
 
     .filter-card { border-radius: 12px; }
     .orders-table th { white-space: nowrap; }
+
+    /* ── Bascule du mode de remise ── */
+    .ff-seg {
+        display: flex; gap: 4px; margin-top: 4px; padding: 4px;
+        background: var(--c-bg-2, #F4EFE8);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: 999px;
+    }
+    /* Le commutateur de Bootstrap fait 19 px de haut : sous le doigt, on
+       vise le libellé et on rate la case. On agrandit les deux, qui sont déjà
+       liés par « for ». */
+    /* Pastille-bascule minimaliste : juste le libellé. Creuse quand elle est
+       éteinte, pleine (encre) quand elle est active. Une seule ligne, largeur
+       ajustée au texte — plus discrète que l'interrupteur. */
+    .ff-toggle {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 44px; padding: 0 18px; white-space: nowrap;
+        border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
+        font-size: .88rem; font-weight: 600; color: var(--c-muted, #7a7168);
+        cursor: pointer; -webkit-tap-highlight-color: transparent;
+        transition: background .14s ease, border-color .14s ease, color .14s ease;
+    }
+    .ff-toggle:active { transform: scale(.99); }
+    .ff-toggle:focus { outline: none; }
+    .ff-toggle:focus-visible { outline: 3px solid rgba(31,79,107,.35); outline-offset: 2px; }
+    .ff-toggle[aria-pressed="true"] {
+        background: var(--c-encre, #1F4F6B); border-color: var(--c-encre, #1F4F6B); color: #fff;
+    }
+
+.ff-seg-btn {
+        flex: 1; min-height: 44px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 999px; padding: 0 14px;
+        font-size: .85rem; font-weight: 600; text-decoration: none;
+        color: var(--c-muted, #7a7168); white-space: nowrap;
+        transition: background .15s ease, color .15s ease;
+    }
+    .ff-seg-btn:hover { color: var(--c-ink, #241f1c); }
+    .ff-seg-btn.is-active {
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        box-shadow: 0 6px 14px -8px rgba(141,29,44,.55);
+    }
+    /* Chaque mode porte sa couleur, la même que son badge dans la liste :
+       Click & Collect en encre, Livraison en abricot. « Toutes » reste bordeaux. */
+    .ff-seg-collect.is-active {
+        background: var(--c-encre, #1F4F6B); box-shadow: 0 6px 14px -8px rgba(31,79,107,.55);
+    }
+    .ff-seg-delivery.is-active {
+        background: var(--c-ambre, #C17A2A); box-shadow: 0 6px 14px -8px rgba(193,122,42,.55);
+    }
+    .ff-seg-collect.is-active .ff-seg-count  { color: var(--c-encre, #1F4F6B); }
+    .ff-seg-delivery.is-active .ff-seg-count { color: #8a5518; }
+    .ff-seg-note { font-size: .76rem; color: var(--c-muted, #7a7168); margin: 8px 2px 0; }
+    .ff-seg-count {
+        min-width: 20px; height: 20px; padding: 0 6px; margin-left: 7px;
+        border-radius: 999px;
+        background: var(--c-secondary, #F2C9A0); color: var(--c-on-abricot, #6b4420);
+        font-size: 11px; font-weight: 800; line-height: 20px; text-align: center;
+    }
+    .ff-seg-count[hidden] { display: none; }
+    /* Sur l'onglet actif, le fond est déjà bordeaux : l'abricot y ressort en
+       clair plutôt qu'en pastille sombre. */
+    .ff-seg-btn.is-active .ff-seg-count { background: rgba(255,255,255,.9); color: var(--c-primary, #8D1D2C); }
+
+    .ff-badge {
+        display: inline-flex; align-items: center;
+        font-size: .74rem; font-weight: 600;
+        border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+    }
+    .ff-badge-collect  { background: rgba(31,79,107,.11); color: #1F4F6B; }
+    .ff-badge-delivery { background: rgba(193,122,42,.16); color: #8a5a12; }
     .value-col { font-variant-numeric: tabular-nums; }
     .initials-badge {
         display: inline-flex;
@@ -41,14 +116,8 @@
 
 {% block page_heading %}
     <div class="page-heading">
-        <h3>{{ translations.orders_title | default('Zamówienia klientów') }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.orders_subtitle | default('Przeglądaj zamówienia klientów oczekujące na realizację.') }}</p>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ ROOT }}">{{ translations.home | default('Home') }}</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ translations.orders | default('Zamówienia') }}</li>
-            </ol>
-        </nav>
+        <h3>{{ translations.orders_title | default("Commandes clients") }}</h3>
+        <p class="text-subtitle text-muted">{{ translations.orders_subtitle | default("Parcourez les commandes clients en attente de traitement.") }}</p>
     </div>
 {% endblock %}
 
@@ -60,10 +129,10 @@
         <form method="GET" action="{{ ROOT }}/orders" id="ordersFilterForm" class="row g-3 align-items-end">
 
             {# Data odbioru #}
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-sm-6 col-lg-3">
                 <label class="form-label fw-semibold small" for="filterDate">
                     <i class="bi bi-calendar3"></i>
-                    {{ translations.filter_date | default('Dzień odbioru') }}
+                    {{ translations.filter_date | default("Date de retrait") }}
                 </label>
                 <input type="date"
                        class="form-control"
@@ -74,7 +143,7 @@
             </div>
 
             {# Nazwa klienta #}
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-sm-6 col-lg-4">
                 <label class="form-label fw-semibold small" for="filterClientName">
                     <i class="bi bi-person-search"></i>
                     {{ translations.filter_client_name | default('Nazwa klienta') }}
@@ -90,22 +159,17 @@
             </div>
 
             {# Tylko oczekujące #}
-            <div class="col-12 col-md-2 d-flex align-items-center gap-2 pt-3">
+            <div class="col-12 col-sm-6 col-lg-2 d-flex align-items-center gap-2 pt-lg-3">
                 {# Ukryte pole — wartość zmieniana przez JS #}
                 <input type="hidden" id="pendingOnlyInput" name="pending_only" value="{{ pending_only ? '1' : '0' }}">
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           id="filterPendingOnly"
-                           {{ pending_only ? 'checked' : '' }}>
-                    <label class="form-check-label small fw-semibold" for="filterPendingOnly">
-                        {{ translations.filter_pending_only | default('Tylko oczekujące') }}
-                    </label>
-                </div>
+                <button type="button" class="ff-toggle" id="filterPendingOnly"
+                        aria-pressed="{{ pending_only ? 'true' : 'false' }}">
+                    {{ translations.filter_pending_only | default("En attente") }}
+                </button>
             </div>
 
             {# Przyciski #}
-            <div class="col-12 col-md-3 d-flex gap-2">
+            <div class="col-12 col-sm-6 col-lg-3 d-flex gap-2 align-items-end">
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-search"></i>
                     {{ translations.filter_search | default('Szukaj') }}
@@ -115,6 +179,39 @@
                 </a>
             </div>
 
+            {# ── Mode de remise ──
+               Trois états exclusifs qu'on veut voir tous à la fois pour savoir
+               lequel est actif : des onglets segmentés, pas une liste
+               déroulante. Ce sont des liens : ils conservent la date et le nom
+               de client de l'URL, et fonctionnent sans JavaScript. #}
+            <div class="col-12">
+                <div class="ff-seg" role="group" aria-label="{{ translations.fulfilment }}">
+                    {% set _q = {'date': date, 'client_name': client_name, 'pending_only': pending_only ? '1' : '0'} %}
+                    {% for key, label in {
+                        'all':      translations.fulfilment_all ?? 'Toutes',
+                        'collect':  translations.click_and_collect ?? 'Click & Collect',
+                        'delivery': translations.delivery_mode ?? 'Livraison'
+                    } %}
+                        <a class="ff-seg-btn ff-seg-{{ key }} {{ fulfilment == key ? 'is-active' : '' }}"
+                           href="{{ ROOT }}/orders?{{ (_q|merge({'fulfilment': key}))|url_encode }}"
+                           aria-current="{{ fulfilment == key ? 'true' : 'false' }}">
+                            <span>{{ label }}</span>
+                            {# Rempli par le sondage du layout ; abricot, comme la
+                               pastille de l'onglet Commandes. #}
+                            <span class="ff-seg-count" data-count="{{ key }}" hidden></span>
+                        </a>
+                    {% endfor %}
+                </div>
+
+                {# Un filtre qui ne filtre rien doit le dire. Sans ce mot, il
+                   passerait pour cassé. #}
+                {% if not has_fulfilment_data %}
+                    <p class="ff-seg-note">
+                        <i class="bi bi-info-circle"></i>
+                        {{ translations.fulfilment_not_served }}
+                    </p>
+                {% endif %}
+            </div>
         </form>
     </div>
 </div>
@@ -124,16 +221,16 @@
     <div class="card-header d-flex justify-content-between align-items-center py-2">
         <span class="fw-semibold">
             <i class="bi bi-list-ul me-1"></i>
-            {{ translations.orders | default('Zamówienia') }}
+            {{ translations.orders | default("Commandes") }}
             —
             <span class="text-primary">{{ date | date('d.m.Y') }}</span>
         </span>
         <div class="d-flex align-items-center gap-2">
             <span class="badge bg-primary">
-                {{ orders | length }} {{ translations.orders_count | default('zamówień') }}
+                {{ orders | length }} {{ translations.orders_count | default("commandes") }}
             </span>
             <a href="{{ ROOT }}/orders/new" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-circle me-1"></i>{{ translations.new_order | default('Nowe zamówienie') }}
+                <i class="bi bi-plus-circle me-1"></i>{{ translations.new_order | default("Nouvelle commande") }}
             </a>
         </div>
     </div>
@@ -145,9 +242,10 @@
                     <tr>
                         <th>{{ translations.col_client | default('Klient') }}</th>
                         <th>{{ translations.col_type | default('Typ') }}</th>
+                        <th>{{ translations.fulfilment }}</th>
                         <th>{{ translations.col_pickup | default('Data odbioru') }}</th>
-                        <th class="value-col">{{ translations.col_value | default('Wartość') }}</th>
-                        <th class="text-center">{{ translations.col_accepted_by | default('Przyjął') }}</th>
+                        <th class="value-col">{{ translations.col_value | default("Valeur") }}</th>
+                        <th class="text-center">{{ translations.col_accepted_by | default("Accepté par") }}</th>
                         <th>{{ translations.col_status | default('Status') }}</th>
                         <th></th>
                     </tr>
@@ -178,6 +276,21 @@
                                     <span class="order-status-badge type-badge-individual">
                                         <i class="bi bi-person me-1"></i>{{ translations.type_individual | default('Indywidualny') }}
                                     </span>
+                                {% endif %}
+                            </td>
+
+                            {# Mode de remise #}
+                            <td>
+                                {% if order.isDelivery() %}
+                                    <span class="ff-badge ff-badge-delivery">
+                                        <i class="bi bi-truck me-1"></i>{{ translations.delivery_mode }}
+                                    </span>
+                                {% elseif order.isClickAndCollect() %}
+                                    <span class="ff-badge ff-badge-collect">
+                                        <i class="bi bi-bag-check me-1"></i>{{ translations.click_and_collect }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">{{ translations.not_available | default('—') }}</span>
                                 {% endif %}
                             </td>
 
@@ -227,7 +340,7 @@
                                 </a>
                                 <a href="{{ ROOT }}/orders/{{ order.getId() }}"
                                    class="btn btn-sm btn-outline-primary"
-                                   title="{{ translations.view_details | default('Szczegóły') }}">
+                                   title="{{ translations.view_details | default("Détails") }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>
@@ -235,11 +348,11 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
+                            <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                                {{ translations.no_orders | default('Brak zamówień spełniających kryteria wyszukiwania.') }}
+                                {{ translations.no_orders | default("Aucune commande ne correspond aux critères de recherche.") }}
                                 <div class="small mt-1">
-                                    {{ translations.no_orders_hint | default('Zmień dzień odbioru lub usuń filtr nazwy klienta.') }}
+                                    {{ translations.no_orders_hint | default('Changez le jour de retrait, ou retirez le filtre sur le nom du client.') }}
                                 </div>
                             </td>
                         </tr>
@@ -253,13 +366,33 @@
 {% endblock %}
 
 {% block scripts %}
+{# Le layout sonde /ajax/orders/pending-count et diffuse « orders:count » ;
+   cet écran n'a qu'à peindre ses propres compteurs. #}
+<script>
+document.addEventListener('orders:count', function (e) {
+    var d = e.detail || {};
+    var map = { all: d.total, collect: d.collect, delivery: d.delivery };
+    document.querySelectorAll('.ff-seg-count').forEach(function (el) {
+        var n = map[el.dataset.count];
+        if (typeof n === 'number' && n > 0) {
+            el.textContent = n > 99 ? '99+' : n;
+            el.hidden = false;
+        } else {
+            el.hidden = true;
+        }
+    });
+});
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const checkbox        = document.getElementById('filterPendingOnly');
     const hiddenInput     = document.getElementById('pendingOnlyInput');
 
-    checkbox.addEventListener('change', function () {
-        hiddenInput.value = this.checked ? '1' : '0';
+    checkbox.addEventListener('click', function () {
+        const on = this.getAttribute('aria-pressed') !== 'true';
+        this.setAttribute('aria-pressed', on ? 'true' : 'false');
+        hiddenInput.value = on ? '1' : '0';
     });
 });
 </script>

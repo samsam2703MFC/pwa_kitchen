@@ -1,0 +1,92 @@
+{% extends "layouts/base.twig" %}
+
+{% block title %}{{ translations.webshop | default('WebShop') }}{% endblock %}
+
+{% block head %}{% include "webshop/_styles.twig" %}{% endblock %}
+
+{% block page_heading %}
+    <div class="page-heading">
+        <h3>{{ translations.webshop | default('WebShop') }}</h3>
+        <p class="text-subtitle text-muted">
+            {%- if shop_name -%}
+                {{ shop_name }}{{ shop_city ? ' · ' ~ shop_city : '' }}
+            {%- else -%}
+                {{ translations.ws_subtitle | default('Commandes, stock et indicateurs de la boutique') }}
+            {%- endif -%}
+        </p>
+    </div>
+{% endblock %}
+
+{% block content %}
+
+{# ── Ce qui empêche d'afficher quoi que ce soit ──
+   Quatre causes, quatre réparations différentes. « Non configuré » les
+   confondrait toutes et enverrait chercher au mauvais endroit. #}
+{% if webshop_blocker %}
+    {% include "webshop/_blocked.twig" %}
+
+{% else %}
+
+    {# Le réseau est tombé : on le dit, on ne prétend pas qu'il n'y a rien. #}
+    {% if net_down %}
+        <p class="ws-net">
+            {{ translations.ws_net_down | default("Le webshop est injoignable. Les données affichées ne sont pas à jour — c'est le réseau, pas le magasin.") }}
+        </p>
+    {% endif %}
+
+    {# ── Trois onglets, un par geste ──
+       La barre du bas les porte déjà. On les répète ici parce qu'une tablette
+       posée à plat se manipule autant par le haut que par le bas, et parce que
+       la pastille « à préparer » doit se voir depuis les trois écrans. #}
+    <nav class="ws-tabs" aria-label="{{ translations.webshop | default('WebShop') }}">
+        {% set tabs_def = [
+            { key: 'prep',  label: translations.ws_prep  | default('Préparation'),     n: todo_count | default(null) },
+            { key: 'stock', label: translations.ws_stock | default('Stock du jour'),   n: out_count  | default(null) },
+            { key: 'board', label: translations.ws_board | default('Tableau de bord'), n: null }
+        ] %}
+        {% for t in tabs_def %}
+            <a class="ws-tab {{ active_view == t.key ? 'is-active' : '' }}"
+               href="{{ ROOT }}/webshop?view={{ t.key }}"
+               {{ active_view == t.key ? 'aria-current="page"' : '' }}>
+                <b>{{ t.label }}</b>
+                {% if t.n %}<span class="ws-tab-n">{{ t.n }}</span>{% endif %}
+            </a>
+        {% endfor %}
+    </nav>
+
+    {# Une section non accordée à cette tablette : on le dit, et on dit à qui
+       le demander. C'est un réglage du franchisé, pas une panne. #}
+    {% if closed_section %}
+        <div class="card mt-3">
+            <div class="card-body ws-state">
+                <h2>{{ translations.ws_closed_title | default("Cet écran n'est pas ouvert à cette tablette") }}</h2>
+                <p>{{ translations.ws_closed | default('Votre franchisé peut l\'ouvrir depuis le back-office, dans Réglages › Tablette Kitchen.') }}</p>
+            </div>
+        </div>
+
+    {% elseif fetch_state == 'network' %}
+        <div class="card mt-3">
+            <div class="card-body ws-state">
+                <h2>{{ translations.ws_net_title | default('Le webshop ne répond pas') }}</h2>
+                {# « réseau », jamais « aucune donnée » : la différence décide si
+                   on réessaie ou si on appelle quelqu'un. #}
+                <p>{{ translations.ws_net_body | default("C'est un problème de réseau, pas une absence de commandes. Réessayez dans un instant.") }}</p>
+                <a class="ws-go" href="{{ ROOT }}/webshop?view={{ active_view }}">
+                    {{ translations.ws_retry | default('Réessayer') }}
+                </a>
+            </div>
+        </div>
+
+    {% elseif active_view == 'stock' %}
+        {% include "webshop/_stock.twig" %}
+    {% elseif active_view == 'board' %}
+        {% include "webshop/_board.twig" %}
+    {% else %}
+        {% include "webshop/_prep.twig" %}
+    {% endif %}
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}{% if not webshop_blocker %}{% include "webshop/_scripts.twig" %}{% endif %}{% endblock %}

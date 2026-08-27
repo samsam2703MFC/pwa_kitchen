@@ -2,15 +2,12 @@
   "kitchen_portal": "Kitchen Portal",
   "kitchen_app_short": "Kuchnia",
   "franchise_ecosystem": "Ekosystem sieci franczyzowej",
-
   "menu": "Menu",
   "account": "Konto",
   "logout": "Wyloguj",
   "my_profile": "Mój profil",
-
   "kitchen_dashboard": "Pulpit kuchni",
   "kitchen_dashboard_subtitle": "Szybki podgląd dzisiejszej produkcji i najważniejszych zadań.",
-
   "quick_actions": "Szybkie akcje",
   "todays_production": "Dzisiejsza produkcja",
   "todays_production_subtitle": "Zobacz co dziś robić, priorytety i statusy.",
@@ -20,15 +17,17 @@
   "checklists_subtitle": "Odhaczaj zadania dzienne: otwarcie, porządek, zamknięcie.",
   "my_orders": "Moje zamówienia",
   "my_orders_subtitle": "Składaj zamówienia składników do dostawców.",
-
   "tasks_todo": "Zadania do zrobienia",
   "tasks_in_progress": "W trakcie",
   "tasks_completed": "Ukończone dzisiaj",
+  "tasks_for_you": "Dla Ciebie",
   "last_update": "Ostatnia aktualizacja",
   "not_available": "Brak danych",
-
   "production": "Produkcja",
-  "knowledge": "Wiedza",
+  "knowledge": "Baza wiedzy",
   "cards": "Karty",
-  "orders": "Zamówienia"
+  "orders": "Zamówienia",
+  "dash_cl_done": "wykonane",
+  "dash_cl_left": "pozostałe dzisiaj",
+  "dash_cl_late": "po terminie"
 }

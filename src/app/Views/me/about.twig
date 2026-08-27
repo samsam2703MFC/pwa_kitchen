@@ -1,11 +1,123 @@
 {% extends "layouts/base.twig" %}
 
-{% block title %}{{ translations.supplier_about_title }}{% endblock %}
+{% block title %}{{ translations.settings_title | default('Réglages') }}{% endblock %}
+
+{% block head %}
+<style>
+    .set-row { display: flex; align-items: center; gap: 16px; }
+    .set-txt { flex: 1; min-width: 0; }
+    .set-title { font-size: .98rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.3; }
+    .set-sub { font-size: .82rem; color: var(--c-muted, #7a7168); margin-top: 3px; line-height: 1.45; }
+
+    /* Interrupteur : 56x32 dessiné, 44 px de haut au doigt.
+       Le form-switch de Bootstrap fait 32x16, très en dessous du seuil tactile.
+       Celui-ci se voyait bien mais restait à 32 px : la zone sensible est
+       étendue au-dessus et en dessous par une bordure transparente, sans
+       toucher au dessin ni à la mise en page — background-clip garde la couleur
+       dans le rail, la boîte seule grandit. */
+    .set-switch {
+        width: 56px; height: 32px; flex-shrink: 0;
+        box-sizing: content-box;
+        border: 6px solid transparent; border-radius: 999px; padding: 0;
+        background-color: #d8d2c9; background-clip: padding-box;
+        position: relative; cursor: pointer;
+        transition: background .18s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .set-switch[aria-checked="true"] { background-color: var(--c-vert, #2D7A3E); }
+    .set-switch-knob {
+        position: absolute; top: 3px; left: 3px;
+        width: 26px; height: 26px; border-radius: 50%;
+        background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+        transition: left .18s ease;
+    }
+    .set-switch[aria-checked="true"] .set-switch-knob { left: 27px; }
+
+    /* ── Mode de la tablette ──
+       Trois tuiles plutôt qu'un menu déroulant : le choix se fait une fois à
+       l'installation, mais il faut alors voir les trois possibilités et ce
+       que chacune montre. Un select cacherait deux options sur trois derrière
+       un tap, et surtout n'expliquerait aucune. */
+    .mode-grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
+    @media (min-width: 700px) { .mode-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    .mode-opt {
+        display: block; position: relative; cursor: pointer;
+        border: 2px solid var(--c-line, rgba(36,26,22,.12));
+        border-radius: var(--r-lg, 18px); padding: 14px 16px;
+        background: var(--c-surface, #fff);
+        transition: border-color .15s ease, background .15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mode-opt input { position: absolute; opacity: 0; pointer-events: none; }
+    /* Deux sélecteurs pour un seul état. `:has()` suit le doigt en direct, mais
+       n'existe pas sur les WebView anciennes qu'on trouve encore sur les
+       tablettes de terrain ; `.is-on`, posé par le serveur, garantit qu'on voit
+       toujours au moins le mode courant. Sans lui, une vieille tablette
+       afficherait trois tuiles identiques. */
+    .mode-opt.is-on,
+    .mode-opt:has(input:checked) {
+        border-color: var(--c-primary, #8D1D2C);
+        background: #fdf7f8;
+    }
+    .mode-opt:has(input:not(:checked)) { border-color: var(--c-line, rgba(36,26,22,.12)); background: var(--c-surface, #fff); }
+    .mode-opt-name {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 1rem; font-weight: 800; color: var(--c-ink, #241f1c);
+    }
+    .mode-opt-name .bi { color: var(--c-primary, #8D1D2C); }
+    .mode-opt-what {
+        display: block; margin-top: 6px; font-size: .8rem; line-height: 1.45;
+        color: var(--c-muted, #7a7168);
+    }
+    .mode-opt-now {
+        display: inline-block; margin-top: 8px; padding: 2px 8px;
+        border-radius: 999px; background: var(--c-vert, #2D7A3E); color: #fff;
+        font-size: .66rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+    }
+    /* Une option indisponible reste visible et dit pourquoi : la masquer
+       laisserait chercher un mode annoncé ailleurs et introuvable ici. */
+    .mode-opt.is-blocked { opacity: .55; cursor: not-allowed; }
+    .mode-opt.is-blocked input { pointer-events: none; }
+    .mode-opt-why {
+        display: block; margin-top: 8px; font-size: .76rem; line-height: 1.4;
+        color: var(--c-ambre, #C17A2A); font-weight: 700;
+    }
+
+    .set-field { margin-top: 14px; }
+    .set-field label {
+        display: block; font-size: .78rem; font-weight: 800; letter-spacing: .04em;
+        text-transform: uppercase; color: var(--c-muted, #7a7168); margin-bottom: 5px;
+    }
+    .set-field input {
+        width: 100%; min-height: 46px; padding: 8px 12px;
+        border: 1px solid var(--c-line, rgba(36,26,22,.15)); border-radius: 12px;
+        font-size: .92rem; background: #fff;
+    }
+    .set-field small { display: block; margin-top: 5px; font-size: .76rem; color: var(--c-muted, #7a7168); }
+    /* Effacer un jeton n'est pas un réglage courant : la case reste discrète,
+       mais assez haute pour se cocher au doigt sans viser. */
+    .set-clear {
+        display: flex; align-items: center; gap: 10px;
+        min-height: 44px; margin-top: 10px;
+        font-size: .82rem; color: var(--c-muted, #7a7168); cursor: pointer;
+    }
+    .set-clear input { width: 20px; height: 20px; flex: 0 0 auto; }
+    .set-save {
+        min-height: 48px; margin-top: 18px; padding: 0 22px;
+        border: 0; border-radius: 999px;
+        background: var(--c-primary, #8D1D2C); color: #fff; font-weight: 700;
+    }
+</style>
+{% endblock %}
 
 {% block page_heading %}
     <div class="page-heading">
-        <h3>{{ translations.supplier_about_heading }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.supplier_about_subtitle }}</p>
+        {# L'écran ne fait plus « à propos » : il porte le mode de la tablette,
+           qui décide de ce qu'elle affiche. Le titre doit le dire, sinon on
+           cherchera les réglages ailleurs. #}
+        <h3>{{ translations.settings_heading | default('Réglages') }}</h3>
+        <p class="text-subtitle text-muted">{{ translations.settings_subtitle | default("Réglages de cet appareil et données du compte.") }}</p>
     </div>
 {% endblock %}
 
@@ -13,6 +125,164 @@
 
     {% include "page_components/alerts.twig" %}
 
+    {# ── Mode de la tablette ──
+       Le mode dit à quoi sert CET appareil, pas ce que sait faire l'utilisateur :
+       la tablette du fournil reste en Production quand le responsable s'y
+       connecte, celle du comptoir reste en WebShop. Il survit au redémarrage et
+       se change ici, sans réinstallation et sans déconnexion.
+       Contrat : docs/MODE_TABLETTE.md #}
+    <form method="post" action="{{ ROOT }}/me/settings" class="card mb-3">
+        <div class="card-body">
+            <div class="set-title">{{ translations.mode_title | default('Mode de cette tablette') }}</div>
+            <div class="set-sub mb-3">{{ translations.mode_hint | default("Détermine les menus affichés sur cet appareil. Le réglage appartient à la tablette, pas au compte.") }}</div>
+
+            {% set mode_meta = {
+                'gestion':    { icon: 'clipboard-check', name: translations.mode_gestion    | default('Gestion'),
+                                what: translations.mode_gestion_what    | default('Tableau de bord et indicateurs, checklists et contrôle qualité, base de connaissances, réclamations.') },
+                'production': { icon: 'list-check',      name: translations.mode_production | default('Production'),
+                                what: translations.mode_production_what | default("Besoins, planning de l'atelier, mise en place, stock et commandes.") },
+                'webshop':    { icon: 'shop',            name: translations.mode_webshop    | default('WebShop'),
+                                what: translations.mode_webshop_what    | default('Ouvre le back-office franchisé de la boutique : tournées, stock, assortiment, clients B2B.') }
+            } %}
+
+            <div class="mode-grid">
+                {% for m in modes %}
+                    {% set meta    = mode_meta[m] %}
+                    {% set blocked = m == 'webshop' and webshop_blocker %}
+                    <label class="mode-opt {{ device_mode == m ? 'is-on' : '' }} {{ blocked ? 'is-blocked' : '' }}">
+                        {# Un bouton radio désactivé n'est pas envoyé par le
+                           formulaire. Si la tablette est DÉJÀ en WebShop et
+                           qu'on efface son URL, le désactiver ferait retomber
+                           silencieusement l'appareil en Production au premier
+                           enregistrement. Le mode courant reste donc toujours
+                           sélectionnable — il affiche sa raison, il ne
+                           disparaît pas. #}
+                        <input type="radio" name="device_mode" value="{{ m }}"
+                               {{ device_mode == m ? 'checked' : '' }}
+                               {{ blocked and device_mode != m ? 'disabled' : '' }}>
+                        <span class="mode-opt-name">
+                            <i class="bi bi-{{ meta.icon }}"></i>{{ meta.name }}
+                        </span>
+                        <span class="mode-opt-what">{{ meta.what }}</span>
+                        {% if device_mode == m %}
+                            <span class="mode-opt-now">{{ translations.mode_current | default('Mode actuel') }}</span>
+                        {% endif %}
+                        {% if blocked %}
+                            {# La raison, pas « indisponible » : les quatre causes
+                               ne se réparent pas de la même façon, et trois
+                               d'entre elles se règlent dans les deux champs
+                               juste en dessous. #}
+                            <span class="mode-opt-why">
+                                {% if webshop_blocker == 'no_url' %}
+                                    {{ translations.webshop_no_url | default("Aucune adresse de back-office n'est enregistrée sur cette tablette.") }}
+                                {% elseif webshop_blocker == 'bad_url' %}
+                                    {{ translations.webshop_bad_url | default("L'adresse enregistrée n'est pas une adresse web (elle doit commencer par http:// ou https://).") }}
+                                {% elseif webshop_blocker == 'bad_token' %}
+                                    {{ translations.webshop_bad_token | default("Le jeton enregistré n'a pas la forme attendue — vérifiez qu'il a été collé en entier, sans espace.") }}
+                                {% else %}
+                                    {{ translations.webshop_no_token | default("Aucun jeton d'appareil n'est enregistré sur cette tablette.") }}
+                                {% endif %}
+                            </span>
+                        {% endif %}
+                    </label>
+                {% endfor %}
+            </div>
+
+            {# Les deux valeurs se prennent dans le back-office, sous
+               Réglages › Tablette Kitchen. Il n'y a pas d'identifiant de
+               boutique à saisir : elle est portée par l'URL et par le jeton. #}
+            <div class="set-field">
+                <label for="webshopUrl">{{ translations.backoffice_url | default('URL du back-office WebShop') }}</label>
+                <input type="url" id="webshopUrl" name="webshop_url"
+                       inputmode="url" autocomplete="off" spellcheck="false"
+                       placeholder="https://exemple.tld/webshop/backoffice_franchisee/?shop=2"
+                       value="{{ webshop_base_local }}">
+                <small>
+                    {% if webshop_base_global and webshop_base %}
+                        {{ translations.webshop_url_from_server | default('Valeur du serveur utilisée :') }} {{ webshop_base }}
+                    {% else %}
+                        {{ translations.webshop_url_hint | default("Laisser vide pour utiliser l'adresse configurée sur le serveur.") }}
+                    {% endif %}
+                </small>
+            </div>
+
+            {# ── Le jeton d'appareil ──
+               C'est un secret, et une tablette de comptoir reste allumée toute
+               la journée devant tout le monde. Il n'est donc jamais rendu dans
+               la page : le champ part vide, et seuls ses quatre derniers
+               caractères sont affichés — assez pour reconnaître celui qui est
+               en place, pas assez pour le recopier. #}
+            <div class="set-field">
+                <label for="webshopToken">{{ translations.device_token | default("Jeton d'appareil") }}</label>
+                <input type="password" id="webshopToken" name="webshop_token"
+                       autocomplete="off" spellcheck="false"
+                       autocapitalize="off" autocorrect="off"
+                       placeholder="{{ token_hint
+                            ? (translations.device_token_set | default('Jeton enregistré')) ~ ' ' ~ token_hint
+                            : (translations.device_token_ph | default('64 caractères fournis par le back-office')) }}"
+                       value="">
+                <small>
+                    {% if token_hint %}
+                        {{ translations.device_token_keep | default('Laisser vide pour conserver le jeton enregistré.') }}
+                    {% else %}
+                        {{ translations.device_token_hint | default('Back-office → Réglages → Tablette Kitchen. Il vaut pour une seule boutique et reste révocable de là-bas.') }}
+                    {% endif %}
+                </small>
+            </div>
+
+            {% if token_hint %}
+                <label class="set-clear">
+                    <input type="checkbox" name="webshop_token_clear" value="1">
+                    <span>{{ translations.device_token_clear | default('Effacer le jeton de cette tablette') }}</span>
+                </label>
+            {% endif %}
+
+            <button type="submit" class="set-save">
+                {{ translations.mode_save | default('Enregistrer le mode') }}
+            </button>
+        </div>
+    </form>
+
+    {# ── Réglages de l'appareil ──
+       Le son des nouvelles commandes se règle par tablette, pas par compte :
+       c'est la tablette du passe qui doit sonner, pas celle du bureau, et
+       elles partagent souvent le même identifiant. Le choix vit donc dans le
+       stockage local du navigateur — sans aller-retour serveur, il s'applique
+       instantanément et survit au rechargement. #}
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="set-row">
+                <div class="set-txt">
+                    <div class="set-title">{{ translations.sound_order_label|default('Son des nouvelles commandes') }}</div>
+                    <div class="set-sub">{{ translations.sound_order_hint|default("Un bip signale l'arrivée d'une commande sur cet appareil.") }}</div>
+                </div>
+
+                <button type="button" class="set-switch" id="soundOrderToggle"
+                        role="switch" aria-checked="false"
+                        aria-label="{{ translations.sound_order_label|default('Son des nouvelles commandes') }}">
+                    <span class="set-switch-knob"></span>
+                </button>
+            </div>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-3" id="soundOrderTest">
+                <i class="bi bi-volume-up me-1"></i>{{ translations.sound_order_test|default('Tester le son') }}
+            </button>
+        </div>
+    </div>
+
+{# Les données de l'appareil viennent de l'ERP (/devices/me). Quand il ne
+   répond pas, on le dit et on s'arrête là : les réglages ci-dessus restent
+   utilisables, ce qui est le point — une tablette hors ligne doit encore
+   pouvoir changer de mode. #}
+{% if not supplier %}
+    <div class="card">
+        <div class="card-body text-center" style="padding:26px 20px;">
+            <p style="margin:0;color:var(--c-muted, #7a7168);font-size:.9rem;">
+                {{ translations.device_unreachable | default("Les données de l'appareil ne sont pas disponibles pour le moment.") }}
+            </p>
+        </div>
+    </div>
+{% else %}
     <div class="row">
         <div class="col-12">
 
@@ -174,5 +444,46 @@
 
         </div>
     </div>
+{% endif %}
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var KEY = 'kitchen.orderSound';           // même clé que le sondage du layout
+    var sw  = document.getElementById('soundOrderToggle');
+    var test = document.getElementById('soundOrderTest');
+    if (!sw) return;
+
+    // Activé par défaut : en cuisine, on veut être prévenu sans avoir à le
+    // demander. C'est le silence qui doit être un choix explicite.
+    function on() { return localStorage.getItem(KEY) !== '0'; }
+    function paint() { sw.setAttribute('aria-checked', on() ? 'true' : 'false'); }
+
+    sw.addEventListener('click', function () {
+        localStorage.setItem(KEY, on() ? '0' : '1');
+        paint();
+        if (on()) beep();   // confirmer à l'oreille ce qu'on vient d'activer
+    });
+
+    function beep() {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [0, 0.18].forEach(function (d) {
+                var o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = 'sine'; o.frequency.value = 880;
+                g.gain.setValueAtTime(0.0001, ctx.currentTime + d);
+                g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + d + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + d + 0.14);
+                o.connect(g); g.connect(ctx.destination);
+                o.start(ctx.currentTime + d); o.stop(ctx.currentTime + d + 0.16);
+            });
+        } catch (e) { /* pas d'audio disponible */ }
+    }
+
+    if (test) test.addEventListener('click', beep);
+    paint();
+})();
+</script>
 {% endblock %}

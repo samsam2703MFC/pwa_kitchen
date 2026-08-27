@@ -1,36 +1,94 @@
+{# layouts/base.twig
+   Coque applicative du kitchen : barre supérieure + contenu + feuille de
+   navigation + barre d'onglets en bas — le même type de menu que
+   pwa_consultant, à la place de la sidebar Mazer.
+
+   Les noms de blocs sont INCHANGÉS (title, head, page_heading, content,
+   error_only, scripts) : les vues existantes fonctionnent sans modification.
+
+   `active_nav` est déduit de `current_path` (exposé globalement par
+   Controller.php), donc aucune vue n'a à le passer. #}
+{% import "components/_icons.twig" as icons %}
+{% set p = current_path|default('') %}
+{% set active_nav =
+    p starts with '/dashboard'  ? 'dashboard'  :
+    p starts with '/production' ? 'production' :
+    p starts with '/baking'     ? 'baking'     :
+    p starts with '/checklists' ? 'checklists' :
+    p starts with '/orders'     ? 'orders'     :
+    p starts with '/knowledge'  ? 'knowledge'  :
+    p starts with '/complaints' ? 'complaints' :
+    p starts with '/webshop'    ? ('ws_' ~ (current_view | default('prep'))) :
+    p starts with '/me'         ? 'me'         : '' %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang_code ?? 'fr' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    {# La version servie, lisible sans ouvrir un terminal. #}
+    <meta name="app-build" content="{{ app_build }}">
 
-    <title>{% block title %}{{ pageTitle|default('Default Title') }}{% endblock %}</title>
+    <title>{% block title %}{{ pageTitle|default('Kitchen') }}{% endblock %}</title>
 
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    {# ── Aucune police distante ──
+       Cette page chargeait Nunito depuis fonts.googleapis.com, en feuille de
+       style bloquante. Mesuré au navigateur : 12 751 ms d'attente avant le
+       premier pixel quand Google est injoignable — ce qui arrive derrière un
+       portail captif, un DNS lent ou le pare-feu d'un magasin. Les mêmes pages
+       s'affichent en 640 ms sans elle.
+
+       Et elle ne servait à rien : la typographie de l'application est Gotham,
+       hébergée en local par atelier-theme.css, qui recouvre le
+       « body { font-family: Nunito } » de bootstrap.css. On payait treize
+       secondes pour une police invisible. Ne pas la réintroduire. #}
+    {# ── Ce qui est ici sert sur TOUTES les pages ──
+       Le reste descend dans les écrans qui l'emploient, via le bloc
+       « vendor_head » plus bas. Cette coque chargeait quinze feuilles de style
+       et sept scripts sur chaque page, dont la plupart n'étaient utilisés
+       nulle part : 934 Ko et 31 requêtes pour afficher quatre chiffres, sur
+       une tablette en wifi de magasin et sans cache applicatif.
+
+       Ce qui a été retiré, et pourquoi — vérifié fichier par fichier :
+         • perfect-scrollbar (CSS + JS) : n'est appelé que par assets/js/main.js,
+           qui n'était chargé nulle part ;
+         • dripicons (webfont.css + pages/dripicons.css) : aucune vue n'utilise
+           ces icônes, elles viennent du gabarit Mazer d'origine ;
+         • filepond ×3 : le CSS était chargé, jamais le JS, et aucun écran
+           n'instancie FilePond — les pièces jointes des réclamations passent
+           par un champ fichier natif ;
+         • cropper (CSS + JS) : aucune vue n'appelle Cropper ;
+         • functions.js : ses neuf fonctions (getJSON, sortTable, filterTable…)
+           ne sont référencées par aucune vue ;
+         • choices.js, sweetalert2 et modules.js : employés par les deux écrans
+           de commande seulement, ils y sont déclarés désormais.
+
+       Ce qui reste : Bootstrap (grille, modales, offcanvas), bootstrap-icons
+       (utilisé par quinze gabarits), et les trois feuilles maison. #}
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/bootstrap.css">
-    <link rel="stylesheet" href="{{ ROOT }}/assets/vendors/perfect-scrollbar/perfect-scrollbar.css">
     <link rel="stylesheet" href="{{ ROOT }}/assets/vendors/bootstrap-icons/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/app.css">
     <link rel="shortcut icon" href="{{ ROOT }}/assets/images/favicon.svg" type="image/x-icon">
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/snackbarStyle.css">
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/custom.css">
-    <link rel="stylesheet" href="{{ ROOT }}/assets/vendors/dripicons/webfont.css">
-    <link rel="stylesheet" href="{{ ROOT }}/assets/css/pages/dripicons.css">
-    <link rel="stylesheet" href="{{ ROOT }}/assets/vendors/choices.js/choices.min.css" />
 
-    <link rel="stylesheet" href="{{ ROOT }}/assets/css/filepond.css">
-    <link rel="stylesheet" href="{{ ROOT }}/assets/css/filepond-plugin-image-preview.css">
-    <link rel="stylesheet" href="{{ ROOT }}/assets/css/cropper/cropper.css">
+    {# Coque (structure) puis design system (habillage) : l'ordre compte. #}
+    <link rel="stylesheet" href="{{ ROOT }}/assets/css/app-shell.css">
+    <link rel="stylesheet" href="{{ ROOT }}/assets/css/atelier-theme.css">
 
+    {# ── L'application s'installe ──
+       Manifeste et service worker : la tablette de magasin gagne son icône
+       d'écran d'accueil, son mode plein écran, et une coque qui survit à une
+       coupure de wifi. Voir public/manifest.webmanifest et public/sw.js. #}
+    <link rel="manifest" href="{{ ROOT }}/manifest.webmanifest">
+    <meta name="theme-color" content="#8D1D2C">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ translations.module_name ?? 'Kitchen' }}">
+    <link rel="apple-touch-icon" href="{{ ROOT }}/assets/brand/icon-192.png">
 
-    <style>
-        /* Przykład: Upewnij się, że nie ma limitów w CSS */
-        .choices__list--multiple {
-            max-height: none;
-        }
-    </style>
-
+    {# Les bibliothèques d'un seul écran se déclarent dans cet écran. #}
+    {% block vendor_head %}{% endblock %}
 
     <!-- DISABLE ENTER ON EVERY PAGE -->
     <script>
@@ -44,58 +102,192 @@
             }
         }, true);
     </script>
-    
+
     {% block head %}{% endblock %}
 </head>
 
 <body>
-<div id="app">
-    {% include "page_components/sidebar.twig" %}
 
+{% block topbar %}
+    <div class="app-topbar">
+        <div class="container">
+            <div class="app-topbar-inner">
+                {# Même lettrage de marque que pwa_consultant (assets/brand/logo.png),
+                   suivi du nom du module — le consultant affiche « Panel consultant »
+                   sous le même logo. Les deux apps sont deux modules d'un même
+                   écosystème, la marque est commune et seul le module change. #}
+                {# Le logo ramène à l'accueil DU MODE : en WebShop, le tableau
+                   de bord cuisine n'est plus au menu, et l'y envoyer serait
+                   sortir la tablette de son rôle sans le dire. #}
+                <a href="{{ ROOT }}{{ mode_home | default('/dashboard') }}" class="app-brand">
+                    <img src="{{ ROOT }}/assets/brand/logo.png" alt="L'Atelier" class="app-brand-logo">
+                    <span class="app-brand-module">{{ translations.module_name ?? 'Kitchen' }}</span>
+                </a>
 
-    <div id="main" class='layout-navbar'>
-        <header class='mb-3'>
-            {% include "page_components/navbar.twig" %}
-        </header>
-        <div id="main-content">
-            {% block page_heading %}{% endblock %}
-            <div class="page-content">
-                <div class="section">
-
-                    {% include "page_components/alerts.twig" %}
-
-
-                    {% if gate and errs is not empty %}
-                        {% block error_only %}
-                            <div class="row mt-4">
-                                <div class="col-12 text-center">
-                                    <a href="{{ error_back_url|default(ROOT ~ '/Dashboard') }}" class="btn btn-secondary">
-                                        ← {{ translations.back|default('back') }}
-                                    </a>
-                                </div>
-                            </div>
-                        {% endblock %}
+                <div class="d-flex align-items-center gap-2">
+                    <div id="tabletWorkerStatus">
+                    {% if checklist_identity %}
+                        <div class="dropdown">
+                            <button type="button" class="badge rounded-pill app-shift-status app-shift-status--active border-0"
+                                    data-bs-toggle="dropdown" aria-expanded="false"
+                                    title="{{ translations.shift_signing | default('Personne active') }}">
+                                <i class="bi bi-person-workspace" aria-hidden="true"></i>
+                                {{ checklist_identity.initials }} · {{ checklist_identity.name }}
+                                <i class="bi bi-chevron-down app-shift-status-chevron" aria-hidden="true"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button type="button" class="dropdown-item" data-shift-action="change">{{ translations.shift_change | default('Changer de personne') }}</button></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><button type="button" class="dropdown-item text-danger" data-shift-action="logout">{{ translations.shift_logout | default('Fermer la session') }}</button></li>
+                            </ul>
+                        </div>
                     {% else %}
-                        {% block content %}{% endblock %}
+                        <button type="button" class="badge rounded-pill app-shift-status app-shift-status--anonymous border-0" data-shift-action="login">
+                            <i class="bi bi-person-plus" aria-hidden="true"></i>
+                            {{ translations.shift_anonymous | default('Mode anonyme') }}
+                            <i class="bi bi-chevron-right app-shift-status-chevron" aria-hidden="true"></i>
+                        </button>
                     {% endif %}
-
+                    </div>
+                    {% block topbar_actions %}{% endblock %}
+                    <button class="app-hamburger" id="appHamburger"
+                            aria-label="{{ translations.menu ?? 'Menu' }}"
+                            aria-expanded="false" aria-controls="appNavSheet">
+                        {{ icons.svg('menu') }}
+                    </button>
                 </div>
             </div>
+        </div>
+    </div>
+{% endblock %}
 
-            <div id="snackbar"></div>
-            <footer></footer>
+<div class="modal fade" id="tabletWorkerModal" tabindex="-1" aria-labelledby="tabletWorkerModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tabletWorkerModalTitle">{{ translations.tablet_who_title | default("Qui utilise la tablette ?") }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translations.close | default('Fermer') }}"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">{{ translations.tablet_pick_hint | default("Choisissez une personne du planning du jour, puis confirmez par son code.") }}</p>
+                <div id="tabletWorkerError" class="alert alert-danger d-none" role="alert"></div>
+                <div id="tabletWorkerList" class="tablet-worker-grid mb-3"></div>
+                <div id="tabletWorkerEmpty" class="text-muted d-none">{{ translations.tablet_no_staff | default("Personne n'est au planning aujourd'hui.") }}</div>
+                <input type="hidden" id="tabletWorkerId">
+                <div id="tabletWorkerPinGroup" class="d-none">
+                    <label class="form-label">{{ translations.tablet_pin_label | default("Code de la personne choisie") }}</label>
+                    <div class="tablet-pin-boxes" id="tabletWorkerPinBoxes">
+                        {% for i in 1..4 %}
+                            <input type="password" class="tablet-pin-box" inputmode="numeric" pattern="[0-9]*"
+                                   maxlength="1" autocomplete="off" aria-label="PIN {{ i }}">
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" id="tabletWorkerPin">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ translations.cancel | default('Annuler') }}</button>
+                <button type="button" class="btn btn-primary" id="tabletWorkerStart" disabled>{{ translations.tablet_start | default("Commencer le service") }}</button>
+            </div>
         </div>
     </div>
 </div>
 
-<script src="{{ ROOT }}/assets/vendors/perfect-scrollbar/perfect-scrollbar.min.js"></script>
+<main class="app-content">
+    <div class="container py-3">
+        {# ── Ce que le back doit encore servir ──────────────────────────────
+           Pas de repli, pas de valeur inventée : quand une donnée vient d'un
+           endpoint qui n'existe pas, l'écran nomme l'endpoint. Un menu codé en
+           dur qui prend la place ferait croire que tout va bien, et le manque
+           ne se verrait qu'au moment de s'en servir.
+
+           Le bandeau reste tant que la route ne répond pas — c'est voulu : il
+           doit gêner. #}
+        {% if missing_api is not empty %}
+            <div class="api-todo" role="status">
+                <span class="api-todo-tag">{{ translations.api_missing | default('API à créer') }}</span>
+                {% for route in missing_api %}<code>{{ route }}</code>{% endfor %}
+            </div>
+        {% endif %}
+
+        {% block page_heading %}{% endblock %}
+
+        {% include "page_components/alerts.twig" %}
+
+        {% if gate and errs is not empty %}
+            {% block error_only %}
+                <div class="row mt-4">
+                    <div class="col-12 text-center">
+                        <a href="{{ error_back_url|default(ROOT ~ '/Dashboard') }}" class="btn btn-secondary">
+                            ← {{ translations.back|default('back') }}
+                        </a>
+                    </div>
+                </div>
+            {% endblock %}
+        {% else %}
+            {% block content %}{% endblock %}
+        {% endif %}
+    </div>
+</main>
+
+<div id="snackbar"></div>
+
+{% include "components/app_nav.twig" with { active_nav: active_nav } %}
+
+{# Barre d'onglets — les gestes du quotidien du mode courant, plus le profil à
+   droite. Le mode ne réordonne rien : il retire ce qui ne sert pas ici. Le
+   profil reste dans tous les modes, c'est par lui qu'on revient aux réglages —
+   une tablette dont on ne peut plus changer le mode serait à réinstaller. #}
+{# L'onglet Production mène au module de pilotage (prévision → cuisson →
+   rayon → solder) ; l'ancien écran planning reste accessible sur /production. #}
+{% set tabs = {
+    'dashboard':  { href: ROOT ~ '/dashboard',  icon: 'home',            label: translations.nav_dashboard  ?? 'Pulpit' },
+    'production': { href: ROOT ~ '/production/pilotage', icon: 'list-checks',     label: translations.nav_production ?? 'Production' },
+    'checklists': { href: ROOT ~ '/checklists', icon: 'clipboard-check', label: translations.nav_checklists ?? 'Checklists' },
+    'orders':     { href: ROOT ~ '/orders',     icon: 'receipt',         label: translations.nav_orders     ?? 'Commandes' },
+    'knowledge':  { href: ROOT ~ '/knowledge',  icon: 'notebook',        label: translations.knowledge      ?? 'Connaissances' },
+    'complaints': { href: ROOT ~ '/complaints', icon: 'circle-alert',    label: translations.complaints     ?? 'Réclamations' },
+    'webshop':    { href: ROOT ~ '/webshop',    icon: 'store',           label: translations.webshop        ?? 'WebShop' },
+    'ws_prep':    { href: ROOT ~ '/webshop?view=prep',  icon: 'clipboard-check', label: translations.ws_prep  ?? 'Préparation' },
+    'ws_stock':   { href: ROOT ~ '/webshop?view=stock', icon: 'store',           label: translations.ws_stock ?? 'Stock du jour' },
+    'ws_board':   { href: ROOT ~ '/webshop?view=board', icon: 'home',            label: translations.ws_board ?? 'Tableau de bord' }
+} %}
+<nav class="app-tabbar-bar" aria-label="{{ translations.menu ?? 'Navigation' }}">
+    {# Pas de liste par défaut ici : la barre affiche ce que la table
+       pwa_kitchen_param décrit, et rien si elle ne répond pas. Le bandeau
+       « API à créer » en haut de page dit alors pourquoi. Un quatuor codé en
+       dur ferait une barre qui a l'air normale au-dessus d'un écran vide. #}
+    {% for key in tab_keys | default([]) %}
+        {% set t = tabs[key] %}
+        {% if t %}
+            <a href="{{ t.href }}" class="app-tab {{ active_nav == key ? 'is-active' : '' }}">
+                {% if key == 'orders' %}
+                    <span class="app-tab-ic">
+                        {{ icons.svg(t.icon, 23) }}
+                        {# Rempli par le sondage ; masqué tant qu'il n'y a rien à signaler. #}
+                        <span class="app-tab-count" id="ordersCount" hidden></span>
+                    </span>
+                {% else %}
+                    {{ icons.svg(t.icon, 23) }}
+                {% endif %}
+                <span>{{ t.label }}</span>
+            </a>
+        {% endif %}
+    {% endfor %}
+    {% set _dn2 = (user.displayName ?? 'K')|trim %}
+    {% set _pp = _dn2|split(' ') %}
+    <a href="{{ ROOT }}/me" class="app-tab app-tab-profile {{ active_nav == 'me' ? 'is-active' : '' }}">
+        <span class="app-tab-avatar" aria-hidden="true">{{ (_pp[0]|first ~ (_pp[1] is defined ? _pp[1]|first : ''))|upper }}</span>
+        <span>{{ translations.nav_profile ?? 'Profil' }}</span>
+    </a>
+</nav>
+
+{# Bootstrap seul est global : modales, offcanvas et infobulles servent partout.
+   Voir l'inventaire en tête de fichier pour les six autres, qui ne servaient
+   nulle part ou dans un seul écran. #}
 <script src="{{ ROOT }}/assets/js/bootstrap.bundle.min.js"></script>
-<script src="{{ ROOT }}/assets/js/main.js"></script>
-<script src="{{ ROOT }}/assets/js/functions.js"></script>
-<script type="module" src="{{ ROOT }}/assets/js/modules.js"></script>
-<script src="{{ ROOT }}/assets/vendors/sweetalert2/sweetalert2.all.min.js"></script>
-<script src="{{ ROOT }}/assets/vendors/choices.js/choices.min.js"></script>
-<script src="{{ ROOT }}/assets/js/cropper/cropper.min.js"></script>
+
+{% block vendor_scripts %}{% endblock %}
 
 <script>
     function showSnack(resp, message = "") {
@@ -126,6 +318,272 @@
 
 
 {% block scripts %}{% endblock %}
+
+<script>
+(function () {
+    var ROOT = {{ ROOT | json_encode | raw }};
+    var modalElement = document.getElementById('tabletWorkerModal');
+    var workerModal = modalElement ? new bootstrap.Modal(modalElement) : null;
+    var list = document.getElementById('tabletWorkerList');
+    var empty = document.getElementById('tabletWorkerEmpty');
+    var error = document.getElementById('tabletWorkerError');
+    var employeeId = document.getElementById('tabletWorkerId');
+    var pinGroup = document.getElementById('tabletWorkerPinGroup');
+    var pin = document.getElementById('tabletWorkerPin');
+    var pinBoxes = Array.prototype.slice.call(document.querySelectorAll('.tablet-pin-box'));
+    var start = document.getElementById('tabletWorkerStart');
+    function showWorkerError(message) {
+        error.textContent = message;
+        error.classList.remove('d-none');
+    }
+
+    function clearWorkerError() {
+        error.textContent = '';
+        error.classList.add('d-none');
+    }
+
+    async function stopWorker() {
+        const response = await fetch(ROOT + '/ajax/tablet-worker/stop', {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+        return response.ok;
+    }
+
+    function selectWorker(button) {
+        list.querySelectorAll('[data-tablet-worker-id]').forEach(function (item) {
+            item.classList.remove('active');
+        });
+        button.classList.add('active');
+        employeeId.value = button.dataset.tabletWorkerId;
+        pinBoxes.forEach(function (box) { box.value = ''; });
+        syncPin();
+        pinGroup.classList.remove('d-none');
+        if (pinBoxes[0]) pinBoxes[0].focus();
+    }
+
+    function syncPin() {
+        pin.value = pinBoxes.map(function (box) { return box.value; }).join('');
+        pinBoxes.forEach(function (box) { box.classList.toggle('is-filled', box.value !== ''); });
+        start.disabled = !employeeId.value || pin.value.length !== 4;
+    }
+
+    pinBoxes.forEach(function (box, index) {
+        box.addEventListener('input', function () {
+            box.value = box.value.replace(/\D/g, '').slice(0, 1);
+            syncPin();
+            if (box.value && pinBoxes[index + 1]) pinBoxes[index + 1].focus();
+        });
+        box.addEventListener('keydown', function (event) {
+            if (event.key === 'Backspace' && !box.value && pinBoxes[index - 1]) {
+                pinBoxes[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+        box.addEventListener('paste', function (event) {
+            var digits = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+            if (!digits) return;
+            event.preventDefault();
+            pinBoxes.forEach(function (item, itemIndex) { item.value = digits[itemIndex] || ''; });
+            syncPin();
+            (pinBoxes[Math.min(digits.length, 3)] || pinBoxes[3]).focus();
+        });
+    });
+
+    async function openWorkerModal() {
+        if (!workerModal) return;
+        clearWorkerError();
+        list.innerHTML = '<div class="text-muted">' + {{ (translations.tablet_loading | default('Chargement du personnel…')) | json_encode | raw }} + '</div>';
+        empty.classList.add('d-none');
+        employeeId.value = '';
+        pinBoxes.forEach(function (box) { box.value = ''; });
+        syncPin();
+        pinGroup.classList.add('d-none');
+        start.disabled = true;
+        workerModal.show();
+
+        try {
+            var response = await fetch(ROOT + '/ajax/tablet-worker/roster', { credentials: 'same-origin' });
+            var data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || {{ (translations.tablet_schedule_error | default("Le planning n'a pas pu être chargé.")) | json_encode | raw }});
+            }
+            list.innerHTML = '';
+            (data.employees || []).forEach(function (employee) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'tablet-worker-badge';
+                button.dataset.tabletWorkerId = employee.id;
+                var name = employee.name || ('Pracownik #' + employee.id);
+                var initials = employee.initials || name.split(/\s+/).map(function (part) { return part.charAt(0); }).join('').slice(0, 2);
+                button.innerHTML = '<span class="tablet-worker-initials"></span>'
+                    + '<span class="tablet-worker-txt"><span class="tablet-worker-name"></span>'
+                    + '<span class="tablet-worker-role"></span></span>';
+                button.querySelector('.tablet-worker-initials').textContent = initials || '—';
+                button.querySelector('.tablet-worker-name').textContent = name;
+                // Le poste, s'il est servi. Vide → la ligne reste absente,
+                // rien n'est inventé.
+                if (employee.role) { button.querySelector('.tablet-worker-role').textContent = employee.role; }
+                button.addEventListener('click', function () { selectWorker(button); });
+                list.appendChild(button);
+            });
+            empty.classList.toggle('d-none', list.children.length > 0);
+        } catch (err) {
+            list.innerHTML = '';
+            showWorkerError(err.message || {{ (translations.tablet_schedule_error | default("Le planning n'a pas pu être chargé.")) | json_encode | raw }});
+        }
+    }
+
+    start.addEventListener('click', async function () {
+        if (!employeeId.value || pin.value.length !== 4) {
+            showWorkerError({{ (translations.tablet_pick_first | default('Choisissez une personne et saisissez son code.')) | json_encode | raw }});
+            return;
+        }
+        start.disabled = true;
+        clearWorkerError();
+        try {
+            var body = new URLSearchParams({ employee_id: employeeId.value, pin: pin.value.trim() });
+            var response = await fetch(ROOT + '/ajax/tablet-worker/start', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body: body
+            });
+            var data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || {{ (translations.tablet_start_error | default("Le service n'a pas pu être ouvert.")) | json_encode | raw }});
+            }
+            workerModal.hide();
+            window.location.reload();
+        } catch (err) {
+            showWorkerError(err.message || {{ (translations.tablet_start_error | default("Le service n'a pas pu être ouvert.")) | json_encode | raw }});
+            start.disabled = false;
+        }
+    });
+
+    document.addEventListener('click', async function (event) {
+        var button = event.target.closest('[data-shift-action]');
+        if (!button) return;
+
+        var action = button.dataset.shiftAction;
+        button.disabled = true;
+        try {
+            if (action === 'change') {
+                await openWorkerModal();
+                return;
+            }
+            if (action === 'logout') {
+                if (await stopWorker()) {
+                    window.location.reload();
+                }
+                return;
+            }
+            if (action === 'login') {
+                await openWorkerModal();
+            }
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+</script>
+
+{# ── Enregistrement du service worker ──────────────────────────────────
+   La version voyage dans l'URL : APP_BUILD change à chaque déploiement, donc
+   l'URL du worker change, donc le navigateur en installe un neuf qui purge les
+   caches précédents. Sans cela, une feuille de style corrigée resterait
+   invisible jusqu'à ce que quelqu'un vide le cache de la tablette.
+
+   Ce worker ne met en cache QUE des fichiers statiques — jamais une page, jamais
+   un /ajax/. Voir l'en-tête de public/sw.js pour le raisonnement.
+   ────────────────────────────────────────────────────────────────────── #}
+<script>
+(function () {
+    if (!('serviceWorker' in navigator)) return;
+    window.addEventListener('load', function () {
+        navigator.serviceWorker
+            {# APP_BUILD vaut « 1a2b3c4 2026-08-05T21:00Z » : on ne garde que le
+               commit. Il suffit à changer l'URL à chaque déploiement, et il
+               tient dans une chaîne de requête sans encodage. #}
+            .register('{{ ROOT }}/sw.js?v={{ app_build | split(' ') | first | url_encode }}', { scope: '{{ ROOT }}/' })
+            .catch(function () { /* pas de worker : l'app fonctionne comme avant */ });
+    });
+})();
+</script>
+
+{# ── Commandes en attente : sondage, pastille, son ──────────────────────
+   Une commande web arrive sans que personne ne regarde l'écran. Le nombre
+   se met donc à jour tout seul, et un son le signale.
+
+   Sondage court plutôt que temps réel : dix secondes suffisent en cuisine,
+   et cela évite d'introduire une connexion persistante pour un compteur.
+   L'onglet en arrière-plan ne sonde pas — inutile de solliciter l'API et
+   la batterie pendant que la tablette dort.
+   ────────────────────────────────────────────────────────────────────── #}
+<script>
+(function () {
+    var badge = document.getElementById('ordersCount');
+    if (!badge) return;
+
+    var URL_COUNT = '{{ ROOT }}/ajax/orders/pending-count';
+    var KEY_SOUND = 'kitchen.orderSound';   // partagé avec l'écran Profil
+    var KEY_SEEN  = 'kitchen.ordersSeen';   // dernier total connu
+
+    function soundOn() { return localStorage.getItem(KEY_SOUND) !== '0'; }
+
+    // Bip de synthèse : aucun fichier à charger, donc rien à déployer ni à
+    // mettre en cache, et le son reste disponible hors ligne.
+    var audioCtx = null;
+    function beep() {
+        if (!soundOn()) return;
+        try {
+            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            [0, 0.18].forEach(function (delay) {
+                var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = 'sine';
+                o.frequency.value = 880;
+                g.gain.setValueAtTime(0.0001, audioCtx.currentTime + delay);
+                g.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + delay + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + delay + 0.14);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(audioCtx.currentTime + delay);
+                o.stop(audioCtx.currentTime + delay + 0.16);
+            });
+        } catch (e) { /* pas d'audio disponible : le compteur suffit */ }
+    }
+
+    function paint(total) {
+        if (total > 0) {
+            badge.textContent = total > 99 ? '99+' : total;
+            badge.hidden = false;
+        } else {
+            badge.hidden = true;
+        }
+    }
+
+    function poll() {
+        if (document.hidden) return;
+        fetch(URL_COUNT, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || typeof d.total !== 'number') return;
+                paint(d.total);
+                document.dispatchEvent(new CustomEvent('orders:count', { detail: d }));
+
+                var seen = parseInt(localStorage.getItem(KEY_SEEN) || '-1', 10);
+                // Au tout premier passage on ne sonne pas : on ne signale que
+                // ce qui arrive pendant le service, pas l'état trouvé en
+                // ouvrant l'app.
+                if (seen >= 0 && d.total > seen) beep();
+                localStorage.setItem(KEY_SEEN, String(d.total));
+            })
+            .catch(function () { /* réseau de magasin : on retentera dans 10 s */ });
+    }
+
+    poll();
+    setInterval(poll, 10000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+})();
+</script>
 
 </body>
 </html>

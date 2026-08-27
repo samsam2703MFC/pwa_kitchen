@@ -5,7 +5,7 @@
   "filter_date": "Ophaaldatum",
   "filter_client_name": "Klantnaam",
   "filter_client_name_placeholder": "Voer een deel van de naam in...",
-  "filter_pending_only": "Alleen in behandeling",
+  "filter_pending_only": "In afwachting",
   "filter_search": "Zoeken",
   "filter_clear": "Wissen",
   "filter_all_orders": "Alle statussen",

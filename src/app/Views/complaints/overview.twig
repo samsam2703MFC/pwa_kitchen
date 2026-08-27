@@ -21,12 +21,6 @@
     <div class="page-heading">
         <h3>{{ translations.complaints_title }}</h3>
         <p class="text-subtitle text-muted">{{ translations.complaints_subtitle }}</p>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ ROOT }}">{{ translations.home }}</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ translations.complaints }}</li>
-            </ol>
-        </nav>
     </div>
 {% endblock %}
 {% block content %}
@@ -490,10 +484,10 @@ function downloadAttachment(id) {
                 a.click();
                 document.body.removeChild(a);
             } else {
-                showSnack(false, 'Błąd pobierania pliku');
+                showSnack(false, {{ (translations.file_download_error | default("Le fichier n'a pas pu être téléchargé.")) | json_encode | raw }});
             }
         })
-        .catch(() => showSnack(false, 'Błąd połączenia'));
+        .catch(() => showSnack(false, {{ (translations.connection_error | default("Erreur de connexion.")) | json_encode | raw }}));
 }
 </script>
 {% endblock %}

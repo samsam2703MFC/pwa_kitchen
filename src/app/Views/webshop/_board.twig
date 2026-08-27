@@ -1,0 +1,20 @@
+{# webshop/_board.twig — les indicateurs du jour.
+
+   L'API les sert déjà mis en forme, couleurs comprises : on ne recalcule rien
+   et on ne réinterprète rien. Deux sources de vérité pour un même chiffre
+   finiraient par se contredire, et c'est le back-office qui fait foi. #}
+{% if kpis is empty %}
+    <div class="card mt-3"><div class="card-body ws-state">
+        <p>{{ translations.ws_no_kpi | default("Aucun indicateur pour aujourd'hui.") }}</p>
+    </div></div>
+{% else %}
+    <div class="ws-kpis">
+        {% for k in kpis %}
+            <div class="ws-kpi">
+                <span class="ws-kpi-lbl">{{ k.label }}</span>
+                <b class="ws-kpi-val">{{ k.value }}</b>
+                {% if k.delta %}<span class="ws-kpi-d">{{ k.delta }}</span>{% endif %}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}

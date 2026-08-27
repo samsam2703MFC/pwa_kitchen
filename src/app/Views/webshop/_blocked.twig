@@ -1,0 +1,40 @@
+{# webshop/_blocked.twig — pourquoi l'écran ne peut pas s'ouvrir.
+
+   Quatre causes, et elles ne se réparent pas au même endroit : trois dans les
+   réglages de la tablette, une chez le franchisé. Dire « non configuré » les
+   confondrait toutes et enverrait chercher au mauvais endroit. #}
+<div class="card">
+    <div class="card-body ws-state">
+        <h2>
+            {% if webshop_blocker == 'revoked' %}
+                {{ translations.webshop_revoked_title | default("Cette tablette n'est plus autorisée") }}
+            {% else %}
+                {{ translations.webshop_not_configured | default("Le mode WebShop n'est pas configuré") }}
+            {% endif %}
+        </h2>
+
+        {% if webshop_blocker == 'no_url' %}
+            <p>{{ translations.webshop_no_url | default("Aucune adresse de back-office n'est enregistrée sur cette tablette.") }}</p>
+        {% elseif webshop_blocker == 'bad_url' %}
+            <p>{{ translations.webshop_bad_url | default("L'adresse enregistrée n'est pas une adresse web (elle doit commencer par http:// ou https://).") }}</p>
+        {% elseif webshop_blocker == 'no_token' %}
+            <p>{{ translations.webshop_no_token | default("Aucun jeton d'appareil n'est enregistré sur cette tablette.") }}</p>
+        {% elseif webshop_blocker == 'bad_token' %}
+            <p>{{ translations.webshop_bad_token | default("Le jeton enregistré n'a pas la forme attendue — vérifiez qu'il a été collé en entier, sans espace.") }}</p>
+        {% elseif webshop_blocker == 'revoked' %}
+            {# Révoqué n'est pas « mal configuré » : quelqu'un a retiré l'accès
+               de cette tablette, volontairement. Le dire évite de ressaisir dix
+               fois un jeton qui ne remarchera pas. #}
+            <p>{{ translations.webshop_revoked | default("Le jeton de cette tablette a été révoqué depuis le back-office. Aucune donnée n'est affichée.") }}</p>
+            <p>{{ translations.webshop_revoked_fix | default('Demandez un nouveau jeton au franchisé, puis saisissez-le dans les paramètres.') }}</p>
+        {% endif %}
+
+        {% if webshop_blocker != 'revoked' %}
+            <p>{{ translations.webshop_where | default('Les deux réglages se trouvent dans le back-office, sous Réglages › Tablette Kitchen.') }}</p>
+        {% endif %}
+
+        <a class="ws-go" href="{{ ROOT }}/me">
+            {{ translations.webshop_go_settings | default('Ouvrir les paramètres') }}
+        </a>
+    </div>
+</div>

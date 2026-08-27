@@ -1,0 +1,55 @@
+{
+  "date": "2026-08-01",
+  "prepared_at": "2026-07-31 17:40:00",
+  "status": "PREPARED",
+  "lines": [
+    {
+      "id": 4401,
+      "id_product": 6700106,
+      "name": "Croissant pur beurre",
+      "category_name": "Viennoiserie",
+      "period": "morning",
+      "quantity_planned": 120,
+      "quantity_validated": null,
+      "quantity_shelved": 0,
+      "unit_name": "pc",
+      "status": "PREPARED"
+    },
+    {
+      "id": 4402,
+      "id_product": 6700110,
+      "name": "Pain au chocolat",
+      "category_name": "Viennoiserie",
+      "period": "morning",
+      "quantity_planned": 80,
+      "quantity_validated": null,
+      "quantity_shelved": 0,
+      "unit_name": "pc",
+      "status": "PREPARED"
+    },
+    {
+      "id": 4403,
+      "id_product": 6700120,
+      "name": "Baguette tradition",
+      "category_name": "Boulangerie",
+      "period": "morning",
+      "quantity_planned": 60,
+      "quantity_validated": null,
+      "quantity_shelved": 0,
+      "unit_name": "pc",
+      "status": "PREPARED"
+    },
+    {
+      "id": 4404,
+      "id_product": 6700130,
+      "name": "Tarte au citron meringuée",
+      "category_name": "Pâtisserie",
+      "period": "noon",
+      "quantity_planned": 12,
+      "quantity_validated": null,
+      "quantity_shelved": 0,
+      "unit_name": "pc",
+      "status": "PREPARED"
+    }
+  ]
+}

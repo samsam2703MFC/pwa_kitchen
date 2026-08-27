@@ -5,7 +5,7 @@
   "filter_date": "Data di ritiro",
   "filter_client_name": "Nome cliente",
   "filter_client_name_placeholder": "Inserisci parte del nome...",
-  "filter_pending_only": "Solo in attesa",
+  "filter_pending_only": "In attesa",
   "filter_search": "Cerca",
   "filter_clear": "Cancella",
   "filter_all_orders": "Tutti gli stati",

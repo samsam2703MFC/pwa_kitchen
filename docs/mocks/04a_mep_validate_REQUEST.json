@@ -1,0 +1,22 @@
+{
+  "date": "2026-08-01",
+  "lines": [
+    {
+      "id": 4401,
+      "quantity": 118
+    },
+    {
+      "id": 4402,
+      "quantity": 80
+    },
+    {
+      "id": 4403,
+      "quantity": 58
+    },
+    {
+      "id": 4404,
+      "quantity": 0,
+      "skipped": true
+    }
+  ]
+}
