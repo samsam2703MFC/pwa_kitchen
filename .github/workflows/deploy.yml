@@ -152,6 +152,31 @@ jobs:
       # Pour revenir à l'API réelle : passer USE_MOCK_API à false (ou la
       # supprimer) et relancer le workflow. Le .htaccess du dépôt reprend la
       # main et le processus est arrêté.
+      # Le vhost public (atelierby.tfbuddy.com) ne sert PAS /var/www/html :
+      # son DocumentRoot est /var/www/html/tfb, où une vieille copie de
+      # kitchen (datée de mars) répondait à la place de l'app déployée —
+      # d'où des déploiements « verts » invisibles du public. On remplace
+      # cette copie par un symlink vers l'app déployée, en la sauvegardant
+      # une seule fois (mv en .bak horodaté).
+      - name: Point the PUBLIC vhost docroot at the deployed app
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -e; TFB=/var/www/html/tfb/kitchen; \
+             if [ -d \"\$TFB\" ] && [ ! -L \"\$TFB\" ]; then \
+               mv \"\$TFB\" \"\$TFB.bak-\$(date +%Y%m%d%H%M%S)\" || sudo -n mv \"\$TFB\" \"\$TFB.bak-\$(date +%Y%m%d%H%M%S)\"; \
+               echo 'ancienne copie sauvegardée en .bak'; \
+             fi; \
+             if [ ! -e \"\$TFB\" ]; then \
+               ln -s '$APP_DIR/public' \"\$TFB\" || sudo -n ln -s '$APP_DIR/public' \"\$TFB\"; \
+               echo \"symlink cree : \$TFB -> $APP_DIR/public\"; \
+             fi; \
+             ls -ld \"\$TFB\""
+
       # Le PHP du serveur garde les .php compilés en mémoire (OPcache avec
       # revalidation lente ou coupée) : les fichiers changent sur le disque,
       # la page servie reste l'ancienne — les assets, eux, suivent. D'où des
