@@ -1,0 +1,47 @@
+{
+    "name": "L'Atelier — Cuisine",
+    "short_name": "Cuisine",
+    "description": "Production, checklists, commandes et stock du magasin.",
+    "id": "./",
+    "start_url": "./dashboard",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#F4EFE8",
+    "theme_color": "#8D1D2C",
+    "lang": "fr",
+    "dir": "ltr",
+    "categories": ["business", "productivity", "food"],
+    "icons": [
+        {
+            "src": "./assets/brand/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "./assets/brand/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "./assets/brand/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Production",
+            "url": "./production",
+            "icons": [{ "src": "./assets/brand/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Checklists",
+            "url": "./checklists",
+            "icons": [{ "src": "./assets/brand/icon-192.png", "sizes": "192x192" }]
+        }
+    ]
+}

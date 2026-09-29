@@ -1,0 +1,1096 @@
+{# production/index.twig
+   Écran de pilotage de la journée d'atelier, sur tablette posée près du four.
+
+   UN module, DEUX moments :
+     · Ce qui manque — décider : le tableau de travail de la période, et au
+       pied de page les trois choses qu'on consulte sans y agir (stock,
+       minimums de vitrine, MEP de demain)
+     · L'atelier     — exécuter : ordres, frise, fournées, validations
+
+   Il y avait quatre onglets de même rang. C'était trois de trop : deux d'entre
+   eux ne servent qu'à consulter, et la MEP n'est pas une destination mais un
+   moment — un bandeau le matin quand il y a à valider, une ligne le soir quand
+   il y a à encoder. Quatre portes obligeaient à choisir avant d'avoir vu la
+   première quantité.
+
+   Le parcours du produit (veille → fabriqué → rayon → vente) reste, mais en
+   une ligne : il ne s'apprend qu'une fois, et passé le premier jour ce n'est
+   plus une explication, c'est un repère.
+
+   Le panneau « Prochaine action » vit dans « L'atelier » et nulle part
+   ailleurs : c'est le fil de la production, pas celui du magasin.
+
+   Chaque bloc de données distingue trois états, et ce n'est pas du zèle : une
+   liste vide affichée à la place d'un endpoint muet ferait ouvrir le magasin
+   sans rien en vitrine. Voir docs/ENDPOINTS_PRODUCTION.md. #}
+{% extends "layouts/base.twig" %}
+{% import "components/_icons.twig" as icons %}
+
+{% block title %}{{ translations.production_title | default('Production') }}{% endblock %}
+
+{% block head %}
+<style>
+{# Le planning fait partie du même module : ses styles viennent avec, pour que
+   les ordres et la frise s'affichent ici comme là-bas. #}
+{% include "baking/_styles.twig" %}
+    /* ── Secteur de production ───────────────────────────────────────────
+       Boulangerie et traiteur : deux ateliers, un seul magasin, les mêmes
+       écrans. Le sélecteur est en tête de module parce que c'est le filtre le
+       plus large — tout ce qui suit en dépend, y compris les compteurs. */
+    .pr-sectors {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        margin-bottom: 0;   /* elle vit dans .pr-bar, qui porte la marge */
+    }
+    .pr-sectors-lbl {
+        font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--c-muted, #7a7168); margin-right: 2px;
+    }
+    /* Même hauteur que le commutateur : deux objets de la même rangée qui ne
+       font pas la même taille se lisent comme deux rangs différents. */
+    .pr-sectors .cat-chip { min-height: 46px; padding: 0 20px; font-size: .89rem; }
+    .pr-sectors .cat-chip {
+        display: inline-flex; align-items: center; min-height: 44px;
+        text-decoration: none; line-height: 1;
+    }
+    .pr-sectors .cat-chip.is-on {
+        background: var(--c-encre, #1F4F6B); border-color: var(--c-encre, #1F4F6B); color: #fff;
+    }
+
+    /* ── Deux moments ────────────────────────────────────────────────────
+       Le métier n'a que deux temps : décider, exécuter.
+
+       Ils occupaient deux tuiles de 76 px sur toute la largeur, en rouge
+       plein. C'était donner le poids d'une décision à ce qui n'est qu'un
+       CHOIX DE VUE : on ne décide pas en appuyant là, on change de page.
+       Un commutateur de 46 px le dit mieux, et libère 110 px pour les
+       fournées — qui, elles, commençaient hors écran. */
+    .pr-bar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+        margin-bottom: 14px;
+    }
+    .pr-two {
+        display: inline-flex; flex: none; height: 46px; overflow: hidden;
+        background: #fff; border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-pill, 999px);
+    }
+    .pr-two-t {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 0 20px; text-decoration: none; white-space: nowrap;
+        color: var(--c-muted, #7a7168); font-size: .89rem; font-weight: 600;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .pr-two-t b { font-size: .89rem; font-weight: 600; }
+    /* « décider » et « exécuter » expliquaient les deux temps le premier jour.
+       Passé celui-là, ils répètent ce que le mot juste au-dessus dit déjà. */
+    .pr-two-t small { display: none; }
+    .pr-two-t:active { transform: scale(.985); }
+    .pr-two-t.is-active { background: var(--c-primary, #8D1D2C); color: #fff; }
+    .pr-two-n {
+        padding: 1px 9px; border-radius: 999px;
+        background: var(--c-bg, #EAE4DC); color: var(--c-muted, #7a7168);
+        font-size: .78rem; font-weight: 600; white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+    .pr-two-t.is-active .pr-two-n { background: rgba(255,255,255,.22); color: #fff; }
+
+    /* ── Le parcours, en une ligne ───────────────────────────────────────
+       La bande à quatre cartes disait la même chose mais prenait un demi-écran
+       avant le premier chiffre. Ce parcours ne s'apprend qu'une fois : passé le
+       premier jour, ce n'est plus une explication, c'est un repère — et un
+       repère se met en marge. */
+    .pr-rail {
+        display: flex; align-items: center; gap: 6px;
+        margin: 12px 2px 0; font-size: .72rem; color: var(--c-muted, #7a7168);
+    }
+    /* Le rail est un repère, mais c'est AUSSI le raccourci qui change d'écran
+       plusieurs fois par service. Il mesurait 19 px de haut — la hauteur de sa
+       pastille — c'est-à-dire moins de la moitié du minimum tactile, dans une
+       cuisine où les doigts sont farinés. On garde exactement la même densité
+       visuelle et on étend la zone sensible sous le texte : la marge négative
+       annule la place que la hauteur prendrait, si bien que rien ne bouge à
+       l'écran et que la cible passe à 44 px. */
+    .pr-rail-i {
+        display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+        text-decoration: none; color: inherit;
+        -webkit-tap-highlight-color: transparent;
+        min-height: 44px; margin-block: -12px;
+    }
+    .pr-rail-i b {
+        width: 19px; height: 19px; border-radius: 50%; flex: 0 0 auto;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
+        font-size: .62rem; font-weight: 800;
+    }
+    .pr-rail-i.is-shelf b { background: #e3f0e6; color: var(--c-vert, #2D7A3E); }
+    .pr-rail-i.is-on { color: var(--c-ink, #241f1c); font-weight: 700; }
+    .pr-rail-i.is-on b { background: var(--c-primary, #8D1D2C); color: #fff; }
+    .pr-rail-i.is-shelf.is-on b { background: var(--c-vert, #2D7A3E); color: #fff; }
+    .pr-rail-s { flex: 1 1 auto; height: 1px; background: var(--c-line-2, rgba(36,26,22,.14)); }
+    /* Sous 560 px, les traits de liaison mangent les libellés : on garde les
+       étapes, on rend les traits élastiques au minimum. */
+    @media (max-width: 560px) {
+        .pr-rail { gap: 4px; font-size: .66rem; }
+        .pr-rail-s { min-width: 6px; }
+    }
+
+    /* ── Le chemin du retour ─────────────────────────────────────────────
+       Stock, minimums et MEP ne sont plus des onglets : sans ce lien, on y
+       arriverait sans savoir comment en sortir. */
+    .pr-back {
+        display: inline-flex; align-items: center; gap: 5px;
+        min-height: 44px;
+        margin-top: 14px; padding: 8px 13px 8px 9px;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: 999px; background: #fff;
+        color: var(--c-ink, #241f1c); text-decoration: none;
+        font-size: .8rem; font-weight: 700;
+    }
+
+    /* ── Les chiffres, au pied de la page ────────────────────────────────
+       On les consulte, on n'y agit presque jamais. Chaque ligne porte son
+       compte : c'est souvent la seule chose qu'on venait chercher. */
+    .pr-more { margin-top: 26px; }
+    .pr-more-row {
+        display: flex; align-items: center; gap: 11px;
+        min-height: 58px; padding: 10px 13px; margin-bottom: 8px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px);
+        text-decoration: none; color: var(--c-ink, #241f1c);
+        -webkit-tap-highlight-color: transparent;
+    }
+    .pr-more-row:active { background: var(--c-bg-2, #F4EFE8); }
+    .pr-more-ic {
+        flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--r-md, 13px);
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
+    }
+    .pr-more-txt { flex: 1; min-width: 0; }
+    .pr-more-txt b { display: block; font-size: .88rem; font-weight: 700; line-height: 1.2; }
+    .pr-more-txt small { display: block; margin-top: 1px; font-size: .68rem; color: var(--c-muted, #7a7168); }
+    .pr-more-n {
+        flex: 0 0 auto; font-size: .72rem; font-weight: 700;
+        color: var(--c-muted, #7a7168); white-space: nowrap;
+    }
+    .pr-more-row .lc-icon { color: var(--c-line-2, rgba(36,26,22,.3)); flex: 0 0 auto; }
+
+    /* Ce qui n'appelle aucun geste se replie : la page ne garde que ce qu'il y
+       a à faire, et le reste tient à un tap. */
+    .pr-fold > summary, .bk-later > summary {
+        cursor: pointer; list-style: none;
+        display: flex; align-items: center; gap: 8px;
+        /* Un dépliant est un bouton : il mesurait la hauteur de son libellé,
+           soit 21 px. La zone sensible descend à 44 px sans écarter le texte. */
+        min-height: 44px;
+    }
+    .pr-fold > summary::-webkit-details-marker,
+    .bk-later > summary::-webkit-details-marker { display: none; }
+    .pr-fold > summary::after, .bk-later > summary::after {
+        content: '▾'; margin-left: 2px; font-size: .8rem; opacity: .55;
+    }
+    .pr-fold[open] > summary::after, .bk-later[open] > summary::after { content: '▴'; }
+    .bk-later { margin-top: 16px; }
+    .bk-later > summary {
+        font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--c-muted, #7a7168);
+    }
+    .bk-later[open] > summary { margin-bottom: 10px; }
+
+    /* ── Toggle quatre positions ─────────────────────────────────────────
+       Un select cacherait trois vues sur quatre derrière un tap. Quatre
+       cibles visibles, hautes de 54 px, se visent avec un doigt fariné. */
+    .pr-toggle {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+        background: var(--c-bg-2, #F4EFE8);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px); padding: 6px;
+    }
+    /* Sur un écran étroit, l'horaire sous le libellé casse les colonnes avant
+       de rendre service : le libellé seul suffit à choisir. */
+    @media (max-width: 640px) { .pr-tab small { display: none; } }
+    .pr-tab {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+        min-height: 54px; padding: 6px 4px; border-radius: var(--r-md, 13px);
+        text-decoration: none; text-align: center;
+        font-size: .84rem; font-weight: 700; line-height: 1.15;
+        color: var(--c-muted, #7a7168); background: transparent;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .pr-tab small { font-size: .66rem; font-weight: 600; opacity: .75; }
+    .pr-tab:active { background: rgba(0,0,0,.04); }
+    .pr-tab.is-active {
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        box-shadow: 0 6px 14px -8px rgba(141,29,44,.7);
+    }
+    .pr-tab.is-active small { opacity: .85; }
+    .pr-tab-dot {
+        display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+        background: var(--c-secondary, #F2C9A0); margin-left: 5px; vertical-align: middle;
+    }
+
+    /* Le stock n'est pas un moment de la journée : il n'a pas sa place dans la
+       même rangée que la MEP et les trois périodes. Il prend la ligne entière,
+       en bandeau plus fin — visible en permanence, sans faire croire à une
+       cinquième période. */
+    .pr-tab-stock {
+        grid-column: 1 / -1;
+        flex-direction: row; gap: 8px; min-height: 44px; padding: 6px 12px;
+        /* S'ajoute au gap de la grille : le stock se détache de la rangée des
+           moments de la journée sans sortir du même bloc. */
+        margin-top: 6px;
+    }
+    .pr-tab-stock .lc-icon { opacity: .8; }
+
+    /* ── Sous-toggle de la MEP ───────────────────────────────────────────
+       Deux gestes opposés sous le même mot : le matin on valide la veille,
+       l'après-midi on prépare le lendemain. Ils ne partagent qu'un nom. */
+    .mep-sub { display: flex; gap: 8px; margin: 14px 0 16px; }
+    .mep-sub a {
+        flex: 1; min-height: 58px; padding: 8px 12px;
+        display: flex; flex-direction: column; justify-content: center; gap: 2px;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px); background: #fff;
+        text-decoration: none; color: var(--c-ink, #241f1c);
+    }
+    .mep-sub a small { font-size: .7rem; color: var(--c-muted, #7a7168); }
+    .mep-sub a b { font-size: .92rem; font-weight: 700; }
+    .mep-sub a.is-active {
+        border-color: var(--c-primary, #8D1D2C);
+        background: var(--c-primary-soft, #f4dfe2);
+    }
+    .mep-sub a.is-active small { color: #7a1524; }
+
+    /* ── Saisie des quantités ──────────────────────────────────────────
+       Une ligne par produit sur toute la largeur laissait un vide de 800 px
+       entre le nom et le champ : on parcourait quarante lignes pour saisir
+       quarante nombres. Trois par rangée rapprochent le nom de sa case et
+       tiennent la liste dans un écran. */
+    .mep-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+    /* La saisie reste le geste : sous 1200 px, deux colonnes plutôt qu'un
+       champ écrasé contre son libellé. Sous 780 px on reste à deux — une
+       colonne unique faisait dix écrans de défilement pour trente produits —
+       mais la tuile passe en pile : le nom au-dessus, la commande dessous. */
+    @media (max-width: 1200px) { .mep-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .mep-line {
+        position: relative;
+        display: flex; align-items: center; gap: 12px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-left: 4px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-lg, 18px); padding: 11px 14px;
+        box-shadow: var(--sh-1, 0 1px 2px rgba(0,0,0,.04));
+    }
+    .mep-line.is-filled { border-left-color: var(--c-primary, #8D1D2C); }
+    .mep-line.is-skipped { opacity: .5; }
+    .mep-line-txt { flex: 1; min-width: 0; }
+    .mep-line-name { display: block; font-size: .95rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.3; overflow-wrap: anywhere; }
+    .mep-line-sub { display: block; margin-top: 3px; font-size: .74rem; color: var(--c-muted, #7a7168); }
+    /* Les commandes tiennent ensemble : sur écran large elles restent à droite
+       du nom, sur tablette étroite elles descendent d'un bloc. */
+    .mep-ctl { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+    /* 96 px et 52 px de haut : on saisit au pouce, parfois avec un gant. */
+    .mep-qty {
+        width: 96px; flex: 0 0 auto; min-height: 52px; padding-left: 4px; padding-right: 4px;
+        text-align: center; font-size: 1.1rem; font-weight: 700;
+    }
+    /* Les flèches natives font double emploi avec « − » et « + », et elles
+       mangeaient assez de largeur pour couper « 120 » en « 12 » sur mobile. */
+    .mep-qty { -moz-appearance: textfield; appearance: textfield; }
+    .mep-qty::-webkit-outer-spin-button,
+    .mep-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    /* Pas de fournée : le − et le + montent de 12 en 12 pour une baguette, de
+       24 en 24 pour un croissant. En centaines de pièces, monter à l'unité ne
+       veut rien dire ; le clavier reste là pour le chiffre exact. */
+    .mep-step {
+        flex: 0 0 auto; width: 46px; height: 52px; padding: 0;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px); background: var(--c-bg-2, #F4EFE8);
+        color: var(--c-ink, #241f1c); font-size: 1.35rem; font-weight: 700; line-height: 1;
+        cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .mep-step:active { background: var(--c-primary-soft, #f4dfe2); }
+    .mep-step[disabled] { opacity: .4; cursor: default; }
+
+    /* Retirer et écarter sont des gestes rares : ils se logent dans le coin
+       plutôt que dans la rangée des commandes, qui ne doit garder que le
+       nombre et ses deux boutons. */
+    .mep-del, .mep-skip {
+        position: absolute; top: -7px; right: -7px; z-index: 2;
+        flex: 0 0 auto; width: 28px; height: 28px; padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: 50%; background: #fff;
+        color: var(--c-muted, #7a7168); cursor: pointer;
+        box-shadow: var(--sh-1, 0 1px 2px rgba(0,0,0,.04));
+    }
+    .mep-del:active { background: #f4dfe2; color: var(--c-primary, #8D1D2C); }
+    .mep-skip.is-on { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); color: #fff; }
+
+    @media (max-width: 780px) {
+        .mep-line { flex-direction: column; align-items: stretch; gap: 9px; padding: 10px 11px; }
+        .mep-ctl { width: 100%; gap: 6px; }
+        .mep-qty { width: auto; flex: 1 1 auto; min-width: 0; font-size: 1rem; }
+        .mep-step { width: 40px; }
+    }
+
+    /* ── Filtre par catégorie ────────────────────────────────────────────
+       La liste reste triée par catégorie puis par produit ; les badges ne
+       réordonnent rien, ils masquent. Un ordre qui bouge se relit, un ordre
+       stable se retrouve. */
+    .cat-filters {
+        display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none;
+        padding: 2px 2px 8px; margin: 0 -2px 4px;
+    }
+    .cat-filters::-webkit-scrollbar { display: none; }
+    /* 44 px : le minimum tactile. Ces pastilles filtrent le stock et les
+       besoins plusieurs fois par service, avec des mains farinées. */
+    .cat-chip {
+        flex: 0 0 auto; min-height: 44px; padding: 0 15px;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: 999px; background: #fff;
+        color: var(--c-muted, #7a7168);
+        font-family: inherit; font-size: .82rem; font-weight: 700;
+        cursor: pointer; white-space: nowrap;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .cat-chip.is-on {
+        background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C);
+        color: #fff;
+    }
+
+    /* ── Composer la MEP de demain ─────────────────────────────────────── */
+    .mep-add {
+        display: flex; align-items: center; justify-content: center; gap: 9px;
+        width: 100%; min-height: 52px; margin-bottom: 6px;
+        border: 1px dashed var(--c-primary, #8D1D2C);
+        border-radius: var(--r-md, 13px);
+        background: var(--c-primary-soft, #f4dfe2);
+        color: var(--c-primary, #8D1D2C);
+        font-family: inherit; font-size: .95rem; font-weight: 800; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mep-add:active { transform: scale(.995); }
+    .mep-empty {
+        display: flex; flex-direction: column; align-items: center; gap: 8px;
+        padding: 30px 20px; text-align: center;
+        color: var(--c-muted, #7a7168);
+    }
+    .mep-empty p { margin: 0; font-size: .87rem; }
+
+    /* Le sélecteur est plein écran : la liste peut faire cent produits, et une
+       petite boîte centrée obligerait à défiler dans un cadre de 300 px. */
+    .mep-picker {
+        position: fixed; inset: 0; z-index: 1080;
+        background: rgba(31,20,16,.45);
+        display: flex; align-items: flex-end; justify-content: center;
+    }
+    .mep-picker[hidden] { display: none; }
+    .mep-picker-panel {
+        display: flex; flex-direction: column;
+        width: 100%; max-width: 780px; max-height: 92vh;
+        background: var(--c-bg, #EAE4DC);
+        border-radius: var(--r-xl, 24px) var(--r-xl, 24px) 0 0;
+        padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+        box-shadow: 0 -12px 40px -18px rgba(0,0,0,.5);
+    }
+    .mep-picker-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .mep-picker-head h2 { flex: 1; margin: 0; font-size: 1.02rem; font-weight: 800; color: var(--c-ink, #241f1c); }
+    .mep-picker-close {
+        flex: 0 0 auto; width: 40px; height: 40px; padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px); background: #fff;
+        color: var(--c-muted, #7a7168); cursor: pointer;
+    }
+    .mep-picker-list { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .mep-picker-list .pr-cat:first-child { margin-top: 0; }
+    .mep-pick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    @media (min-width: 620px) { .mep-pick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .mep-pick {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+        min-height: 60px; padding: 10px 13px; text-align: left;
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px); background: var(--c-surface, #fff);
+        font-family: inherit; color: var(--c-ink, #241f1c); cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mep-pick b { font-size: .9rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+    .mep-pick small { font-size: .72rem; color: var(--c-muted, #7a7168); }
+    /* Déjà dans la MEP : le tap ajoute une fournée de plus, il ne crée pas un
+       doublon. Le badge le dit avant le geste. */
+    .mep-pick.is-in { border-color: var(--c-primary, #8D1D2C); background: var(--c-primary-soft, #f4dfe2); }
+
+    /* Barre d'action collée en bas : la liste est longue, le bouton ne doit
+       pas obliger à remonter. */
+    .mep-actions {
+        position: sticky; bottom: calc(var(--app-tabbar-h, 72px) + 8px); z-index: 5;
+        margin-top: 18px; padding: 10px;
+        background: rgba(255,255,255,.96);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        box-shadow: 0 -6px 20px -12px rgba(0,0,0,.28);
+        backdrop-filter: blur(6px);
+    }
+    .mep-submit {
+        display: flex; align-items: center; justify-content: center; gap: 9px;
+        width: 100%; min-height: 54px; border: 0; border-radius: var(--r-md, 13px);
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        font-family: inherit; font-size: 1rem; font-weight: 800; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mep-submit:active { transform: scale(.995); }
+    .mep-submit[disabled] { opacity: .55; cursor: default; }
+    .mep-total { text-align: center; font-size: .78rem; color: var(--c-muted, #7a7168); margin: 0 0 8px; }
+    .mep-total b { color: var(--c-ink, #241f1c); font-weight: 800; }
+
+    /* ── Bandeau MEP ─────────────────────────────────────────────────────
+       Première action de la journée, et rien ne se vend avant elle : elle a
+       droit à la pleine largeur et à la couleur de marque. */
+    /* ── Le rappel de MEP ────────────────────────────────────────────────
+       Il occupait 240 px de rouge plein avant la première fournée, pour un
+       message qui se lit en une phrase et un bouton. Une alerte qui prend le
+       tiers de l'écran ne se lit pas mieux : elle repousse le travail hors
+       de vue, et c'est le travail qu'on est venu faire. */
+    .mep-banner {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px;
+        background: #fdf3f4; border: 1px solid rgba(141,29,44,.20);
+        border-radius: var(--r-md, 13px); padding: 12px 16px;
+        color: #6d1522; text-decoration: none;
+    }
+    .mep-banner h2 { font-size: .93rem; font-weight: 800; margin: 0; color: #6d1522; }
+    .mep-banner p { margin: 0; font-size: .86rem; line-height: 1.45; color: #7d2b36; flex: 1; min-width: 200px; }
+    .mep-banner-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+        margin-left: auto; min-height: 46px; padding: 0 20px; flex: none;
+        border: 0; border-radius: var(--r-md, 13px);
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        font-family: inherit; font-size: .92rem; font-weight: 700; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mep-banner-btn .badge { background: rgba(255,255,255,.22) !important; color: #fff !important; }
+    .mep-banner-btn:active { transform: scale(.995); }
+    .mep-banner-meta { width: 100%; font-size: .76rem; color: #8a5560; }
+
+    .mep-done {
+        display: flex; align-items: center; gap: 10px;
+        background: #eaf4ec; border: 1px solid #cfe6d5;
+        border-radius: var(--r-md, 13px); padding: 13px 16px;
+        color: #1d5a2c; font-size: .88rem; font-weight: 700;
+    }
+
+    /* ── Catégories et produits ──────────────────────────────────────── */
+    .pr-cat { margin-top: 20px; }
+    .pr-cat-title {
+        display: flex; align-items: center; gap: 8px;
+        font-size: .76rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--c-muted, #7a7168); margin: 0 0 9px 2px;
+    }
+    .pr-cat-count {
+        min-width: 21px; height: 21px; padding: 0 7px; border-radius: 999px;
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-ink, #241f1c);
+        font-size: .7rem; line-height: 21px; text-align: center;
+    }
+    /* ── Stock : le tableau de perspective ───────────────────────────────
+       Un tableau parce que la question est comparative : ce n'est pas « ce
+       produit tient-il » mais « lesquels ne tiennent pas ». Des colonnes
+       alignées se balaient d'un regard, une liste de cartes non. */
+    .stk-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+    .stk-table {
+        width: 100%; border-collapse: separate; border-spacing: 0;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px); overflow: hidden;
+        font-size: .86rem;
+    }
+    .stk-table th {
+        position: sticky; top: 0; z-index: 1;
+        padding: 11px 12px; text-align: left; white-space: nowrap;
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
+        font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    }
+    .stk-table td { padding: 11px 12px; border-top: 1px solid var(--c-line, rgba(36,26,22,.07)); }
+    .stk-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .stk-table .cat { color: var(--c-muted, #7a7168); font-size: .78rem; white-space: nowrap; }
+    .stk-table .name { font-weight: 700; color: var(--c-ink, #241f1c); }
+    .stk-table .soft { color: var(--c-muted, #7a7168); }
+    .stk-table tr[hidden] { display: none; }
+    /* Le delta est la colonne qu'on lit : elle porte le signe et la couleur.
+       Le reste du tableau est là pour qu'on puisse la contester. */
+    .dlt { font-weight: 800; color: var(--c-vert, #2D7A3E); }
+    .dlt.is-neg  { color: var(--c-primary, #8D1D2C); }
+    .dlt.is-over { color: var(--c-ambre, #C17A2A); }
+    .cat-chip .n {
+        margin-left: 7px; padding: 1px 7px; border-radius: 999px;
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
+        font-size: .7rem; font-weight: 800;
+    }
+    .cat-chip.is-on .n { background: rgba(255,255,255,.22); color: #fff; }
+    .ck-out1.is-on { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); }
+    .ck-out2.is-on { background: var(--c-ambre, #C17A2A); border-color: var(--c-ambre, #C17A2A); }
+    .ck-over.is-on { background: var(--c-encre, #1F4F6B); border-color: var(--c-encre, #1F4F6B); }
+    /* La rangée des catégories est subordonnée à celle des états : mêmes
+       pastilles, un cran plus discrètes, pour qu'on voie tout de suite laquelle
+       porte la question principale. */
+    .cat-filters-2 { margin-top: -2px; }
+    /* La seconde rangée reste visuellement secondaire — police plus petite,
+       gris plus clair — mais pas plus petite au doigt : 34 px se rataient une
+       fois sur trois. La hiérarchie se tient par la couleur, pas par la
+       hauteur de la cible. */
+    .cat-filters-2 .cat-chip {
+        min-height: 44px; padding: 0 13px; font-size: .78rem; font-weight: 600;
+        color: var(--c-muted, #7a7168);
+    }
+    .cat-filters-2 .cat-chip.is-on {
+        background: var(--c-ink, #241f1c); border-color: var(--c-ink, #241f1c); color: #fff;
+    }
+    /* Les périodes sont les moments de « Besoins », pas des sections du
+       module : une rangée de pastilles sous le toggle, pas un cinquième
+       onglet de même poids. */
+    /* Calées à droite de la rangée, sur une seule ligne : deux lignes de texte
+       dans une pastille la font plus haute que ses voisines, et une rangée
+       dont les objets n'ont pas la même taille se lit comme deux rangs. */
+    .pr-periods { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+    .pr-periods .cat-chip {
+        display: inline-flex; align-items: center; gap: 8px;
+        min-height: 46px; padding: 0 20px; border-radius: 999px;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
+        text-decoration: none; color: var(--c-muted, #7a7168);
+        font-size: .89rem; font-weight: 600; line-height: 1.15; white-space: nowrap;
+    }
+    .pr-periods .cat-chip small { font-size: .78rem; font-weight: 400; opacity: .75; font-variant-numeric: tabular-nums; }
+    .pr-periods .cat-chip.is-on {
+        background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); color: #fff;
+    }
+
+    .stk-empty-filter { margin: 18px 0 0; text-align: center; color: var(--c-muted, #7a7168); font-size: .86rem; }
+
+    /* La colonne de la période en cours porte la décision : les autres sont là
+       pour préparer la suite de la journée, pas pour être comparées maintenant. */
+    .stk-table th.is-focus { background: var(--c-primary-soft, #f4dfe2); color: #7a1524; }
+    .stk-table td.is-focus { font-weight: 800; color: var(--c-ink, #241f1c); }
+
+    /* Relancer depuis le tableau des minimums : mêmes commandes qu'ailleurs,
+       en plus compact — une cellule de tableau n'a pas la largeur d'une tuile. */
+    .min-launch { display: flex; align-items: center; gap: 6px; }
+    /* Le champ ne contient jamais plus de quatre chiffres : il est calibré pour
+       eux, et pour rien d'autre. Sous 780 px, la règle générique de `.mep-qty`
+       passe en `flex: 1 1 auto` — utile dans une tuile pleine largeur, absurde
+       dans une cellule de tableau où elle poussait le bouton « Lancer » hors de
+       l'écran. On rend donc la rangée rigide ici. */
+    .min-launch .mep-ctl { flex: 0 0 auto; width: auto; gap: 6px; }
+    .min-launch .mep-qty {
+        flex: 0 0 auto; width: 62px; min-width: 0; min-height: 44px;
+        padding-left: 2px; padding-right: 2px; font-size: .95rem;
+    }
+    .min-launch .mep-step { width: 38px; height: 44px; font-size: 1.15rem; }
+    .min-launch .pr-launch-go { flex: 0 0 auto; min-height: 44px; padding: 0 13px; font-size: .82rem; }
+
+    /* ── Commandes fermes ────────────────────────────────────────────────
+       Une commande n'est pas une prévision : elle est due, à une heure connue,
+       et personne ne pardonne un plateau manquant. Elle entre donc dans le
+       calcul du manque — et se dit à part, parce que « il en manque 24 » et
+       « il en manque 24 dont 18 commandés » n'appellent pas la même vigilance. */
+    .pr-ord {
+        display: inline-flex; align-items: center; gap: 5px;
+        margin: 0; padding: 3px 9px; border-radius: 999px;
+        background: #e8eef3; color: var(--c-encre, #1F4F6B);
+        font-size: .7rem; font-weight: 800;
+    }
+    .pr-ord svg { flex: 0 0 auto; }
+    /* Le parcours de préparation : même famille visuelle que « dont N
+       commandés » — un fait sur le produit — mais en teinte neutre, parce
+       qu'il ne réclame rien : il renseigne la main qui va lancer. */
+    .pr-prep {
+        display: inline-flex; align-items: center; gap: 5px;
+        margin: 5px 0 0 6px; padding: 3px 9px; border-radius: 999px;
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
+        font-size: .7rem; font-weight: 700; white-space: nowrap;
+    }
+    .pr-prep svg { flex: 0 0 auto; }
+    .ord-list { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+    .ord-row {
+        display: flex; align-items: center; gap: 11px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-left: 4px solid var(--c-encre, #1F4F6B);
+        border-radius: var(--r-md, 13px); padding: 10px 13px;
+    }
+    .ord-row.is-late { border-left-color: var(--c-primary, #8D1D2C); background: #fdf7f7; }
+    .ord-when {
+        flex: 0 0 auto; min-width: 52px; font-variant-numeric: tabular-nums;
+        font-size: 1rem; font-weight: 800; color: var(--c-ink, #241f1c);
+    }
+    .ord-row.is-late .ord-when { color: var(--c-primary, #8D1D2C); }
+    .ord-txt { flex: 1; min-width: 0; }
+    .ord-txt b { display: block; font-size: .9rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+    .ord-txt small { display: block; margin-top: 2px; font-size: .7rem; color: var(--c-muted, #7a7168); }
+    .ord-qty { flex: 0 0 auto; font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    /* Le canal est une étiquette, pas une catégorie : il ne change rien à
+       l'arithmétique, seulement à qui on devra s'excuser. */
+    .ord-ch {
+        flex: 0 0 auto; border-radius: 999px; padding: 3px 9px;
+        font-size: .66rem; font-weight: 800; white-space: nowrap;
+    }
+    .ch-shop     { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
+    .ch-click    { background: #e8eef3; color: var(--c-encre, #1F4F6B); }
+    .ch-delivery { background: #fdf1e2; color: #8a5312; }
+
+    /* ── Tableau de travail d'une période ────────────────────────────────
+       Sections par geste attendu, tuiles triées par tension. Les couleurs
+       sont celles du module Cuisson : c'est le même vocabulaire, il ne doit
+       pas changer de sens en changeant d'écran. */
+    .pr-bucket { margin-top: 22px; }
+    .pr-bucket[hidden] { display: none; }
+    .pr-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+    .d-shelf  { background: var(--c-vert, #2D7A3E); }
+    .d-finish { background: #C17A2A; }
+    .d-cook   { background: #8D1D2C; }
+    .d-prep   { background: #1F4F6B; }
+    .d-idle   { background: var(--c-line-2, rgba(36,26,22,.2)); }
+
+    /* ── Un panneau par étape, une ligne par produit ──
+       Trois tuiles par rangée, chacune haute de 190 px : sur une tablette en
+       paysage, la première n'apparaissait qu'après 1 130 px de défilement, et
+       comparer deux produits demandait de balayer en zigzag. En lignes, l'œil
+       descend une seule colonne, et l'heure de finition s'aligne d'un produit
+       à l'autre — ce qui est le propre d'une colonne, et pas d'une grille. */
+    .pr-tiles {
+        display: flex; flex-direction: column;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px); overflow: hidden;
+    }
+    .pr-tile {
+        display: flex; flex-direction: row; align-items: center; gap: 18px;
+        padding: 13px 18px; background: var(--c-surface, #fff);
+        border-top: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-left: 4px solid var(--c-line-2, rgba(36,26,22,.14));
+    }
+    .pr-tile:first-of-type { border-top: 0; }
+    /* Le nom porte la lecture ; le manque, les commandes et le geste sont des
+       conditions, alignées à droite dans l'ordre où on les consulte. */
+    /* Le nom garde 260 px quoi qu'il arrive : sans plancher, les conditions à
+       droite prennent leur largeur naturelle, le nom se retrouve à zéro et
+       « Croissant » se casse une lettre par ligne. */
+    .pr-tile-head { flex: 1 1 380px; min-width: 280px; }
+    .pr-tile .pr-need   { flex: 0 1 auto; margin: 0; }
+    /* Elle vit maintenant sous le nom, dans la colonne de texte : plus de
+       largeur à disputer au titre, et un léger retrait pour qu'on la lise
+       comme une précision et non comme une seconde ligne de titre. */
+    .pr-tile .pr-ord    { margin: 5px 0 0; }
+    .pr-tile .pr-need   { max-width: 265px; font-size: .84rem; padding: 7px 11px; white-space: nowrap; }
+    .pr-tile .pr-need-sub { white-space: normal; }
+
+    /* En ligne, la commande de quantité n'a plus la largeur d'une tuile : on la
+       resserre à la hauteur du reste de la rangée. Elle reste au-dessus de
+       44 px — on saisit au pouce, parfois avec un gant. */
+    .pr-tile .mep-qty   { width: 68px; min-height: 46px; font-size: 1rem; }
+    .pr-tile .mep-step  { width: 42px; height: 46px; font-size: 1.2rem; }
+    .pr-tile .mep-ctl   { gap: 6px; }
+    .pr-tile .pr-launch-go { min-height: 46px; padding: 0 18px; font-size: .9rem; }
+    .pr-tile .pr-launch { flex: 0 0 auto; margin-left: auto; margin-top: 0; }
+    .pr-tile .pr-shelf-go { flex: 0 0 auto; margin-left: auto; }
+    /* L'ETA passe en gouttière de gauche : c'est le repère de la journée, il
+       doit se lire avant le nom, pas après. */
+    .pr-tile .pr-eta { order: -1; width: 62px; text-align: left; }
+    @media (max-width: 860px) {
+        .pr-tile { flex-wrap: wrap; gap: 10px; }
+        .pr-tile-head { flex: 1 1 100%; }
+        .pr-tile .pr-launch { margin-left: 0; width: 100%; }
+    }
+    .pr-tile[hidden] { display: none; }
+    .pr-tile.b-shelf  { border-left-color: var(--c-vert, #2D7A3E); }
+    .pr-tile.b-finish { border-left-color: #C17A2A; }
+    .pr-tile.b-cook   { border-left-color: #8D1D2C; }
+    .pr-tile.b-prep   { border-left-color: #1F4F6B; }
+    .pr-tile.b-idle   { opacity: .72; }
+
+    .pr-tile-head { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+    .pr-tile-txt { flex: 1; min-width: 0; }
+    .pr-tile-cat { display: block; font-size: .7rem; color: var(--c-muted, #7a7168); margin-top: 2px; }
+    /* ETA : l'heure de finition prévue. Elle vit à droite du nom parce que
+       c'est la seule autre chose qu'on lise sur la tuile, et qu'on la compare
+       d'une tuile à l'autre — une colonne se compare, pas une ligne. */
+    .pr-eta {
+        flex: 0 0 auto; text-align: right; line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+    .pr-eta b { display: block; font-size: 1.02rem; font-weight: 800; color: var(--c-ink, #241f1c); }
+    .pr-eta small {
+        display: block; margin-top: 1px; font-size: .58rem; font-weight: 800;
+        letter-spacing: .07em; color: var(--c-muted, #7a7168);
+    }
+
+    /* La conclusion, en une ligne et une couleur. Elle remplace la projection
+       chiffrée : « 138 projeté » demandait de comparer à la taille de fournée
+       pour savoir quoi faire, alors que la seule question est « je lance ou
+       pas ». Le vert et l'orange ne portent pas de nombre, parce qu'il n'y a
+       rien à lancer — un chiffre y ferait croire au contraire. */
+    .pr-need {
+        margin: 0; padding: 8px 12px; border-radius: var(--r-md, 13px);
+        font-size: .82rem; font-weight: 700; text-align: center;
+    }
+    .pr-need b { font-size: 1rem; font-weight: 800; }
+    .lv-short   { background: var(--c-primary-soft, #f4dfe2); color: var(--c-primary, #8D1D2C); }
+    .lv-tight   { background: #fdf1e2; color: #8a5312; }
+    .lv-ok      { background: #eaf4ec; color: #1d5a2c; }
+    .lv-unknown { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); font-style: italic; font-weight: 600; }
+    /* La quantité proposée EST un minimum : c'est une fournée entière, parce
+       qu'un four ne sort pas dix-sept croissants. Le dire évite qu'on la prenne
+       pour le besoin exact et qu'on la rabote. */
+    .pr-need-sub { display: block; margin-top: 2px; font-size: .68rem; font-weight: 600; opacity: .78; }
+
+    /* Programmer la fournée : le geste qui transforme un constat en travail.
+       Il reprend les commandes de la mise en rayon — même pas de fournée, même
+       gabarit — parce que c'est la même arithmétique. */
+    .pr-launch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    /* min-width:0 : sans lui, la rangée refuse de descendre sous la largeur de
+       ses deux boutons plus le champ, et déborde la tuile de 24 px entre 780 et
+       1200 px — le « + » passait sous la bordure. */
+    .pr-launch .mep-ctl { flex: 1 1 150px; min-width: 0; }
+    .pr-launch .mep-qty { width: auto; flex: 1 1 auto; min-width: 0; }
+    .pr-launch-go {
+        flex: 1 1 150px; min-height: 52px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        border: 0; border-radius: var(--r-md, 13px);
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        font-family: inherit; font-size: .92rem; font-weight: 800; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .pr-launch-go:active { transform: scale(.995); }
+    .pr-launch-go[disabled] { opacity: .55; cursor: default; }
+
+    .pr-tile-sub { margin: 0; font-size: .74rem; color: var(--c-muted, #7a7168); }
+    .pr-tile-sub b { color: var(--c-ink, #241f1c); font-weight: 800; }
+
+    .pr-shelf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pr-shelf .mep-ctl { flex: 1 1 150px; min-width: 0; }
+    .pr-shelf .mep-qty { width: auto; flex: 1 1 auto; min-width: 0; }
+    .pr-shelf-go {
+        flex: 1 1 130px; min-height: 52px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        border: 0; border-radius: var(--r-md, 13px);
+        background: var(--c-vert, #2D7A3E); color: #fff;
+        font-family: inherit; font-size: .92rem; font-weight: 800; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .pr-shelf-go:active { transform: scale(.995); }
+    /* Le geste dit son effet. « En rayon » ne se comprend qu'une fois qu'on
+       sait que c'est lui qui crédite le stock du magasin — alors on l'écrit,
+       sous le bouton, avec le chiffre qui va bouger. */
+    .pr-shelf-fx {
+        flex: 1 1 100%; margin: 0; text-align: center;
+        font-size: .72rem; color: var(--c-vert, #2D7A3E); font-weight: 700;
+    }
+    .pr-shelf-go[disabled] { opacity: .55; cursor: default; }
+
+    /* Ce qui manque à l'écran se lit à l'écran : une liste triée sur un stock
+       qu'on n'a pas serait un ordre inventé. */
+    .pr-warn {
+        display: flex; align-items: flex-start; gap: 7px;
+        margin: 0 0 12px; font-size: .76rem; line-height: 1.45;
+        color: var(--c-ambre, #C17A2A);
+    }
+    .pr-warn svg { flex: 0 0 auto; margin-top: 1px; }
+
+    @media (max-width: 780px) {
+        /* la liste reste une liste : plus de colonnes à recompter */
+        .pr-tile { padding: 10px 11px; }
+        .pr-shelf .mep-ctl,
+        .pr-shelf-go { flex: 1 1 100%; }
+    }
+
+    .pr-rows { display: flex; flex-direction: column; gap: 8px; }
+    .pr-row {
+        display: flex; align-items: center; gap: 12px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-left: 4px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-lg, 18px); padding: 12px 15px;
+        box-shadow: var(--sh-1, 0 1px 2px rgba(0,0,0,.04));
+        text-decoration: none; color: inherit;
+    }
+    .pr-row.is-mep-pending   { border-left-color: var(--c-primary, #8D1D2C); }
+    .pr-row.is-mep-validated { border-left-color: #2D7A3E; }
+    .pr-thumb {
+        width: 46px; height: 46px; flex: 0 0 auto; border-radius: var(--r-md, 13px);
+        object-fit: cover; background: var(--c-bg-2, #F4EFE8);
+        display: flex; align-items: center; justify-content: center; color: var(--c-muted, #7a7168);
+    }
+    .pr-row-txt { flex: 1; min-width: 0; }
+    .pr-row-name { font-size: .96rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.3; overflow-wrap: anywhere; }
+    .pr-row-meta {
+        margin: 4px 0 0; display: flex; flex-wrap: wrap; gap: 4px 9px;
+        font-size: .75rem; color: var(--c-muted, #7a7168);
+    }
+    .pr-row-meta span { display: inline-flex; align-items: center; gap: 4px; }
+    .pr-row-qty { flex: 0 0 auto; text-align: right; }
+    .pr-row-qty b { display: block; font-size: 1.25rem; font-weight: 800; line-height: 1.05; color: var(--c-ink, #241f1c); }
+    .pr-row-qty span { display: block; font-size: .66rem; text-transform: uppercase; letter-spacing: .04em; color: var(--c-muted, #7a7168); }
+
+    .pr-pill {
+        flex: 0 0 auto; border-radius: 999px; padding: 4px 10px;
+        font-size: .7rem; font-weight: 700; white-space: nowrap;
+    }
+    .pill-pending   { background: #f4dfe2; color: #7a1524; }
+    .pill-validated { background: #d1e7dd; color: #0f5132; }
+    .pill-skipped   { background: #e2e3e5; color: #41464b; }
+
+    /* ── Stock ───────────────────────────────────────────────────────── */
+    .stk-head {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .stk-hint { font-size: .75rem; color: var(--c-muted, #7a7168); margin: 0; }
+    .stk-row {
+        display: flex; align-items: center; gap: 12px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-left: 4px solid #2D7A3E;
+        border-radius: var(--r-lg, 18px); padding: 12px 15px;
+        box-shadow: var(--sh-1, 0 1px 2px rgba(0,0,0,.04));
+    }
+    .stk-row.is-low { border-left-color: #C17A2A; }
+    .stk-row.is-out { border-left-color: var(--c-primary, #8D1D2C); background: #fdf7f7; }
+    .stk-qty { flex: 0 0 auto; min-width: 62px; text-align: right; }
+    .stk-qty b { display: block; font-size: 1.5rem; font-weight: 800; line-height: 1; color: var(--c-ink, #241f1c); }
+    .stk-row.is-out .stk-qty b { color: var(--c-primary, #8D1D2C); }
+    .stk-qty span { display: block; font-size: .68rem; color: var(--c-muted, #7a7168); margin-top: 2px; }
+
+    /* ── Propositions de recuisson ───────────────────────────────────── */
+    .rbk-card {
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-secondary, #F2C9A0);
+        border-left: 4px solid #C17A2A;
+        border-radius: var(--r-lg, 18px); padding: 14px 16px;
+        box-shadow: var(--sh-2); margin-bottom: 10px;
+    }
+    .rbk-top { display: flex; align-items: flex-start; gap: 12px; }
+    .rbk-name { flex: 1; min-width: 0; font-size: 1rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.3; overflow-wrap: anywhere; }
+    .rbk-qty {
+        flex: 0 0 auto; text-align: right;
+        font-size: 1.7rem; font-weight: 800; line-height: 1; color: #8a5312;
+    }
+    .rbk-qty small { display: block; font-size: .66rem; font-weight: 700; color: var(--c-muted, #7a7168); margin-top: 3px; text-transform: uppercase; letter-spacing: .04em; }
+    /* Le raisonnement est affiché, pas seulement le résultat : en atelier, une
+       proposition qu'on ne peut pas expliquer est une proposition qu'on
+       n'applique pas. */
+    .rbk-why { display: flex; flex-wrap: wrap; gap: 6px; margin: 11px 0 0; }
+    .rbk-why span {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: .76rem; color: var(--c-muted, #7a7168);
+        background: var(--c-bg-2, #F4EFE8);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: 999px; padding: 4px 10px;
+    }
+    .rbk-why b { color: var(--c-ink, #241f1c); font-weight: 800; }
+    .rbk-warn { margin: 9px 0 0; font-size: .76rem; color: #8a5312; display: flex; gap: 6px; }
+    .rbk-btn {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; min-height: 50px; margin-top: 12px;
+        border: 0; border-radius: var(--r-md, 13px);
+        background: #C17A2A; color: #fff;
+        font-family: inherit; font-size: .96rem; font-weight: 700; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .rbk-btn:active { transform: scale(.995); }
+    .rbk-btn[disabled] { opacity: .55; cursor: default; }
+
+    /* ── Modale MEP ──────────────────────────────────────────────────── */
+    .mepm-line {
+        display: flex; align-items: center; gap: 11px;
+        padding: 10px 0; border-bottom: 1px solid var(--c-line, rgba(36,26,22,.09));
+    }
+    .mepm-line:last-child { border-bottom: 0; }
+    .mepm-txt { flex: 1; min-width: 0; }
+    .mepm-name { display: block; font-size: .9rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.3; overflow-wrap: anywhere; }
+    .mepm-planned { display: block; font-size: .74rem; color: var(--c-muted, #7a7168); margin-top: 2px; }
+    .mepm-qty {
+        width: 84px; flex: 0 0 auto; min-height: 48px;
+        text-align: center; font-size: 1.05rem; font-weight: 700;
+    }
+    .mepm-skip {
+        flex: 0 0 auto; width: 46px; height: 46px; padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px); background: #fff;
+        color: var(--c-muted, #7a7168); cursor: pointer;
+    }
+    .mepm-skip.is-on { background: #f4dfe2; border-color: var(--c-primary, #8D1D2C); color: var(--c-primary, #8D1D2C); }
+    .mepm-line.is-skipped .mepm-txt { opacity: .45; }
+    .mepm-line.is-skipped .mepm-qty { opacity: .35; }
+
+    /* ── États vides ─────────────────────────────────────────────────── */
+    .pr-state { text-align: center; padding: 34px 22px; }
+    .pr-state .lc-icon { color: var(--c-muted, #7a7168); opacity: .45; }
+    .pr-state p { margin: 13px auto 0; max-width: 48ch; color: var(--c-muted, #7a7168); line-height: 1.6; }
+</style>
+{% endblock %}
+
+{% block page_heading %}
+    <div class="page-heading">
+        {# Le sous-titre énumérait « besoins, planning, mise en place, stock » —
+           c'est-à-dire ce que le commutateur et la frise juste dessous montrent
+           déjà, en cliquable. Quarante pixels pour une redite. #}
+        <h3>{{ translations.production_title | default('Production') }}</h3>
+    </div>
+{% endblock %}
+
+{% block content %}
+
+    {# ── Deux moments, pas quatre portes ──
+       Le métier n'a que deux temps : voir ce qui manque, et l'exécuter. Quatre
+       onglets de même rang obligeaient à choisir entre quatre portes avant de
+       voir la première quantité — et deux d'entre elles (stock, minimums) ne
+       servent qu'à consulter. Elles descendent au pied de « Ce qui manque »,
+       et la MEP redevient ce qu'elle est : un bandeau quand il y a à valider,
+       une ligne à consulter quand il n'y a rien.
+
+       Les périodes ne sont pas un troisième moment : ce sont les heures de
+       « Ce qui manque », d'où une rangée de pastilles qui n'apparaît que là. #}
+    {% set period_keys = periods|map(p => p.key) %}
+    {% set on_needs = active_view in period_keys %}
+    {% set on_shop  = active_view in ['stock', 'minimums'] %}
+    {% set on_side  = on_shop or active_view == 'mep' %}
+    {% set needs_href = ROOT ~ '/production?view=' ~ (on_needs ? active_view : periods|first.key) ~ sector_qs %}
+
+    {# ── Une seule rangée ──
+       Le commutateur et les secteurs posaient deux questions de même nature —
+       quelle vue, quel atelier — sur deux étages, pour 190 px de hauteur. Ils
+       tiennent sur une ligne de 46 px. Le secteur reste en tête parce que
+       c'est le filtre le plus large et que tout ce qui suit en dépend, jusqu'aux
+       compteurs du commutateur. #}
+    <div class="pr-bar">
+    <nav class="pr-two" aria-label="{{ translations.production_title | default('Production') }}">
+        <a class="pr-two-t {{ on_needs ? 'is-active' : '' }}" href="{{ needs_href }}"
+           {{ on_needs ? 'aria-current="page"' : '' }}>
+            <b>{{ translations.prod_view_needs_hint | default('Ce qui manque') }}</b>
+            <small>{{ translations.prod_view_decide | default('décider') }}</small>
+            {% if tab_needs is not null %}
+                <span class="pr-two-n">
+                    {{ tab_needs }}
+                    {{ tab_needs > 1
+                        ? (translations.prod_view_needs_n | default('produits'))
+                        : (translations.prod_view_needs_1 | default('produit')) }}
+                </span>
+            {% endif %}
+        </a>
+        <a class="pr-two-t {{ active_view == 'planning' ? 'is-active' : '' }}"
+           href="{{ ROOT }}/production?view=planning{{ sector_qs }}"
+           {{ active_view == 'planning' ? 'aria-current="page"' : '' }}>
+            <b>{{ translations.prod_view_workshop | default("L'atelier") }}</b>
+            <small>{{ translations.prod_view_execute | default('exécuter') }}</small>
+            {% if flow.in_progress is not null %}
+                <span class="pr-two-n">
+                    {{ flow.in_progress }}
+                    {{ flow.in_progress > 1
+                        ? (translations.prod_view_batches_n | default('fournées'))
+                        : (translations.prod_view_batches_1 | default('fournée')) }}
+                </span>
+            {% endif %}
+        </a>
+    </nav>
+    {% include "production/_sectors.twig" %}
+    {# Les périodes ne sont pas un troisième moment : ce sont les heures de
+       « Ce qui manque ». Elles rejoignent donc la rangée, calées à droite —
+       on en change quelques fois par jour, pas à chaque geste. #}
+    {% if on_needs %}
+        <nav class="pr-periods" aria-label="{{ translations.prod_view_needs | default('Besoins') }}">
+            {% for p in tabs %}
+                <a class="cat-chip {{ active_view == p.key ? 'is-on' : '' }}"
+                   href="{{ ROOT }}/production?view={{ p.key }}{{ sector_qs }}"
+                   {{ active_view == p.key ? 'aria-current="page"' : '' }}>
+                    {{ translations['period_' ~ p.key] ?? (p.label ?? p.key) }}
+                    <small>{{ p.start }} – {{ p.end }}</small>
+                </a>
+            {% endfor %}
+        </nav>
+    {% endif %}
+    </div>
+
+    {% include "production/_rail.twig" %}
+
+    {# Stock, minimums et MEP ne sont plus des onglets : on y arrive depuis le
+       pied de « Ce qui manque ». Le chemin du retour doit donc être écrit,
+       sinon on se retrouve dans une pièce sans porte. #}
+    {% if on_side %}
+        <a class="pr-back" href="{{ needs_href }}">
+            {{ icons.svg('chevron-left', 17) }}
+            {{ translations.prod_back | default('Retour à « Ce qui manque »') }}
+        </a>
+    {% endif %}
+
+    {% if on_shop %}
+        {# Deux questions sur le même rayon, et il ne faut pas les confondre :
+           « est-ce que ça tient jusqu'au bout » se répond avec les ventes
+           prévues, « est-ce que la vitrine est présentable » avec un plancher.
+           Deux tableaux sous le même onglet, parce qu'on les consulte dans la
+           même minute. #}
+        <div class="mep-sub">
+            <a href="{{ ROOT }}/production?view=stock{{ sector_qs }}"
+               class="{{ active_view == 'stock' ? 'is-active' : '' }}">
+                <b>{{ translations.stock_title | default('Stock live') }}</b>
+                <small>{{ translations.stock_sub_hint | default('Face aux ventes prévues') }}</small>
+            </a>
+            <a href="{{ ROOT }}/production?view=minimums{{ sector_qs }}"
+               class="{{ active_view == 'minimums' ? 'is-active' : '' }}">
+                <b>{{ translations.min_title | default('Minimum en magasin') }}</b>
+                <small>{{ translations.min_sub_hint | default('Le plancher de vitrine') }}</small>
+            </a>
+        </div>
+    {% endif %}
+
+    {% if active_view == 'planning' %}
+        {# Mode service. Une fournée = une ligne, trois états, un geste au même
+           endroit — on exécute, on ne consulte pas.
+
+           _next.twig reste inclus, sans son panneau d'ordres : il porte la
+           feuille de validation (#bkAssign) et la bande de réserve
+           (#bkReserve), et c'est cette feuille qui, sur la dernière étape,
+           enchaîne sur la mise en magasin — le seul geste qui crédite le stock
+           vendable. Le panneau, lui, ne ferait que répéter la première ligne
+           du fil. #}
+        {% include "baking/_next.twig" with { hide_orders: true } %}
+        {% include "baking/_fil.twig" %}
+
+        {# Le plan de charge répond à « comment tient la journée », pas à « je
+           fais quoi maintenant ». Il reste d'un tap, replié : le supprimer
+           coûterait la seule vue où l'on voit deux fournées se chevaucher sur
+           un four. #}
+        <details class="pr-fold bk-later">
+            <summary>{{ translations.fil_see_plan | default('Voir le plan de la journée') }}</summary>
+            {% include "baking/_gantt.twig" %}
+        </details>
+    {% elseif active_view == 'stock' %}
+        {% set p1_label = horizons.p1.key ? (translations['period_' ~ horizons.p1.key] | default(horizons.p1.key)) : '' %}
+        {% set p2_label = horizons.p2.key ? (translations['period_' ~ horizons.p2.key] | default(horizons.p2.key)) : '' %}
+        {% include "production/_stock.twig" %}
+    {% elseif active_view == 'minimums' %}
+        {% include "production/_minimums.twig" %}
+    {% elseif active_view == 'mep' %}
+        {% include "production/_mep.twig" %}
+    {% else %}
+        <div class="mt-3">{% include "production/_period.twig" %}</div>
+        {% include "production/_more.twig" %}
+    {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if active_view == 'planning' %}
+    {% include "baking/_scripts.twig" %}
+{% elseif active_view == 'stock' %}
+    {% include "production/_stock_scripts.twig" %}
+{% elseif active_view == 'minimums' %}
+    {% include "production/_minimums_scripts.twig" %}
+{% elseif active_view == 'mep' %}
+    {% include "production/_mep_scripts.twig" %}
+{% else %}
+    {% include "production/_period_scripts.twig" %}
+{% endif %}
+{% endblock %}

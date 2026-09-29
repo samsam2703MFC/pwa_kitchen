@@ -73,7 +73,7 @@ function getSplittedTimestamp($timestampString){
  * @param string $defaultLang - Domyślny język na wypadek braku tłumaczeń (np. 'en').
  * @return array - Zwraca tablicę tłumaczeń.
  */
-function loadTranslations($type, $lang, $module = null, $defaultLang = 'en') {
+function loadTranslations($type, $lang, $module = null, $defaultLang = APP_FALLBACK_LANGUAGE) {
     $basePath = __DIR__ . '/../I18n/translations/'; // <- od Support do I18n
     $filePath = $basePath . $type . "/" . $lang . "/" . $module . ".json";
 
@@ -87,12 +87,18 @@ function loadTranslations($type, $lang, $module = null, $defaultLang = 'en') {
         $translations = [];
     }
 
-    // Fallback do domyślnego języka, jeśli tłumaczenie nie istnieje
+    // Repli sur la langue par défaut.
+    // Le chemin construit ici était malformé — « …/translations/ » . « fr » .
+    // « orders.json » donne « …/translations/frorders.json » : ni séparateur,
+    // ni segment $type. Il n'existait donc jamais, le repli ne se déclenchait
+    // pas, et une langue non prise en charge renvoyait un tableau vide. Les
+    // gabarits retombaient alors sur leurs valeurs polonaises codées en dur,
+    // au milieu d'une interface censée être dans une autre langue.
     if (empty($translations) && $lang !== $defaultLang) {
-        $fallbackPath = $basePath . "{$defaultLang}";
-        $fallbackPath .= $module ? "{$module}.json" : "messages.json";
+        $fallbackPath = $basePath . $type . "/" . $defaultLang . "/"
+            . ($module ?: 'messages') . ".json";
         if (file_exists($fallbackPath)) {
-            $translations = json_decode(file_get_contents($fallbackPath), true);
+            $translations = json_decode(file_get_contents($fallbackPath), true) ?: [];
         }
     }
 
@@ -100,19 +106,28 @@ function loadTranslations($type, $lang, $module = null, $defaultLang = 'en') {
 }
 
 
+/**
+ * Langue de l'interface.
+ *
+ * On lit la préférence du navigateur, mais on ne la retient que si elle
+ * correspond à une langue réellement traduite. L'ancienne version renvoyait
+ * le code tel quel : un navigateur en « de » ou en « es » demandait un
+ * dossier de traductions inexistant et l'interface se vidait de ses libellés.
+ * Toute langue non couverte retombe désormais sur le français.
+ */
 function getUserLanguage() {
-    // Sprawdź, czy istnieje nagłówek HTTP_ACCEPT_LANGUAGE
-    $acceptLanguage = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? 'en';
+    $accept = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
 
-    // Rozdziel języki i wybierz pierwszy
-    $languages = explode(',', $acceptLanguage);
-    $primaryLanguage = trim($languages[0]); // np. "en-US"
+    // « fr-FR,fr;q=0.9,en;q=0.8 » → on essaie chaque langue par ordre de
+    // préférence et on garde la première qui est traduite.
+    foreach (explode(',', $accept) as $part) {
+        $code = strtolower(substr(trim(explode(';', $part)[0]), 0, 2));
+        if ($code !== '' && in_array($code, APP_SUPPORTED_LANGUAGES, true)) {
+            return $code;
+        }
+    }
 
-    // Wyciągnij tylko pierwsze dwie litery (kod ISO 639-1)
-    $languageCode = substr($primaryLanguage, 0, 2);
-
-    // Zwróć język lub domyślnie "en"
-    return !empty($languageCode) ? strtolower($languageCode) : 'en';
+    return APP_FALLBACK_LANGUAGE;
 }
 
 function sanitizeSlug(string $slug): string

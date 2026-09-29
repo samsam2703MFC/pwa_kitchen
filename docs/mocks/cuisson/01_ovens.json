@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Four 1 — Rotatif",
+    "levels": 8,
+    "temp_min": 160,
+    "temp_max": 250
+  },
+  {
+    "id": 2,
+    "name": "Four 2 — Ventilé",
+    "levels": 5,
+    "temp_min": 140,
+    "temp_max": 220
+  },
+  {
+    "id": 3,
+    "name": "Four 3 — Sole",
+    "levels": 4,
+    "temp_min": 200,
+    "temp_max": 280
+  }
+]

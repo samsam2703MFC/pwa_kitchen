@@ -1,0 +1,303 @@
+{# production/_period.twig — le tableau de travail d'une période.
+
+   Une période n'est pas un catalogue : c'est une liste de gestes. Les produits
+   s'y rangent donc par ce qu'ils attendent de nous — mettre en rayon, finir,
+   surveiller le four, préparer — et à l'intérieur de chaque section par
+   tension : ce qui manquera le plus vite d'abord. La catégorie reste, en
+   filtre.
+
+   Reçoit du contrôleur : board (sections + catégories), mep_lines,
+   products_available, plan_available, stock_available, forecast_available. #}
+{% import "components/_icons.twig" as icons %}
+
+{% set bucket_labels = {
+    'shelf':  translations.bucket_shelf  | default('À mettre en rayon'),
+    'finish': translations.stage_finish  | default('Finition'),
+    'cook':   translations.stage_cook    | default('Cuisson'),
+    'prep':   translations.stage_prep    | default('Préparation'),
+    'idle':   translations.bucket_idle   | default('Rien en cours')
+} %}
+
+{# Rappel de MEP en attente. La validation elle-même vit dans l'onglet MEP :
+   ici on ne fait que signaler, parce qu'une période dont la MEP n'est pas
+   validée n'a rien à mettre en rayon. #}
+{% if mep_available and mep_pending_count > 0 %}
+    <a href="{{ ROOT }}/production?view=mep&mep=morning{{ sector_qs }}" class="mep-banner text-decoration-none mb-3">
+        <h2>{{ translations.mep_banner_title | default('MEP de la veille à valider') }}</h2>
+        <p>{{ translations.mep_banner_text | default("Tant que la MEP n'est pas validée, rien n'est constaté comme produit — et il n'y a rien à porter en rayon.") }}</p>
+        <span class="mep-banner-btn">
+            {{ icons.svg('check-check', 19) }}
+            {{ translations.mep_go | default('Aller à la MEP') }}
+            <span class="badge bg-light text-dark">{{ mep_pending_count }}</span>
+        </span>
+    </a>
+{% endif %}
+
+{% if not products_available %}
+    <div class="card">
+        <div class="card-body pr-state">
+            {{ icons.svg('package', 38) }}
+            <p>{{ translations.prod_catalog_not_served | default("Le catalogue de production n'est pas encore servi par l'API.") }}</p>
+        </div>
+    </div>
+{% elseif board is null or board.categories is empty %}
+    <div class="card">
+        <div class="card-body pr-state">
+            {{ icons.svg('package', 38) }}
+            <p>{{ translations.prod_no_products | default('Aucun produit déclaré pour cette période.') }}</p>
+        </div>
+    </div>
+{% else %}
+
+    {# Ce qui manque à l'écran doit se lire à l'écran. Une liste triée sur un
+       stock qu'on n'a pas serait un ordre inventé. #}
+    {% set missing = [] %}
+    {% if not plan_available %}
+        {% set missing = missing|merge([translations.board_no_plan | default("le plan de cuisson n'est pas servi : aucune étape n'est connue")]) %}
+    {% endif %}
+    {% if not stock_available %}
+        {% set missing = missing|merge([translations.board_no_stock | default("le stock live n'est pas servi")]) %}
+    {% endif %}
+    {% if not forecast_available %}
+        {% set missing = missing|merge([translations.board_no_forecast | default("le profil de ventes n'est pas servi : le classement se fait sur le stock seul")]) %}
+    {% endif %}
+    {% if orders_available is defined and not orders_available %}
+        {% set missing = missing|merge([translations.board_no_orders | default("le carnet de commandes n'est pas servi : magasin, click & collect et livraison ne sont pas comptés")]) %}
+    {% endif %}
+    {% if missing is not empty %}
+        <p class="pr-warn">{{ icons.svg('circle-alert', 15) }} {{ missing|join(' · ') }}</p>
+    {% endif %}
+
+    {# Les commandes fermes : elles sont déjà comptées dans le manque de chaque
+       tuile, mais on doit pouvoir les lire — c'est ce qui distingue « il en
+       manque 24 » de « 18 sont promis à quelqu'un ». Repliées : ce n'est pas un
+       geste, c'est une raison. #}
+    {% if orders is not empty %}
+        <details class="pr-fold bk-later">
+            <summary>
+                {{ translations.orders_title | default('Commandes du jour') }}
+                <span class="pr-cat-count">{{ orders|length }}</span>
+            </summary>
+            <div class="ord-list">
+                {% for o in orders %}
+                    {# En retard n'a de sens que si une heure a été promise :
+                       une commande « pour midi » sans heure n'est pas en retard,
+                       elle est imprécise. #}
+                    <div class="ord-row {{ o.dueTime and o.dueMinutes < now_minutes|default(0) ? 'is-late' : '' }}">
+                        <span class="ord-when">
+                            {%- if o.dueTime -%}
+                                {{ o.dueTime }}
+                            {%- else -%}
+                                <small>{{ translations['period_' ~ o.period] ?? (o.period ?: '—') }}</small>
+                            {%- endif -%}
+                        </span>
+                        <span class="ord-txt">
+                            <b>{{ o.name | default('—') }}</b>
+                            <small>
+                                {{- o.categoryName ?: '' -}}
+                                {%- if o.reference %}{{ o.categoryName ? ' · ' : '' }}{{ o.reference }}{% endif -%}
+                            </small>
+                        </span>
+                        <span class="ord-qty">{{ o.quantity|number_format(0, ',', ' ') }}</span>
+                        <span class="ord-ch ch-{{ o.channel }}">
+                            {{ translations['channel_' ~ o.channel] ?? o.channel }}
+                        </span>
+                    </div>
+                {% endfor %}
+            </div>
+        </details>
+    {% endif %}
+
+    {% include 'production/_cat_filters.twig' with { categories: board.categories, target: '#prBoard' } %}
+
+    <div id="prBoard">
+        {% for key, rows in board.buckets %}
+            {% if rows is not empty %}
+                {# « Rien en cours » n'appelle aucun geste : replié, il reste
+                   consultable sans encombrer la liste de ce qu'il y a à faire. #}
+                <section class="pr-bucket b-{{ key }}" {{ key == 'idle' ? 'data-fold="1"' : '' }}>
+                    {% if key == 'idle' %}
+                        <details class="pr-fold">
+                            <summary class="pr-cat-title">
+                                <i class="pr-dot d-{{ key }}"></i>
+                                {{ bucket_labels[key] }}<span class="pr-cat-count">{{ rows|length }}</span>
+                            </summary>
+                    {% else %}
+                        <h2 class="pr-cat-title">
+                            <i class="pr-dot d-{{ key }}"></i>
+                            {{ bucket_labels[key] }}<span class="pr-cat-count">{{ rows|length }}</span>
+                        </h2>
+                    {% endif %}
+
+                    <div class="pr-tiles">
+                        {% for r in rows %}
+                            {% set p = r.product %}
+                            <article class="pr-tile b-{{ key }}" data-cat="{{ r.category }}"
+                                     data-product-id="{{ p.idProduct }}"
+                                     data-line-id="{{ r.line ? r.line.id : '' }}"
+                                     data-remaining="{{ r.remaining }}"
+                                     data-batch="{{ p.effectiveBatchSize }}">
+
+                                {# La tuile mène à la cuisson, pas à la fiche
+                                   technique : depuis cet écran on veut voir où
+                                   en est la fournée, pas relire la recette. Le
+                                   lien pointe la fournée précise quand elle
+                                   existe, le module entier sinon. #}
+                                <a class="pr-tile-head"
+                                   href="{{ ROOT }}/production?view=planning{{ sector_qs }}{{ r.batch ? '&focus=' ~ r.batch.id : '' }}">
+                                    {% if p.hasMainPhoto %}
+                                        <img class="pr-thumb" src="{{ p.mainPhotoUrl }}" alt="" loading="lazy">
+                                    {% else %}
+                                        <span class="pr-thumb" aria-hidden="true">{{ icons.svg('package', 20) }}</span>
+                                    {% endif %}
+                                    <span class="pr-tile-txt">
+                                        <span class="pr-row-name">{{ p.name | default('—') }}</span>
+                                        <span class="pr-tile-cat">
+                                            {{- r.category -}}
+                                            {%- if r.batch %} · {{ r.batch.quantity|number_format(0, ',', ' ') }}
+                                                {{- p.unitName ? ' ' ~ p.unitName : '' }}
+                                            {%- elseif r.remaining > 0 %} · {{ r.remaining|number_format(0, ',', ' ') }}
+                                                {{- p.unitName ? ' ' ~ p.unitName : '' }}
+                                            {%- endif -%}
+                                        </span>
+                                    {# Une part du manque est déjà promise à quelqu'un : le
+                                       dire change la façon dont on arbitre, parce qu'une
+                                       vitrine un peu vide se rattrape et un client qui repart
+                                       sans son plateau non.
+
+                                       Sous le nom, et pas dans la rangée d'actions : c'est un
+                                       fait sur le produit, pas un geste. À droite, elle
+                                       disputait 150 px au titre — « Croissant pur beurre » y
+                                       passait sur trois lignes. Un <span> et non un <p> :
+                                       on est à l'intérieur d'un lien. #}
+                                    {% if r.ordered > 0 %}
+                                        <span class="pr-ord">
+                                            {{ icons.svg('receipt', 13) }}
+                                            {{ translations.board_ordered | default('dont') }}
+                                            {{ r.ordered|number_format(0, ',', ' ') }}
+                                            {{ translations.board_ordered_2 | default('commandés') }}
+                                        </span>
+                                    {% endif %}
+                                    {# ── Le parcours de préparation, en une ligne ──
+                                       Défini par le réseau (GET /products/{id}/preparation-path) :
+                                       la durée totale des gestes, et la capacité du four. Au
+                                       moment de décider d'une fournée, c'est ce qui dit si
+                                       « 48 » passe en un four ou en deux. Affiché seulement
+                                       s'il est servi — rien n'est inventé, et le calcul du
+                                       manque n'en dépend pas. #}
+                                    {% set pp = prep.map[p.idProduct] | default(null) %}
+                                    {% if pp %}
+                                        <span class="pr-prep">
+                                            {{ icons.svg('list-checks', 13) }}
+                                            {%- if pp.total %} {{ pp.total }}{% endif %}
+                                            {%- if pp.oven %} · {{ translations.prep_oven_short | default('four') }} {{ pp.oven }}{% endif %}
+                                            {%- if pp.capacity %} · {{ pp.capacity }} {{ translations.prep_at_once | default('à la fois') }}{% endif %}
+                                        </span>
+                                    {% endif %}
+                                    </span>
+                                    {# ETA : l'heure de finition prévue. Elle
+                                       n'existe que s'il y a une fournée — et
+                                       c'est précisément ce qui apparaît quand on
+                                       lance une production. À droite du nom :
+                                       une colonne se compare d'une tuile à
+                                       l'autre, une ligne non. #}
+                                    {% if r.batch %}
+                                        <span class="pr-eta">
+                                            <b>{{ r.batch.finishEndClock }}</b>
+                                            <small>{{ translations.board_eta | default('ETA') }}</small>
+                                        </span>
+                                    {% endif %}
+                                </a>
+
+                                {# Produit, quantité, conclusion. Stock et ventes
+                                   prévues ont quitté la tuile : ils justifiaient
+                                   le classement, mais on ne relit pas une
+                                   justification quarante fois — on lit ce qu'il
+                                   y a à faire. Ils restent lisibles en entier
+                                   sur l'écran Stock. #}
+                                <p class="pr-need lv-{{ r.level }}">
+                                    {%- if r.level == 'short' -%}
+                                        {{ translations.board_to_produce | default('À produire') }}
+                                        <b>{{ r.to_produce|number_format(0, ',', ' ') }}</b>
+                                        {%- if p.unitName %} {{ p.unitName }}{% endif %}
+                                        {%- if p.hasBatchSize %}
+                                            <span class="pr-need-sub">
+                                                {{ translations.board_min_batch | default('minimum une fournée de') }}
+                                                {{ p.batchSize|number_format(0, ',', ' ') }}
+                                            </span>
+                                        {% endif %}
+                                    {%- elseif r.level == 'unknown' -%}
+                                        {{ translations.board_sales_unknown | default('Ventes inconnues') }}
+                                    {%- else -%}
+                                        —
+                                    {%- endif -%}
+                                </p>
+
+                                {% if r.level == 'short' %}
+                                    {# Constater le manque ne le comble pas. Ce bouton
+                                       programme la fournée : elle entre au plan de
+                                       cuisson, et le produit bascule aussitôt en
+                                       préparation, puis cuisson, puis finition. On
+                                       anticipe la rupture au lieu de la découvrir
+                                       vitrine vide. #}
+                                    <div class="pr-launch">
+                                        <span class="mep-ctl">
+                                            <button type="button" class="mep-step" data-step="-1" aria-label="−">−</button>
+                                            <input type="number" class="form-control mep-qty pr-launch-qty"
+                                                   inputmode="numeric" min="0" step="1"
+                                                   value="{{ r.to_produce|number_format(0, '.', '') }}"
+                                                   aria-label="{{ translations.board_launch_qty | default('Quantité à produire') }} — {{ p.name }}">
+                                            <button type="button" class="mep-step" data-step="1" aria-label="+">+</button>
+                                        </span>
+                                        <button type="button" class="pr-launch-go">
+                                            {{ icons.svg('flame', 17) }}
+                                            {{ translations.board_launch | default('Lancer la production') }}
+                                        </button>
+                                    </div>
+                                {% endif %}
+
+                                {% if key == 'shelf' %}
+                                    {# La mise en rayon : le geste de cette section.
+                                       Pré-rempli au reste à porter, réglable par
+                                       fournée — on porte rarement un plateau et
+                                       demi. #}
+                                    <p class="pr-tile-sub">
+                                        {{ translations.shelf_remaining | default('Reste à porter') }}
+                                        <b>{{ r.remaining|number_format(0, ',', ' ') }}</b>
+                                        {%- if p.unitName %} {{ p.unitName }}{% endif %}
+                                        {%- if r.line and r.line.quantityShelved > 0 %}
+                                            · {{ translations.shelf_done | default('déjà en rayon') }}
+                                            {{ r.line.quantityShelved|number_format(0, ',', ' ') }}
+                                        {%- endif %}
+                                    </p>
+                                    <div class="pr-shelf">
+                                        <span class="mep-ctl">
+                                            <button type="button" class="mep-step" data-step="-1" aria-label="−">−</button>
+                                            <input type="number" class="form-control mep-qty pr-shelf-qty"
+                                                   inputmode="numeric" min="0" step="1"
+                                                   value="{{ r.remaining|number_format(0, '.', '') }}"
+                                                   aria-label="{{ translations.shelf_qty | default('Quantité à mettre en rayon') }} — {{ p.name }}">
+                                            <button type="button" class="mep-step" data-step="1" aria-label="+">+</button>
+                                        </span>
+                                        <button type="button" class="pr-shelf-go">
+                                            {{ icons.svg('store', 17) }}
+                                            {{ translations.shelf_go | default('En rayon') }}
+                                        </button>
+                                        <p class="pr-shelf-fx">
+                                            {{ translations.shelf_effect | default('met') }}
+                                            <b>+<span class="pr-shelf-fx-n">{{ r.remaining|number_format(0, ',', ' ') }}</span></b>
+                                            {{ translations.shelf_effect_2 | default('au stock du magasin, en vente') }}
+                                        </p>
+                                    </div>
+                                {% endif %}
+                            </article>
+                        {% endfor %}
+                    </div>
+                    {% if key == 'idle' %}</details>{% endif %}
+                </section>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div id="prShelfAlert" class="alert mt-3 d-none"></div>
+{% endif %}

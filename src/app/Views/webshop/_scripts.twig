@@ -1,0 +1,40 @@
+{# webshop/_scripts.twig — un tap, une commande qui avance.
+
+   Le serveur arbitre : on ne réécrit pas la ligne en JavaScript, on recharge.
+   Deviner la suite ici reviendrait à maintenir deux fois le même rendu, et les
+   deux finiraient par diverger — c'est déjà la règle du fil de production. #}
+<script>
+(function () {
+    var list = document.getElementById('wsOrders');
+    if (!list) return;
+
+    var ROOT = {{ ROOT | json_encode | raw }};
+    var ERR  = {{ (translations.ws_error | default("La commande n'a pas pu être mise à jour.")) | json_encode | raw }};
+
+    list.addEventListener('click', function (e) {
+        var b = e.target.closest('.ws-act');
+        if (!b || b.disabled) return;
+
+        // Verrouillage immédiat : au comptoir on tape deux fois plutôt qu'une,
+        // et deux avancements d'un coup feraient sauter l'étape « prête ».
+        b.disabled = true;
+
+        fetch(ROOT + '/ajax/webshop/order-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id: b.dataset.id, status: b.dataset.next })
+        })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (res) {
+            if (res && res.success) { window.location.reload(); return; }
+            b.disabled = false;
+            if (window.showSnack) showSnack(false, ERR);
+        })
+        .catch(function () {
+            b.disabled = false;
+            if (window.showSnack) showSnack(false, ERR);
+        });
+    });
+})();
+</script>

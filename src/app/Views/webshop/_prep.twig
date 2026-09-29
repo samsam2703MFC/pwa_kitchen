@@ -1,0 +1,58 @@
+{# webshop/_prep.twig — la préparation du jour. Une commande, une ligne, un geste.
+
+   Même grammaire que le fil de production : le verbe est toujours au même
+   endroit, à la même taille, et la couleur dit l'état à trois mètres. Ce qui
+   reste à faire est en haut ; ce qui est remis descend et s'efface.
+
+   Un seul bouton par ligne, et il porte l'étape SUIVANTE, pas l'état actuel :
+   au comptoir on ne consulte pas un statut, on avance. #}
+{% set verbs = {
+    'preparing': translations.ws_go_prep  | default('Je prépare'),
+    'ready':     translations.ws_go_ready | default('C\'est prêt'),
+    'delivered': translations.ws_go_done  | default('Remis au client')
+} %}
+
+{% if orders is null %}
+    <div class="card mt-3"><div class="card-body ws-state">
+        <p>{{ translations.ws_not_served | default("Les commandes ne sont pas encore servies par le webshop.") }}</p>
+    </div></div>
+
+{% elseif orders is empty %}
+    <div class="card mt-3"><div class="card-body ws-state">
+        <h2>{{ translations.ws_no_order | default('Aucune commande aujourd\'hui') }}</h2>
+        <p>{{ translations.ws_no_order_hint | default("Rien à préparer pour l'instant. Les nouvelles commandes arriveront ici.") }}</p>
+    </div></div>
+
+{% else %}
+    <div class="ws-list" id="wsOrders">
+        {% for o in orders %}
+            <article class="ws-row b-{{ o.bucket }}" data-id="{{ o.id }}">
+                <div class="ws-who">
+                    <b>{{ o.client }}</b>
+                    <small>{{ o.ref }} · {{ o.mode }}</small>
+                </div>
+
+                <div class="ws-when">
+                    <b>{{ o.slot }}</b>
+                    <small>{{ o.total }}</small>
+                </div>
+
+                <div class="ws-go-cell">
+                    {% if o.next %}
+                        <button type="button" class="ws-act"
+                                data-id="{{ o.id }}"
+                                data-next="{{ o.next }}"
+                                data-name="{{ o.client }}">
+                            {{ verbs[o.next] | default('→') }}
+                        </button>
+                    {% else %}
+                        {# Rien à faire : pas de bouton mort. Une commande remise
+                           reste visible le temps du service — c'est la preuve
+                           qu'elle est partie — mais elle n'appelle plus rien. #}
+                        <span class="ws-done">{{ translations.ws_is_done | default('Remise') }}</span>
+                    {% endif %}
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% endif %}

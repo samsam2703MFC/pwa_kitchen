@@ -2,6 +2,7 @@
 
 namespace App\Kitchen\app\Http\Controllers\Order;
 
+use App\Kitchen\app\Models\Order\OrderModel;
 use App\Kitchen\app\Http\Controllers\Controller;
 use App\Kitchen\app\Services\Client\ClientService;
 use App\Kitchen\app\Services\Knowledge\Product\ProductService;
@@ -41,13 +42,51 @@ class OrderController extends Controller
             []
         );
 
+        // Mode de remise : all | collect | delivery. Trié en PHP faute d'un
+        // paramètre d'API (voir docs/ENDPOINTS_COMMANDES_WEB.md).
+        $fulfilment = $_GET['fulfilment'] ?? 'all';
+        if (!in_array($fulfilment, ['all', 'collect', 'delivery'], true)) {
+            $fulfilment = 'all';
+        }
+
+        $hasFulfilmentData = $this->orderService->hasFulfilmentData($orders);
+        $orders = $this->orderService->filterByFulfilment($orders, $fulfilment);
+
         $this->view('orders/overview', [
-            'orders'      => $orders,
-            'date'        => $date,
-            'client_name' => $clientName,
+            'orders'              => $orders,
+            'fulfilment'          => $fulfilment,
+            'has_fulfilment_data' => $hasFulfilmentData,
+            'date'                => $date,
+            'client_name'         => $clientName,
             'pending_only' => $pendingOnly,
             'today'       => date('Y-m-d'),
         ]);
+    }
+
+    /**
+     * Compteur des commandes en attente, pour le sondage du front.
+     *
+     * GET /ajax/orders/pending-count
+     *
+     * Volontairement minimal : appelé toutes les dix secondes sur chaque
+     * tablette de chaque magasin, il ne doit renvoyer que des nombres. Le
+     * détail par mode de remise reste à zéro tant que l'API ne sert pas le
+     * champ correspondant (voir docs/ENDPOINTS_COMMANDES_WEB.md).
+     */
+    #[Route('GET', '/ajax/orders/pending-count')]
+    public function pendingCount(): void
+    {
+        $orders = $this->orderService->getOrders(date('Y-m-d'), null, true);
+
+        $collect = count($this->orderService->filterByFulfilment($orders, OrderModel::MODE_COLLECT));
+        $delivery = count($this->orderService->filterByFulfilment($orders, OrderModel::MODE_DELIVERY));
+
+        $json = $this->json([
+            'total'    => count($orders),
+            'collect'  => $collect,
+            'delivery' => $delivery,
+        ], 200);
+        $json->send();
     }
 
     #[Route('GET', '/orders/new')]
@@ -100,7 +139,7 @@ class OrderController extends Controller
         );
 
         if ($order === null) {
-            $this->errors[] = 'Zamówienie nie zostało znalezione.';
+            $this->errors[] = 'error_order_not_found';
             $this->view('errors/404', []);
             return;
         }
@@ -150,7 +189,7 @@ class OrderController extends Controller
         );
 
         if ($order === null) {
-            $this->errors[] = 'Zamówienie nie zostało znalezione.';
+            $this->errors[] = 'error_order_not_found';
             $this->view('errors/404', []);
             return;
         }
@@ -167,7 +206,7 @@ class OrderController extends Controller
         $data = $this->getJson($request);
 
         if (empty($data)) {
-            $response = $this->json(['status' => 'error', 'description' => 'Brak danych zamówienia.'], 400);
+            $response = $this->json(['status' => 'error', 'description' => 'Données de commande absentes.'], 400);
             $response->send();
             exit;
         }
@@ -187,7 +226,7 @@ class OrderController extends Controller
         $data = $this->getJson($request);
 
         if (empty($data)) {
-            $response = $this->json(['status' => 'error', 'description' => 'Brak danych zamówienia.'], 400);
+            $response = $this->json(['status' => 'error', 'description' => 'Données de commande absentes.'], 400);
             $response->send();
             exit;
         }

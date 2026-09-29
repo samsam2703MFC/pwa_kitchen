@@ -4,325 +4,505 @@
 
 {% block head %}
 <style>
-    .task-badge {
-        display: inline-block;
-        padding: .25rem .65rem;
-        border-radius: 999px;
-        font-size: .75rem;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-    .badge-done    { background: #d1e7dd; color: #0f5132; }
-    .badge-pending { background: #e2e3e5; color: #41464b; }
-    .badge-skipped { background: #fff3cd; color: #664d03; }
-    .badge-failed  { background: #f8d7da; color: #842029; }
-
     .checklist-section { margin-bottom: 2rem; }
 
-    .task-row { transition: background .1s; }
-    .task-row:hover { background: #f8f9fa; }
+    /* ══ Les filtres, en une rangée ══
+       Ils tenaient dans un panneau repliable qui, déplié, mangeait le premier
+       écran, et replié demandait un tap pour savoir ce qu'il cachait. Une
+       rangée de pastilles dit tout et ne coûte rien : le nom, l'heure et
+       l'avancement de chaque checklist sont lisibles sans rien ouvrir. */
+    .cl-bar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+        margin-bottom: 14px;
+    }
+    .cl-chip {
+        position: relative; display: inline-flex; align-items: center; gap: 9px;
+        min-height: 46px; padding: 0 20px; border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
+        font-size: .89rem; font-weight: 600; color: var(--c-muted, #7a7168);
+        cursor: pointer; -webkit-tap-highlight-color: transparent;
+        transition: background .14s ease, border-color .14s ease, color .14s ease;
+    }
+    .cl-chip input { position: absolute; opacity: 0; pointer-events: none; }
+    .cl-chip:active { transform: scale(.985); }
+    .cl-chip:has(input:checked), .cl-chip.is-active {
+        background: var(--c-encre, #1F4F6B); border-color: var(--c-encre, #1F4F6B); color: #fff;
+    }
+    .cl-chip:has(input:focus-visible) { outline: 3px solid rgba(31,79,107,.35); outline-offset: 2px; }
+    .cl-chip-h { font-weight: 400; opacity: .8; font-variant-numeric: tabular-nums; }
+    .cl-chip-n {
+        background: var(--c-bg, #EAE4DC); border-radius: 999px; padding: 1px 9px;
+        font-size: .78rem; font-variant-numeric: tabular-nums;
+    }
+    .cl-chip:has(input:checked) .cl-chip-n, .cl-chip.is-active .cl-chip-n { background: rgba(255,255,255,.22); }
+    /* La date part à droite : on la change rarement, et elle n'a pas à
+       repousser les checklists hors de portée du pouce. */
+    .cl-date { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .cl-date input {
+        min-height: 46px; padding: 0 16px; border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff;
+        font-size: .89rem; font-weight: 600; color: var(--c-ink, #241f1c);
+    }
+    .cl-date .btn { min-height: 46px; border-radius: var(--r-pill, 999px); padding: 0 20px; }
+
+    /* ══ Le panneau ══
+       Quatre cartes qui flottent font quatre objets ; une liste en fait un
+       seul, et l'œil descend sans repartir de zéro à chaque ligne. */
+    .cl-panel {
+        background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px); overflow: hidden;
+    }
+    .cl-head {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 13px;
+        padding: 13px 20px; background: #fcfaf7;
+        border-bottom: 1px solid var(--c-line, rgba(36,26,22,.09));
+    }
+    .cl-head b { font-size: 1.05rem; font-weight: 800; letter-spacing: .01em; }
+    .cl-head .cl-when { font-size: .85rem; color: var(--c-muted, #7a7168); }
+    .cl-head .cl-count {
+        margin-left: auto; font-size: .84rem; color: var(--c-muted, #7a7168);
+        font-variant-numeric: tabular-nums;
+    }
+    .cl-prog { width: 132px; height: 7px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .cl-prog > span { display: block; height: 100%; background: #2D7A3E; }
+
+    /* ── Une tâche = une ligne ── */
+    .tk-row {
+        display: flex; align-items: center; gap: 18px;
+        padding: 14px 20px; border-top: 1px solid var(--c-line, rgba(36,26,22,.09));
+    }
+    .tk-row:first-of-type { border-top: 0; }
+    .tk-row.is-done { background: #fbfdfb; }
+    /* L'heure prévue commande la fermeture : elle est le repère, pas une
+       étiquette parmi d'autres. En chiffres tabulaires, les heures s'alignent
+       et la liste se lit comme un horaire. */
+    .tk-eta { width: 62px; flex: none; font-variant-numeric: tabular-nums; }
+    .tk-eta b { display: block; font-size: .96rem; font-weight: 700; color: var(--c-encre, #1F4F6B); line-height: 1.15; }
+    .tk-row.is-done .tk-eta b, .tk-row.is-skipped .tk-eta b { color: var(--c-muted, #7a7168); font-weight: 500; }
+    .tk-eta small { display: block; font-size: .66rem; letter-spacing: .09em; color: var(--c-muted, #7a7168); margin-top: 2px; }
+    .tk-body { flex: 1; min-width: 0; }
+    .tk-name { font-size: 1.02rem; font-weight: 700; line-height: 1.3; }
+    .tk-row.is-done .tk-name, .tk-row.is-skipped .tk-name { font-weight: 500; color: var(--c-muted, #7a7168); }
+    .tk-meta { margin-top: 3px; font-size: .79rem; color: var(--c-muted, #7a7168); display: flex; flex-wrap: wrap; gap: 14px; }
+    .tk-req { color: #C17A2A; font-weight: 700; }
+    .tk-note { margin: 6px 0 0; font-size: .82rem; color: var(--c-muted, #7a7168); display: flex; gap: 7px; }
+    .task-mandatory-icon { color: #e0a000; font-size: .75rem; }
+    .tk-photo-icon { color: #1F4F6B; font-size: .8rem; }
+
+    /* ── L'interrupteur ──
+       Deux issues dans un seul objet : le doigt choisit un côté au lieu de
+       viser un bouton parmi deux. Le refus ne porte pas de rouge tant qu'on ne
+       le touche pas — une checklist n'est pas un écran d'alerte. Et il est
+       BORNÉ : « Effectuer » faisait 1355 px de large, toute la largeur, quand
+       le refus occupait le bord droit — c'est-à-dire l'endroit où se pose le
+       pouce en paysage. Le geste courant y revient. */
+    .tk-seg {
+        display: flex; flex: none; height: 54px; border-radius: 13px; overflow: hidden;
+        border: 1.5px solid #2D7A3E;
+    }
+    .tk-do {
+        border: 0; background: #2D7A3E; color: #fff; cursor: pointer;
+        font-size: 1rem; font-weight: 700; padding: 0 28px;
+        display: inline-flex; align-items: center; gap: 10px; white-space: nowrap;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .tk-do:hover { background: #256633; }
+    .tk-do:active { transform: scale(.99); }
+    .tk-fail {
+        border: 0; border-left: 1.5px solid #2D7A3E; background: #fff;
+        color: var(--c-muted, #7a7168); font-size: 1.12rem; padding: 0 19px; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .tk-fail:hover { background: #f4dfe2; color: var(--c-primary, #8D1D2C); }
+    .tk-fail:active { transform: scale(.99); }
+
+    .tk-sig { flex: none; text-align: right; font-size: .84rem; font-weight: 700; color: #2D7A3E; }
+    .tk-sig small { display: block; font-weight: 400; color: var(--c-muted, #7a7168); margin-top: 2px; }
+    .tk-state { flex: none; font-size: .84rem; font-weight: 700; }
+    .tk-state.is-failed  { color: var(--c-primary, #8D1D2C); }
+    .tk-state.is-skipped { color: #C17A2A; }
+
+    .cl-empty { text-align: center; color: var(--c-muted, #7a7168); padding: 46px 20px; }
+    .cl-empty i { font-size: 2.3rem; opacity: .3; }
+    .cl-empty p { margin: 14px 0 0; }
+
+    /* ══ La barre du haut ══ */
+    .cl-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .cl-back { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 16px;
+        border-radius: var(--r-pill, 999px); border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        background: #fff; color: var(--c-ink, #241f1c); font-size: .88rem; font-weight: 600; text-decoration: none; }
+    .cl-back:active { transform: scale(.985); }
+    .cl-top form { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .cl-top input[type=date] { min-height: 44px; padding: 0 14px; border-radius: var(--r-pill, 999px);
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); background: #fff; font-size: .88rem; font-weight: 600; color: var(--c-ink, #241f1c); }
+    .cl-top .btn { min-height: 44px; border-radius: var(--r-pill, 999px); padding: 0 18px; }
+
+    /* ══ CL2 — l'accueil : cartes à points de tâches (D2) ══
+       Compact et lisible d'un coup d'œil : le nom en tête, l'état en pastille,
+       et l'avancement en POINTS — plein pour ce qui est fait, rubis pour la
+       tâche en cours, creux pour le reste. Une seule colonne sur téléphone,
+       deux au-delà de 720 px. */
+    .cl-cards { display: grid; grid-template-columns: 1fr; gap: 11px; }
+    @media (min-width: 720px) { .cl-cards { grid-template-columns: 1fr 1fr; } }
+    .cl-card {
+        display: block; padding: 15px 17px; background: #fff;
+        border: 1.5px solid transparent; border-radius: 16px;
+        text-decoration: none; color: inherit;
+        box-shadow: 0 6px 16px -12px rgba(36,26,22,.5);
+        -webkit-tap-highlight-color: transparent;
+    }
+    .cl-card, .cl-card:visited { color: inherit; }
+    .cl-card:active { transform: scale(.99); }
+    .cl-card.is-now { border-color: rgba(141,29,44,.35); }
+    .cl-card-r1 { display: flex; align-items: center; gap: 10px; }
+    .cl-card-name { flex: 1; min-width: 0; font-size: 1.08rem; font-weight: 700; line-height: 1.25; color: var(--c-ink, #241f1c);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cl-card-tag { flex: none; font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 3px 9px; border-radius: 999px; }
+    .cl-card-tag.now { background: var(--c-primary, #8D1D2C); color: #fff; }
+    .cl-card-tag.done { background: rgba(45,122,62,.14); color: var(--c-vert, #2D7A3E); }
+    .cl-card-tag.soon { background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168); }
+    .cl-card-r2 { display: flex; align-items: center; gap: 12px; margin-top: 11px; }
+    .cl-card-hh { flex: none; font-size: .82rem; font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; }
+    .cl-dots { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+    .cl-dot { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid #d8cfc4; }
+    .cl-dot.on { background: var(--c-vert, #2D7A3E); border-color: var(--c-vert, #2D7A3E); }
+    .cl-dot.next { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); }
+    /* Les points s'affichent jusqu'à douze tâches et s'enroulent proprement si
+       besoin — assez pour toutes les checklists réelles, si bien qu'on ne voit
+       jamais un mélange points/barre d'une carte à l'autre. Au-delà (rare), une
+       barre fine prend le relais. */
+    .cl-dots { max-height: 40px; overflow: hidden; }
+    .cl-mini { flex: 1; height: 8px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .cl-mini > i { display: block; height: 100%; }
+    .cl-mini > i.on { background: var(--c-vert, #2D7A3E); }
+    .cl-mini > i.now { background: var(--c-primary, #8D1D2C); }
+    .cl-card-cnt { flex: none; font-size: .82rem; font-weight: 700; color: var(--c-muted, #7a7168); font-variant-numeric: tabular-nums; }
+
+    /* ══ CL3 — accordéon de travail ══ */
+    .cl-acc { background: #fff; border: 1px solid var(--c-line, rgba(36,26,22,.09)); border-radius: var(--r-lg, 18px); overflow: hidden; }
+    .cl-acc-hd { display: flex; align-items: center; gap: 14px; padding: 15px 20px;
+        border-top: 1px solid var(--c-line, rgba(36,26,22,.09)); text-decoration: none; color: inherit; }
+    .cl-acc-hd:first-child { border-top: 0; }
+    a.cl-acc-hd:active { background: #fbfaf8; }
+    .cl-acc-hd.is-open { background: #fcfaf7; }
+    .cl-acc-hh { width: 52px; flex: none; font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; font-size: .9rem; }
+    .cl-acc-hd b { flex: 1; min-width: 0; font-size: 1.05rem; font-weight: 700; }
+    .cl-acc-hd.is-done b { color: var(--c-muted, #7a7168); font-weight: 500; }
+    .cl-acc-bar { width: 110px; flex: none; height: 6px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .cl-acc-bar > i { display: block; height: 100%; background: var(--c-vert, #2D7A3E); }
+    .cl-acc-cnt { width: 48px; flex: none; text-align: right; font-size: .84rem; color: var(--c-muted, #7a7168); font-variant-numeric: tabular-nums; }
+    .cl-acc-chev { color: var(--c-muted, #7a7168); flex: none; }
+    .cl-acc-body { border-top: 1px solid var(--c-line, rgba(36,26,22,.09)); background: #fff; }
+    @media (max-width: 620px) { .cl-acc-bar { display: none; } }
+
+    /* Portrait ou petite tablette : l'interrupteur passe sous le libellé
+       plutôt que de comprimer le nom de la tâche à deux mots par ligne. */
+    @media (max-width: 767.98px) {
+        .tk-row { flex-wrap: wrap; gap: 12px; }
+        .tk-eta { width: 54px; }
+        .tk-body { flex: 1 1 60%; }
+        .tk-seg { width: 100%; height: 56px; }
+        .tk-do { flex: 1; justify-content: center; }
+        .cl-date { margin-left: 0; width: 100%; }
+        .cl-date input { flex: 1; }
+    }
+
+    /* ── Choix de l'employé : badges deux par ligne ── */
+    .emp-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+    .emp-badge {
+        display: flex; align-items: center; gap: 10px;
+        min-height: 52px; padding: 8px 12px;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px);
+        background: #fff; cursor: pointer; text-align: left;
+        font-family: inherit;
+        transition: border-color .15s ease, background .15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .emp-badge.is-active {
+        border-color: var(--c-primary, #8D1D2C);
+        background: var(--c-primary-soft, #f4dfe2);
+    }
+    .emp-initials {
+        width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        font-family: var(--font-display); font-size: .8rem; line-height: 1;
+    }
+    .emp-name {
+        flex: 1; min-width: 0;
+        font-size: .88rem; font-weight: 600; color: var(--c-ink, #241f1c);
+        line-height: 1.25; overflow-wrap: anywhere;
+    }
+    .emp-note {
+        font-size: .78rem; color: var(--c-muted, #7a7168);
+        margin: 9px 0 0; display: flex; gap: 6px; align-items: flex-start;
+    }
+
+    /* ── PIN : quatre cases ── */
+    #modalNoteInput { resize: vertical; min-height: 62px; }
+
+    /* ── Bandeau de poste ──
+       Vert et permanent : on ne tape plus son code, il faut donc voir en
+       continu sous quel nom on signe. */
+    .shift-bar {
+        display: flex; align-items: center; gap: 13px;
+        background: var(--c-surface, #fff);
+        border: 2px solid var(--c-vert, #2D7A3E);
+        border-radius: var(--r-lg, 18px);
+        padding: 11px 16px; margin-bottom: 14px;
+    }
+    .shift-av {
+        width: 38px; height: 38px; flex: none; border-radius: 50%;
+        background: var(--c-vert, #2D7A3E); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .84rem; font-weight: 800;
+    }
+    .shift-txt { flex: 1; min-width: 0; }
+    .shift-txt b { display: block; font-size: .95rem; font-weight: 800; line-height: 1.2; }
+    .shift-txt small { display: block; font-size: .76rem; color: var(--c-muted, #7a7168); }
+    .shift-x {
+        flex: none; min-height: 44px; padding: 0 17px;
+        border: 1px solid var(--c-line, rgba(36,26,22,.15)); border-radius: 999px;
+        background: #fff; color: var(--c-primary, #8D1D2C);
+        font-size: .82rem; font-weight: 700;
+    }
+
+    /* Centré : quatre cases alignées à gauche laissaient un vide à droite qui
+       tirait l'œil vers rien. Au milieu, elles tombent sous le pouce quelle que
+       soit la main qui tient la tablette. */
+    .pin-boxes { display: flex; gap: 10px; justify-content: center; }
+    .pin-box {
+        width: 56px; height: 60px; flex: 0 0 auto;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px);
+        background: #fff; text-align: center;
+        font-size: 1.5rem; font-weight: 700; color: var(--c-ink, #241f1c);
+        font-family: inherit;
+    }
+    .pin-box:focus {
+        outline: none;
+        border-color: var(--c-secondary, #F2C9A0);
+        box-shadow: 0 0 0 .22rem rgba(141,29,44,.14);
+    }
+    .pin-box.is-filled { border-color: var(--c-primary, #8D1D2C); }
 
     .task-mandatory-icon { color: #e0a000; font-size: .75rem; }
-
-    .summary-stat {
-        text-align: center;
-        padding: .75rem 1rem;
-    }
-    .summary-stat .stat-value {
-        font-size: 1.5rem;
-        font-weight: 800;
-        line-height: 1.1;
-    }
-    .summary-stat .stat-label {
-        font-size: .75rem;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
-    .stat-total  { color: #435ebe; }
-    .stat-done   { color: #198754; }
-    .stat-missed { color: #dc3545; }
 
     .progress-bar-thin { height: 6px; border-radius: 3px; }
 </style>
 {% endblock %}
 
 {% block page_heading %}
+    {# Le titre et son sous-titre prenaient 130 px pour dire ce que la barre du
+       bas dit déjà par son onglet actif. Une ligne suffit : la date, et ce
+       qu'il reste à faire. #}
     <div class="page-heading">
         <h3>{{ translations.checklists_title | default('Checklisty') }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.checklists_subtitle | default('Przeglądaj zadania dzienne zgrupowane według checklisty.') }}</p>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ ROOT }}/dashboard">{{ translations.kitchen_dashboard | default('Pulpit') }}</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ translations.checklists | default('Checklisty') }}</li>
-            </ol>
-        </nav>
     </div>
 {% endblock %}
-
 {% block content %}
 
-    {# ── Panel filtrów ── #}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <form method="GET" action="{{ ROOT }}/checklists" id="filterForm">
-                        <div class="row g-3 align-items-end">
+    {# ── Les filtres, en une rangée ──
+       Ils tenaient dans un panneau repliable qui, déplié, poussait le premier
+       bouton « Effectuer » vers 1 045 px — sous la ligne de flottaison d'une
+       tablette — et replié demandait un tap pour savoir ce qu'il cachait.
 
-                            {# Data #}
-                            <div class="col-12 col-md-4">
-                                <label for="dateInput" class="form-label fw-semibold">
-                                    {{ translations.filter_date | default('Data') }}
-                                </label>
-                                <input type="date"
-                                       name="date"
-                                       id="dateInput"
-                                       class="form-control"
-                                       value="{{ selected_date }}"
-                                       max="{{ today }}"
-                                       required>
-                            </div>
-
-                            {# Checklista #}
-                            <div class="col-12 col-md-5">
-                                <label for="checklistSelect" class="form-label fw-semibold">
-                                    {{ translations.filter_checklist | default('Checklista') }}
-                                </label>
-                                <select name="checklist_id" id="checklistSelect" class="form-select">
-                                    <option value="">{{ translations.filter_checklist_all | default('— wszystkie —') }}</option>
-                                    {% for cl in checklists %}
-                                        <option value="{{ cl.id }}"
-                                            {{ selected_checklist_id == cl.id ? 'selected' : '' }}>
-                                            {{ cl.name }}{% if cl.execution_time %} ({{ cl.execution_time|slice(0,5) }}){% endif %}
-                                            · {{ cl.tasks_done }}/{{ cl.tasks_total }} {{ translations.tasks_done_of | default('wyk.') }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="col-12 col-md-3">
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="bi bi-funnel me-1"></i>
-                                    {{ translations.filter_apply | default('Pokaż') }}
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+       Une rangée de pastilles dit tout sans rien ouvrir : le nom de chaque
+       checklist, son heure et son avancement. Les radios restent des radios :
+       le formulaire fonctionne sans JavaScript, le script n'évite que le
+       second tap. #}
+    <div class="cl-top">
+        {% if progress is not null and progress.checklist is defined %}
+            <a class="cl-back" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id=">
+                <i class="bi bi-grid"></i>{{ translations.cl_overview | default("Vue d'ensemble") }}
+            </a>
+        {% endif %}
+        <form method="GET" action="{{ ROOT }}/checklists">
+            <label for="dateInput" class="visually-hidden">{{ translations.filter_date | default('Date') }}</label>
+            <input type="date" name="date" id="dateInput" value="{{ selected_date }}" max="{{ today }}" required onchange="this.form.submit()">
+            <button type="submit" class="btn btn-outline-secondary">{{ translations.filter_apply | default('Afficher') }}</button>
+        </form>
     </div>
 
     {# ── Wyniki ── #}
+
     {% if progress is not null and progress.checklist is defined %}
 
-        {# Nagłówek checklisty #}
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                            <div>
-                                <h4 class="mb-0 fw-bold">{{ progress.checklist.name }}</h4>
-                                <div class="text-muted small mt-1">
-                                    {% if progress.checklist.execution_time %}
-                                        <i class="bi bi-clock me-1"></i>{{ progress.checklist.execution_time|slice(0,5) }} ·
-                                    {% endif %}
-                                    {{ selected_date }}
-                                </div>
-                            </div>
-                            <div class="d-flex gap-3">
-                                <div class="summary-stat">
-                                    <div class="stat-value stat-total">{{ progress.summary.total }}</div>
-                                    <div class="stat-label">{{ translations.summary_total | default('Łącznie') }}</div>
-                                </div>
-                                <div class="summary-stat">
-                                    <div class="stat-value stat-done">{{ progress.summary.done }}</div>
-                                    <div class="stat-label">{{ translations.summary_done | default('Wykonane') }}</div>
-                                </div>
-                                <div class="summary-stat">
-                                    <div class="stat-value stat-missed">{{ progress.summary.not_done }}</div>
-                                    <div class="stat-label">{{ translations.summary_not_done | default('Niewykonane') }}</div>
-                                </div>
-                            </div>
+        {# ── CL3 — l'accordéon de travail ── #}
+        <div class="cl-acc">
+            {% for cl in checklists %}
+                {% set is_open = cl.id == selected_checklist_id %}
+                {% set pct = cl.tasks_total > 0 ? (cl.tasks_done / cl.tasks_total * 100)|round : 0 %}
+                {% set cl_done = cl.tasks_total > 0 and cl.tasks_done >= cl.tasks_total %}
+                {% if is_open %}
+                    <div class="cl-acc-hd is-open {{ cl_done ? 'is-done' : '' }}">
+                        <span class="cl-acc-hh">{{ cl.execution_time ? cl.execution_time|slice(0,5) : '—' }}</span>
+                        <b>{{ cl.name }}</b>
+                        <span class="cl-acc-bar" aria-hidden="true"><i style="width:{{ pct }}%"></i></span>
+                        <span class="cl-acc-cnt">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+                        <i class="bi bi-chevron-up cl-acc-chev"></i>
+                    </div>
+                    <div class="cl-acc-body">
+                    {% if progress.tasks is empty %}
+                        <div class="cl-empty">
+                            <i class="bi bi-clipboard-x"></i>
+                            <p>{{ translations.no_tasks | default("Aucune tâche trouvée pour cette liste de contrôle à la date sélectionnée.") }}</p>
                         </div>
+                    {% else %}
+                        {% for task in progress.tasks %}
+                            {% set status = task.status ?? 'PENDING' %}
+                            <div class="tk-row is-{{ status|lower }}">
 
-                        {% if progress.summary.total > 0 %}
-                            <div class="mt-3">
-                                <div class="progress progress-bar-thin">
-                                    <div class="progress-bar bg-success"
-                                         style="width: {{ (progress.summary.done / progress.summary.total * 100)|round }}%"
-                                         aria-valuenow="{{ progress.summary.done }}"
-                                         aria-valuemin="0"
-                                         aria-valuemax="{{ progress.summary.total }}">
-                                    </div>
+                                {# L'heure prévue commande la fermeture : elle est le
+                                   repère, pas une étiquette parmi d'autres. Une tâche
+                                   sans heure garde la colonne vide plutôt qu'une heure
+                                   inventée. #}
+                                <div class="tk-eta">
+                                    {% if task.execution_time %}
+                                        <b>{{ task.execution_time|slice(0,5) }}</b>
+                                        <small>{{ translations.col_planned_short | default('PRÉVUE') }}</small>
+                                    {% else %}
+                                        <b>—</b>
+                                    {% endif %}
                                 </div>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        {# Lista zadań #}
-        {% if progress.tasks is empty %}
-            <div class="text-center text-muted py-5">
-                <i class="bi bi-clipboard-x" style="font-size:2.5rem;opacity:.3;"></i>
-                <p class="mt-3 mb-0">{{ translations.no_tasks | default('Brak zadań dla tej checklisty w wybranym dniu.') }}</p>
-            </div>
-        {% else %}
-            <div class="card shadow-sm">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-3">#</th>
-                                    <th>{{ translations.col_task | default('Zadanie') }}</th>
-                                    <th>{{ translations.col_planned_time | default('Planowana godz.') }}</th>
-                                    <th>{{ translations.col_status | default('Status') }}</th>
-                                    <th>{{ translations.col_completed_at | default('Zrealizowane') }}</th>
-                                    <th>{{ translations.col_completed_by | default('Przez') }}</th>
-                                    <th>{{ translations.col_note | default('Notatka') }}</th>
-                                    <th>{{ translations.col_action | default('Akcja') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for task in progress.tasks %}
-                                    {% set status = task.status ?? 'PENDING' %}
-                                    <tr class="task-row">
-                                        <td class="ps-3 text-muted small align-middle">{{ loop.index }}</td>
-
-                                        <td class="align-middle fw-semibold">
-                                            {% if task.is_mandatory %}
-                                                <i class="bi bi-star-fill task-mandatory-icon me-1"
-                                                   title="{{ translations.mandatory | default('Obowiązkowe') }}"></i>
-                                            {% endif %}
-                                            {{ task.name }}
-                                            {% if task.requires_photo %}
-                                                <i class="bi bi-camera-fill ms-1 text-info" style="font-size:.8rem;"
-                                                   title="{{ translations.photo_required | default('Wymagane zdjęcie') }}"></i>
-                                            {% endif %}
-                                        </td>
-
-                                        <td class="align-middle text-muted small">
-                                            {% if task.execution_time %}
-                                                {{ task.execution_time|slice(0,5) }}
-                                            {% else %}
-                                                —
-                                            {% endif %}
-                                        </td>
-
-                                        <td class="align-middle">
-                                            {% if status == 'DONE' %}
-                                                <span class="task-badge badge-done">
-                                                    <i class="bi bi-check-circle-fill me-1"></i>{{ translations.status_done | default('Wykonane') }}
-                                                </span>
-                                            {% elseif status == 'SKIPPED' %}
-                                                <span class="task-badge badge-skipped">
-                                                    <i class="bi bi-skip-forward-fill me-1"></i>{{ translations.status_skipped | default('Pominięte') }}
-                                                </span>
-                                            {% elseif status == 'FAILED' %}
-                                                <span class="task-badge badge-failed">
-                                                    <i class="bi bi-x-circle-fill me-1"></i>{{ translations.status_failed | default('Nieudane') }}
-                                                </span>
-                                            {% else %}
-                                                <span class="task-badge badge-pending">
-                                                    <i class="bi bi-circle me-1"></i>{{ translations.status_pending | default('Oczekuje') }}
-                                                </span>
-                                            {% endif %}
-                                        </td>
-
-                                        <td class="align-middle text-muted small">
-                                            {% if task.completed_at %}
+                                <div class="tk-body">
+                                    <div class="tk-name">
+                                        {{ task.name }}
+                                        {% if task.is_mandatory %}
+                                            <i class="bi bi-star-fill task-mandatory-icon"
+                                               title="{{ translations.mandatory | default("Obligatoire") }}"></i>
+                                        {% endif %}
+                                        {% if task.requires_photo %}
+                                            <i class="bi bi-camera-fill tk-photo-icon"
+                                               title="{{ translations.photo_required | default("Photo requise") }}"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="tk-meta">
+                                        {% if task.requires_photo and status not in ['DONE','SKIPPED','FAILED'] %}
+                                            <span class="tk-req">{{ translations.photo_required | default('Photo requise') }}</span>
+                                        {% endif %}
+                                        {% if task.completed_at %}
+                                            {# Une tâche refusée porte le même horodatage, mais
+                                               « Réalisée à » contredirait son état : ce n'est pas
+                                               l'heure d'une réalisation, c'est celle d'un constat. #}
+                                            <span>
+                                                {{ status == 'FAILED'
+                                                   ? (translations.col_reported_at | default('Signalée à'))
+                                                   : (translations.col_completed_at | default('Effectuée à')) }}
                                                 {{ task.completed_at|slice(11,5) }}
-                                            {% else %}
-                                                —
-                                            {% endif %}
-                                        </td>
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    {% if task.note %}
+                                        <p class="tk-note"><i class="bi bi-chat-left-text"></i>{{ task.note }}</p>
+                                    {% endif %}
+                                </div>
 
-                                        <td class="align-middle small">
-                                            {% if task.completed_by %}
-                                                {{ task.completed_by }}
-                                            {% else %}
-                                                —
-                                            {% endif %}
-                                        </td>
-
-                                        <td class="align-middle small text-muted">
-                                            {% if task.note %}
-                                                <span title="{{ task.note }}">
-                                                    <i class="bi bi-chat-left-text me-1"></i>{{ task.note|slice(0,40) }}{% if task.note|length > 40 %}…{% endif %}
-                                                </span>
-                                            {% else %}
-                                                —
-                                            {% endif %}
-                                        </td>
-
-                                        <td class="align-middle">
-                                            {% if status != 'DONE' and status != 'SKIPPED' %}
-                                                <button type="button"
-                                                        class="btn btn-sm btn-outline-success btn-complete-task"
-                                                        data-task-id="{{ task.task_id }}"
-                                                        data-task-name="{{ task.name }}"
-                                                        data-date="{{ selected_date }}"
-                                                        data-requires-photo="{{ task.requires_photo ? '1' : '0' }}">
-                                                    <i class="bi bi-check2 me-1"></i>{{ translations.btn_complete | default('Wykonaj') }}
-                                                </button>
-                                            {% else %}
-                                                —
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                {% if status == 'DONE' %}
+                                    <div class="tk-sig">
+                                        {{ task.completed_by | default('—') }}
+                                        <small>{{ translations.status_done | default('effectuée') }}</small>
+                                    </div>
+                                {% elseif status == 'FAILED' %}
+                                    <div class="tk-state is-failed">
+                                        {{ translations.status_failed | default('Non effectuée') }}
+                                        {% if task.completed_by %}<small style="display:block;font-weight:400;color:var(--c-muted)">{{ task.completed_by }}</small>{% endif %}
+                                    </div>
+                                {% elseif status == 'SKIPPED' %}
+                                    <div class="tk-state is-skipped">{{ translations.status_skipped | default('Ignorée') }}</div>
+                                {% else %}
+                                    {# ── L'interrupteur ──
+                                       « Effectuer » ouvre une fenêtre uniquement quand il
+                                       reste quelque chose à saisir : une photo exigée, ou le
+                                       nom et le code de la première tâche du service. Sans
+                                       photo et le poste ouvert, la tâche se valide d'un seul
+                                       geste. Le script lit ces deux attributs pour trancher.
+                                       Le refus, lui, passe TOUJOURS par la fenêtre : il exige
+                                       une raison écrite. #}
+                                    <div class="tk-seg">
+                                        <button type="button"
+                                                class="tk-do btn-complete-task"
+                                                data-task-id="{{ task.task_id }}"
+                                                data-task-name="{{ task.name }}"
+                                                data-date="{{ selected_date }}"
+                                                data-requires-photo="{{ task.requires_photo ? '1' : '0' }}">
+                                            <i class="bi bi-check2"></i>{{ translations.btn_complete | default('Effectuer') }}
+                                        </button>
+                                        <button type="button"
+                                                class="tk-fail btn-fail-task"
+                                                data-task-id="{{ task.task_id }}"
+                                                data-task-name="{{ task.name }}"
+                                                data-date="{{ selected_date }}"
+                                                aria-label="{{ translations.btn_not_done | default('Non effectuée') }}"
+                                                title="{{ translations.btn_not_done | default('Non effectuée') }}">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
                     </div>
-                </div>
-            </div>
-        {% endif %}
+                {% else %}
+                    <a class="cl-acc-hd {{ cl_done ? 'is-done' : '' }}" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}">
+                        <span class="cl-acc-hh">{{ cl.execution_time ? cl.execution_time|slice(0,5) : '—' }}</span>
+                        <b>{{ cl.name }}</b>
+                        <span class="cl-acc-bar" aria-hidden="true"><i style="width:{{ pct }}%"></i></span>
+                        <span class="cl-acc-cnt">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+                        <i class="bi bi-chevron-down cl-acc-chev"></i>
+                    </a>
+                {% endif %}
+            {% endfor %}
+        </div>
 
     {% elseif checklists is not empty and selected_checklist_id is empty %}
 
-        {# Widok listy checklist bez szczegółów #}
-        <div class="row g-3">
+        {# ── CL2 — les cartes d'accueil ── #}
+        <div class="cl-cards">
             {% for cl in checklists %}
+                {% set cl_done = cl.tasks_total > 0 and cl.tasks_done >= cl.tasks_total %}
+                {% set is_now = cl.id == focus_id %}
                 {% set pct = cl.tasks_total > 0 ? (cl.tasks_done / cl.tasks_total * 100)|round : 0 %}
-                <div class="col-12 col-md-6 col-lg-4">
-                    <a href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}"
-                       class="card h-100 shadow-sm border-0 text-decoration-none text-dark">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="card-title fw-bold mb-0">{{ cl.name }}</h5>
-                                {% if cl.execution_time %}
-                                    <span class="text-muted small ms-2 text-nowrap">
-                                        <i class="bi bi-clock me-1"></i>{{ cl.execution_time|slice(0,5) }}
-                                    </span>
-                                {% endif %}
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center mb-2 small text-muted">
-                                <span>{{ cl.tasks_done }} / {{ cl.tasks_total }} {{ translations.tasks_done_of | default('wykonanych') }}</span>
-                                <span class="fw-semibold {% if pct == 100 %}text-success{% elseif pct > 0 %}text-warning{% else %}text-secondary{% endif %}">
-                                    {{ pct }}%
-                                </span>
-                            </div>
-
-                            <div class="progress progress-bar-thin">
-                                <div class="progress-bar {% if pct == 100 %}bg-success{% elseif pct > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
-                                     style="width:{{ pct }}%"></div>
-                            </div>
-                        </div>
-                    </a>
-                </div>
+                <a class="cl-card {{ is_now ? 'is-now' : '' }}" href="{{ ROOT }}/checklists?date={{ selected_date }}&checklist_id={{ cl.id }}">
+                    <div class="cl-card-r1">
+                        <span class="cl-card-name">{{ cl.name }}</span>
+                        {% if cl_done %}<span class="cl-card-tag done">{{ translations.cl_tag_done | default('terminée') }}</span>
+                        {% elseif is_now %}<span class="cl-card-tag now">{{ translations.cl_tag_now | default('maintenant') }}</span>
+                        {% else %}<span class="cl-card-tag soon">{{ translations.cl_tag_soon | default('à venir') }}</span>{% endif %}
+                    </div>
+                    <div class="cl-card-r2">
+                        {% if cl.execution_time %}<span class="cl-card-hh">{{ cl.execution_time|slice(0,5) }}</span>{% endif %}
+                        {# L'avancement en points tant qu'ils tiennent (≤ 12 tâches) ;
+                           une barre fine au-delà, pour ne pas encombrer. #}
+                        {% if cl.tasks_total > 0 and cl.tasks_total <= 12 %}
+                            <span class="cl-dots" aria-hidden="true">
+                                {% for i in 1..cl.tasks_total %}
+                                    {% if i <= cl.tasks_done %}<span class="cl-dot on"></span>
+                                    {% elseif is_now and not cl_done and i == cl.tasks_done + 1 %}<span class="cl-dot next"></span>
+                                    {% else %}<span class="cl-dot"></span>{% endif %}
+                                {% endfor %}
+                            </span>
+                        {% else %}
+                            <span class="cl-mini" aria-hidden="true"><i class="{{ is_now and not cl_done ? 'now' : 'on' }}" style="width:{{ pct }}%"></i></span>
+                        {% endif %}
+                        <span class="cl-card-cnt">{{ cl.tasks_done }}/{{ cl.tasks_total }}</span>
+                    </div>
+                </a>
             {% endfor %}
         </div>
 
     {% elseif selected_date and checklists is empty %}
         <div class="text-center text-muted py-5">
             <i class="bi bi-clipboard-x" style="font-size:2.5rem;opacity:.3;"></i>
-            <p class="mt-3 mb-0">{{ translations.no_checklists | default('Brak aktywnych checklist dla wybranego dnia.') }}</p>
+            <p class="mt-3 mb-0">
+                {% if employee_mode and employee_no_tasks %}
+                    {{ translations.no_employee_tasks | default("Aucune tâche n'est assignée à votre poste aujourd'hui.") }}
+                {% else %}
+                    {{ translations.no_checklists | default('Brak aktywnych checklist dla wybranego dnia.') }}
+                {% endif %}
+            </p>
         </div>
     {% endif %}
 
@@ -330,12 +510,49 @@
 
 {% block scripts %}
 
+{# Choisir une tuile envoie le formulaire : un tap au lieu de deux. Sans
+   JavaScript, le bouton « Pokaż » reste la voie normale — rien n'est perdu. #}
+<script>
+(function () {
+    var form = document.getElementById('filterForm');
+    if (!form) return;
+    form.querySelectorAll('.cl-chip input[type="radio"]').forEach(function (r) {
+        r.addEventListener('change', function () { form.submit(); });
+    });
+})();
+</script>
+
 {# ── Modal potwierdzenia wykonania zadania ── #}
+{# ── La prise de poste ──
+   On se déclare une fois, et toute la checklist s'enchaîne. Le bandeau reste
+   visible en permanence : c'est la contrepartie de ne plus taper son code à
+   chaque tâche — on doit voir d'un coup d'œil sous quel nom on est en train de
+   signer, et pouvoir passer la main sans chercher. #}
+{#
+{% if shift %}
+    <div class="shift-bar" id="shiftBar">
+        <span class="shift-av">{{ shift.initials }}</span>
+        <span class="shift-txt">
+            <b>{{ shift.name }}</b>
+            <small>{{ translations.shift_signing | default('signe les tâches de cette checklist') }}</small>
+        </span>
+        <button type="button" class="shift-x" id="shiftClose">
+            {{ translations.shift_change | default('Changer') }}
+        </button>
+    </div>
+{% endif %}
+#}
+
 <div class="modal fade" id="completeTaskModal" tabindex="-1" aria-labelledby="completeTaskModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="completeTaskModalLabel">
+                {# Le titre dit ce qu'on est en train de déclarer : la même
+                   fenêtre sert aux deux issues, et se tromper d'issue se
+                   corrige mal — une tâche signée ne se dé-signe pas. #}
+                <h5 class="modal-title" id="completeTaskModalLabel"
+                    data-title-done="{{ translations.modal_complete_title | default('Oznacz zadanie jako wykonane') }}"
+                    data-title-fail="{{ translations.modal_fail_title | default('Déclarer la tâche non effectuée') }}">
                     {{ translations.modal_complete_title | default('Oznacz zadanie jako wykonane') }}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -343,72 +560,164 @@
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalTaskName"></p>
 
-                <div class="mb-3">
-                    <label for="modalEmployeeSelect" class="form-label fw-semibold">
+                {# ── Qui a fait la tâche ──
+                   Une liste déroulante obligeait à deux taps et n'affichait
+                   qu'un nom à la fois. Des badges, deux par ligne, montrent
+                   toute l'équipe d'un coup — et se visent au doigt.
+
+                   Le select reste dans le document, masqué : le JavaScript qui
+                   lit #modalEmployeeSelect et envoie le formulaire fonctionne
+                   sans être réécrit. #}
+                {# Poste ouvert : ni nom, ni code. C'est tout l'objet de la
+                   prise de poste — la tâche se valide d'un geste, et reste
+                   attribuée à la personne déclarée en haut de l'écran. #}
+                <div class="mb-3{{ shift ? ' d-none' : '' }}" id="modalWhoBlock">
+                    <label class="form-label fw-semibold">
                         {{ translations.modal_employee_label | default('Pracownik') }} <span class="text-danger">*</span>
                     </label>
-                    <select id="modalEmployeeSelect" class="form-select">
-                        <option value="">{{ translations.modal_employee_placeholder | default('— wybierz pracownika —') }}</option>
-                        {% for emp in employees %}
+
+                    {# Le filtrage se fait cote serveur : `employees` porte deja
+                       les seules personnes de service, croisees entre les
+                       employes actifs du franchise et le planning du jour
+                       consulte. `roster_mode` dit dans quelle situation on est
+                       — voir StaffService::roster(). #}
+                    {% set shown = employees %}
+
+                    <div class="emp-grid">
+                        {% for emp in shown %}
+                            <button type="button" class="emp-badge" data-emp-id="{{ emp.id }}">
+                                <span class="emp-initials">{{ emp.initials ?: '—' }}</span>
+                                <span class="emp-name">{{ emp.name }}</span>
+                            </button>
+                        {% endfor %}
+                    </div>
+
+                    {# Quatre situations, quatre phrases. Elles se ressemblent à
+                       l'écran et n'appellent pas la même réaction : « le
+                       planning ne vous a pas désigné » se règle au back-office,
+                       « le planning est injoignable » se règle plus tard.
+                       Voir StaffService::roster(). #}
+                    {# Trois situations, trois phrases. « Personne n'est de
+                       service » est une reponse ; « la route ne repond pas »
+                       est un chantier, et le bandeau ambre en haut de page le
+                       nomme. Les confondre enverrait chercher au mauvais
+                       endroit. #}
+                    {% if roster_mode == 'missing' %}
+                        <p class="emp-note">
+                            <i class="bi bi-info-circle"></i>
+                            {{ translations.roster_api_missing | default("La liste vient de l'API, qui ne répond pas encore — voir le bandeau en haut de l'écran.") }}
+                        </p>
+                    {% elseif roster_mode == 'empty' %}
+                        <p class="emp-note">
+                            <i class="bi bi-info-circle"></i>
+                            {{ translations.no_one_scheduled | default("Personne n'est au planning ce jour-là.") }}
+                        </p>
+                    {% elseif roster_mode == 'none' %}
+                        <p class="emp-note">
+                            <i class="bi bi-info-circle"></i>
+                            {{ translations.no_employees | default('Aucun employé actif.') }}
+                        </p>
+                    {% endif %}
+
+                    <select id="modalEmployeeSelect" class="visually-hidden" tabindex="-1" aria-hidden="true">
+                        <option value=""></option>
+                        {% for emp in shown %}
                             <option value="{{ emp.id }}">{{ emp.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
+                {# La note passe AVANT le PIN : on écrit ce qu'on a constaté,
+                   puis on signe. Le PIN en dernier, juste avant le bouton de
+                   validation, fait de la saisie du code le geste qui conclut. #}
                 <div class="mb-3">
-                    <label for="modalPinInput" class="form-label fw-semibold">
-                        {{ translations.modal_pin_label | default('PIN') }} <span class="text-danger">*</span>
+                    <label for="modalNoteInput" class="form-label fw-semibold">
+                        <span id="modalNoteLabel">{{ translations.modal_note_label | default('Notatka (opcjonalnie)') }}</span>
+                        <span class="text-danger d-none" id="modalNoteRequired">*</span>
                     </label>
-                    <input type="password"
-                           id="modalPinInput"
-                           class="form-control"
-                           maxlength="4"
-                           inputmode="numeric"
-                           autocomplete="off"
-                           placeholder="{{ translations.modal_pin_placeholder | default('4-cyfrowy PIN') }}">
+                    <textarea id="modalNoteInput" class="form-control" rows="2" maxlength="255"
+                              data-label-note="{{ translations.modal_note_label | default('Notatka (opcjonalnie)') }}"
+                              data-label-reason="{{ translations.modal_reason_label | default('Pourquoi la tâche n\'a pas été faite') }}"></textarea>
                 </div>
 
-                <div class="mb-1">
-                    <label for="modalNoteInput" class="form-label fw-semibold">
-                        {{ translations.modal_note_label | default('Notatka (opcjonalnie)') }}
+                {# ── PIN ──
+                   Quatre chiffres, quatre cases : on voit ce qu'on a saisi et
+                   où on en est. Le champ unique en type=password n'appelait pas
+                   le pavé numérique de façon fiable et ne montrait rien. #}
+                <div class="mb-1{{ shift ? ' d-none' : '' }}" id="modalPinBlock">
+                    <label class="form-label fw-semibold">
+                        {{ translations.modal_pin_label | default('PIN') }} <span class="text-danger">*</span>
                     </label>
-                    <input type="text" id="modalNoteInput" class="form-control" maxlength="255">
+                    <div class="pin-boxes" id="pinBoxes">
+                        {% for i in 1..4 %}
+                            <input type="password"
+                                   class="pin-box"
+                                   inputmode="numeric"
+                                   pattern="[0-9]*"
+                                   maxlength="1"
+                                   autocomplete="off"
+                                   aria-label="{{ translations.modal_pin_label | default('PIN') }} {{ i }}">
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" id="modalPinInput">
+                </div>
+
+                {# Coché d'office : on se déclare une fois et la checklist
+                   s'enchaîne. Le cas courant est de faire plusieurs tâches à la
+                   suite ; décocher reste possible pour qui ne signe qu'une fois
+                   et passe la tablette. #}
+                <div class="form-check form-switch mb-3{{ shift ? ' d-none' : '' }}" id="modalStayLoggedBlock">
+                    <input class="form-check-input" type="checkbox" role="switch" id="modalStayLogged" checked>
+                    <label class="form-check-label" for="modalStayLogged">
+                        {{ translations.complete_stay_logged | default('Rester identifié après la tâche') }}
+                    </label>
                 </div>
 
                 <div id="modalPhotoSection" class="mb-1 d-none">
                     <label class="form-label fw-semibold">
-                        {{ translations.modal_photo_label | default('Zdjęcie') }}
+                        {{ translations.modal_photo_label | default("Photo") }}
                         <span class="text-danger">*</span>
                     </label>
                     <div class="d-flex gap-2 mb-2">
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="modalOpenCameraBtn">
-                            <i class="bi bi-camera me-1"></i>{{ 'Kamera' }}
+                            <i class="bi bi-camera me-1"></i>{{ translations.modal_photo_take | default('Prendre la photo') }}
                         </button>
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="modalClearPhotoBtn">
-                            <i class="bi bi-trash me-1"></i>{{ 'Wyczyść' }}
+                            <i class="bi bi-trash me-1"></i>{{ translations.modal_photo_clear | default('Effacer') }}
                         </button>
                     </div>
-                    <input type="file" id="modalPhotoInput" class="form-control form-control-sm"
-                           accept="image/*" capture="environment">
+                    {# ── Pas de « choisir un fichier » ──
+                       Le champ était visible et proposait la galerie : on
+                       photographie ce qu'on constate à l'instant, on ne
+                       ressort pas une image d'hier — c'est ce qui fait la
+                       valeur de preuve du relevé.
+
+                       L'élément reste, masqué : c'est lui qui transporte le
+                       cliché pris par la caméra, et c'est aussi le seul
+                       recours quand getUserMedia est refusé. « capture »
+                       ouvre alors l'appareil photo de la tablette, pas la
+                       galerie. #}
+                    <input type="file" id="modalPhotoInput" class="visually-hidden"
+                           tabindex="-1" accept="image/*" capture="environment">
                     <div id="modalCameraWrap" class="mt-2 d-none">
                         <video id="modalCameraVideo" playsinline autoplay
                                style="width:100%;border-radius:8px;background:#000;max-height:220px;object-fit:cover;"></video>
                         <div class="d-flex gap-2 mt-1">
                             <button type="button" class="btn btn-sm btn-primary" id="modalTakePhotoBtn">
-                                <i class="bi bi-camera me-1"></i>Zrób zdjęcie
+                                <i class="bi bi-camera me-1"></i>{{ translations.modal_photo_shoot | default('Déclencher') }}
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="modalCloseCameraBtn">
-                                <i class="bi bi-x-circle me-1"></i>Zamknij
+                                <i class="bi bi-x-circle me-1"></i>{{ translations.modal_photo_close | default('Fermer') }}
                             </button>
                         </div>
                         <canvas id="modalPhotoCanvas" style="display:none;"></canvas>
                     </div>
                     <div id="modalPhotoPreview" class="mt-2 d-none">
-                        <img id="modalPhotoPreviewImg" alt="Podgląd"
+                        <img id="modalPhotoPreviewImg" alt="{{ translations.photo_preview | default('Aperçu') }}"
                              style="max-width:100%;border-radius:8px;border:1px solid rgba(0,0,0,.1);">
                     </div>
                     <div class="text-muted small mt-1">
-                        {{ translations.modal_photo_hint | default('Zrób zdjęcie lub wybierz plik.') }}
+                        {{ translations.modal_photo_hint | default('Photographiez ce que vous venez de constater.') }}
                     </div>
                 </div>
 
@@ -418,9 +727,14 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     {{ translations.modal_btn_cancel | default('Anuluj') }}
                 </button>
-                <button type="button" class="btn btn-success" id="modalConfirmBtn">
+                {# Le bouton porte la couleur de l'issue : vert pour « faite »,
+                   rouge pour « non faite ». Un même bouton vert pour les deux
+                   laisserait déclarer un échec avec le geste de la réussite. #}
+                <button type="button" class="btn btn-success" id="modalConfirmBtn"
+                        data-label-done="{{ translations.modal_btn_confirm | default("Confirmer") }}"
+                        data-label-fail="{{ translations.modal_btn_fail | default('Déclarer non effectuée') }}">
                     <span id="modalBtnSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
-                    {{ translations.modal_btn_confirm | default('Zatwierdź') }}
+                    <span id="modalConfirmLabel">{{ translations.modal_btn_confirm | default("Confirmer") }}</span>
                 </button>
             </div>
         </div>
@@ -431,23 +745,108 @@
 (function () {
     const ROOT = {{ ROOT | json_encode | raw }};
     const translations = {
-        complete_success:                  {{ (translations.complete_success | default('Zadanie zostało oznaczone jako wykonane.')) | json_encode | raw }},
-        complete_error_invalid_pin:        {{ (translations.complete_error_invalid_pin | default('Nieprawidłowy PIN.')) | json_encode | raw }},
+        complete_success:                  {{ (translations.complete_success | default("La tâche a été marquée comme effectuée.")) | json_encode | raw }},
+        complete_error_invalid_pin:        {{ (translations.complete_error_invalid_pin | default("PIN incorrect.")) | json_encode | raw }},
         complete_error_employee_not_found: {{ (translations.complete_error_employee_not_found | default('Nie znaleziono pracownika.')) | json_encode | raw }},
-        complete_error_generic:            {{ (translations.complete_error_generic | default('Błąd podczas oznaczania zadania. Spróbuj ponownie.')) | json_encode | raw }},
+        complete_error_generic:            {{ (translations.complete_error_generic | default("Erreur lors du marquage de la tâche. Réessayez.")) | json_encode | raw }},
         complete_error_employee_required:  {{ (translations.complete_error_employee_required | default('Wybierz pracownika.')) | json_encode | raw }},
-        complete_error_pin_required:       {{ (translations.complete_error_pin_required | default('Wprowadź PIN.')) | json_encode | raw }},
-        complete_error_photo_required:     {{ (translations.complete_error_photo_required | default('To zadanie wymaga zdjęcia. Dodaj zdjęcie przed zatwierdzeniem.')) | json_encode | raw }},
+        complete_error_pin_required:       {{ (translations.complete_error_pin_required | default("Saisissez le PIN.")) | json_encode | raw }},
+        complete_error_photo_required:     {{ (translations.complete_error_photo_required | default("Cette tâche nécessite une photo. Veuillez ajouter une photo avant de confirmer.")) | json_encode | raw }},
+        complete_error_note_required:      {{ (translations.complete_error_note_required | default("Indiquez pourquoi la tâche n'a pas été faite.")) | json_encode | raw }},
+        complete_error_no_eligible:        {{ (translations.complete_error_no_eligible | default("Personne au planning n'a le droit de faire cette tâche.")) | json_encode | raw }},
     };
 
     let currentTaskId       = null;
     let currentTaskDate     = null;
     let currentRequiresPhoto = false;
+    let currentStatus       = 'DONE';   // DONE ou FAILED — l'issue déclarée
     let cameraStream        = null;
+
+    // Le poste ouvert est connu du serveur, qui l'a signé. Cette variable n'est
+    // qu'un miroir pour l'écran : la vérité reste côté serveur, où le cookie est
+    // vérifié à chaque tâche. Elle est déclarée ici, en tête, parce que c'est
+    // elle qui décide si un « Effectuer » ouvre une fenêtre ou part directement.
+    let SHIFT_OPEN = {{ shift ? 'true' : 'false' }};
 
     const modal          = document.getElementById('completeTaskModal');
     const bsModal        = modal ? new bootstrap.Modal(modal) : null;
     const taskNameEl     = document.getElementById('modalTaskName');
+    const titleEl        = document.getElementById('completeTaskModalLabel');
+    const noteLabel      = document.getElementById('modalNoteLabel');
+    const noteRequired   = document.getElementById('modalNoteRequired');
+    const confirmLabel   = document.getElementById('modalConfirmLabel');
+    const employeeGrid   = document.querySelector('#modalWhoBlock .emp-grid');
+    const stayLoggedInput = document.getElementById('modalStayLogged');
+    // Badges d'employés et cases de PIN : ils alimentent #modalEmployeeSelect
+    // et #modalPinInput, que la suite du script lit sans modification.
+    (function () {
+        var grid = document.querySelector('#modalWhoBlock .emp-grid');
+        var sel  = document.getElementById('modalEmployeeSelect');
+        if (grid && sel) {
+            grid.addEventListener('click', function (e) {
+                var b = e.target.closest('.emp-badge');
+                if (!b) return;
+                grid.querySelectorAll('.emp-badge').forEach(function (x) { x.classList.remove('is-active'); });
+                b.classList.add('is-active');
+                sel.value = b.dataset.empId;
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                // Focus sur la première case du PIN. Différé d'un tour de
+                // boucle : Bootstrap replace le focus dans la modale au moment
+                // du clic, et le prendrait sinon de vitesse.
+                var first = document.querySelector('.pin-box');
+                if (first) {
+                    setTimeout(function () {
+                        first.focus();
+                        first.select && first.select();
+                    }, 0);
+                }
+            });
+        }
+
+        var boxes  = Array.prototype.slice.call(document.querySelectorAll('.pin-box'));
+        var hidden = document.getElementById('modalPinInput');
+        if (!boxes.length || !hidden) return;
+
+        function sync() {
+            hidden.value = boxes.map(function (b) { return b.value; }).join('');
+            boxes.forEach(function (b) { b.classList.toggle('is-filled', b.value !== ''); });
+        }
+        boxes.forEach(function (box, i) {
+            box.addEventListener('input', function () {
+                box.value = box.value.replace(/\D/g, '').slice(0, 1);
+                sync();
+                if (box.value && boxes[i + 1]) boxes[i + 1].focus();
+            });
+            // Retour arrière sur une case vide : on remonte, sinon on reste
+            // coincé au bout du champ.
+            box.addEventListener('keydown', function (e) {
+                if (e.key === 'Backspace' && !box.value && boxes[i - 1]) {
+                    boxes[i - 1].focus();
+                    e.preventDefault();
+                }
+            });
+            // Coller un PIN complet doit remplir les quatre cases.
+            box.addEventListener('paste', function (e) {
+                var t = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+                if (!t) return;
+                e.preventDefault();
+                boxes.forEach(function (b, j) { b.value = t[j] || ''; });
+                sync();
+                (boxes[Math.min(t.length, 3)] || boxes[3]).focus();
+            });
+        });
+        // Vider les cases à chaque ouverture, comme le faisait le champ unique.
+        var modalEl = document.getElementById('completeTaskModal');
+        if (modalEl) {
+            modalEl.addEventListener('show.bs.modal', function () {
+                boxes.forEach(function (b) { b.value = ''; });
+                sync();
+                var grid2 = document.querySelector('.emp-grid');
+                if (grid2) grid2.querySelectorAll('.emp-badge').forEach(function (x) { x.classList.remove('is-active'); });
+            });
+        }
+    })();
+
     const employeeSel    = document.getElementById('modalEmployeeSelect');
     const pinInput       = document.getElementById('modalPinInput');
     const noteInput      = document.getElementById('modalNoteInput');
@@ -514,28 +913,169 @@
         showPhotoPreview(null);
     }
 
-    // Otwieranie modalu po kliknięciu "Wykonaj"
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('.btn-complete-task');
-        if (!btn) return;
+    /**
+     * Envoyer l'issue d'une tâche — faite, ou non faite.
+     *
+     * Un seul chemin d'écriture pour les deux entrées de l'écran : le geste
+     * direct (sans fenêtre) et la confirmation dans la fenêtre. Deux copies
+     * auraient fini par diverger sur ce qui compte le plus ici — le statut
+     * envoyé et ce qu'on fait d'un échec.
+     */
+    async function submitTask(opts) {
+        const inModal = !opts.button;
+        if (opts.button) opts.button.disabled = true;
 
+        const formData = new FormData();
+        formData.append('employee_id', opts.employeeId || '');
+        formData.append('pin',         opts.pin || '');
+        formData.append('date',        opts.date);
+        formData.append('note',        opts.note || '');
+        formData.append('status',      opts.status);
+        formData.append('stay_logged', opts.stayLogged ? '1' : '0');
+        if (opts.photo) formData.append('photo', opts.photo);
+
+        try {
+            const response = await fetch(ROOT + '/checklists/tasks/' + opts.taskId + '/complete', {
+                method: 'POST',
+                body:   formData,
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                if (inModal) bsModal.hide();
+                window.location.reload();
+                return true;
+            }
+
+            const msg = data.message || 'error';
+            let displayMsg;
+            if (msg === 'invalid_pin')             { displayMsg = translations.complete_error_invalid_pin; }
+            else if (msg === 'employee_not_found') { displayMsg = translations.complete_error_employee_not_found; }
+            else if (msg === 'employee_required')  { displayMsg = translations.complete_error_employee_required; }
+            else if (msg === 'pin_required')       { displayMsg = translations.complete_error_pin_required; }
+            else if (msg === 'note_required')      { displayMsg = translations.complete_error_note_required; }
+            else                                   { displayMsg = translations.complete_error_generic; }
+
+            // Hors fenêtre, il n'y a pas d'encart d'erreur : le bandeau sert.
+            if (inModal) { showAlert(displayMsg, 'danger'); }
+            else if (typeof showSnack === 'function') { showSnack(false, displayMsg); }
+            return false;
+        } catch (err) {
+            const m = translations.complete_error_generic;
+            if (inModal) { showAlert(m, 'danger'); }
+            else if (typeof showSnack === 'function') { showSnack(false, m); }
+            return false;
+        } finally {
+            if (opts.button) opts.button.disabled = false;
+        }
+    }
+
+    // ── Ce qui ouvre la fenêtre, et ce qui ne l'ouvre pas ────────────────
+    // La fenêtre ne s'ouvre que s'il reste quelque chose à SAISIR :
+    //   • une photo exigée par la tâche ;
+    //   • le nom et le code, tant que le poste n'est pas pris ;
+    //   • la raison, quand on déclare la tâche non effectuée.
+    // Hors de ces trois cas, elle ne demandait rien et ne servait qu'à faire
+    // taper « Confirmer » : la tâche part directement.
+    function renderEligibleEmployees(employees) {
+        if (!employeeGrid || !employeeSel) return;
+        employeeSel.innerHTML = '<option value=""></option>';
+        employeeGrid.innerHTML = '';
+        employees.forEach(function (employee) {
+            const id = String(employee.employee_id || employee.id || '');
+            if (!id) return;
+            const name = String(employee.name || '');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'emp-badge';
+            button.dataset.empId = id;
+            button.innerHTML = '<span class="emp-initials">' + (name.split(/\\s+/).map(function (part) { return part.charAt(0); }).join('').slice(0, 2) || '—') + '</span><span class="emp-name"></span>';
+            button.querySelector('.emp-name').textContent = name;
+            employeeGrid.appendChild(button);
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            employeeSel.appendChild(option);
+        });
+    }
+
+    async function openModal(btn, mode) {
         currentTaskId        = btn.dataset.taskId;
         currentTaskDate      = btn.dataset.date;
-        currentRequiresPhoto = btn.dataset.requiresPhoto === '1';
-        const taskName       = btn.dataset.taskName || '';
+        currentStatus        = mode === 'fail' ? 'FAILED' : 'DONE';
+        currentRequiresPhoto = mode !== 'fail' && btn.dataset.requiresPhoto === '1';
 
-        if (taskNameEl) taskNameEl.textContent = taskName;
+        if (taskNameEl) taskNameEl.textContent = btn.dataset.taskName || '';
         resetModal();
 
-        if (photoSection) {
-            if (currentRequiresPhoto) {
-                photoSection.classList.remove('d-none');
-            } else {
-                photoSection.classList.add('d-none');
+        if (titleEl) {
+            titleEl.textContent = mode === 'fail'
+                ? (titleEl.dataset.titleFail || titleEl.textContent)
+                : (titleEl.dataset.titleDone || titleEl.textContent);
+        }
+        // Une tâche non faite n'a pas de photo à montrer : le bloc disparaît.
+        if (photoSection) photoSection.classList.toggle('d-none', !currentRequiresPhoto);
+        // La raison, elle, devient obligatoire — et le dit.
+        if (noteLabel && noteInput) {
+            noteLabel.textContent = mode === 'fail'
+                ? (noteInput.dataset.labelReason || noteLabel.textContent)
+                : (noteInput.dataset.labelNote || noteLabel.textContent);
+        }
+        if (noteRequired) noteRequired.classList.toggle('d-none', mode !== 'fail');
+        if (confirmBtn) {
+            confirmBtn.classList.toggle('btn-danger', mode === 'fail');
+            confirmBtn.classList.toggle('btn-success', mode !== 'fail');
+            if (confirmLabel) {
+                confirmLabel.textContent = mode === 'fail'
+                    ? (confirmBtn.dataset.labelFail || confirmLabel.textContent)
+                    : (confirmBtn.dataset.labelDone || confirmLabel.textContent);
             }
         }
 
+        if (!SHIFT_OPEN) {
+            renderEligibleEmployees([]);
+            bsModal.show();
+            try {
+                const response = await fetch(ROOT + '/ajax/checklists/tasks/' + currentTaskId + '/eligible-employees?date=' + encodeURIComponent(currentTaskDate), { credentials: 'same-origin' });
+                const data = await response.json();
+                if (!data.success || !Array.isArray(data.employees)) {
+                    showAlert(translations.complete_error_generic, 'danger');
+                    return;
+                }
+                renderEligibleEmployees(data.employees);
+                if (data.employees.length === 0) {
+                    showAlert(translations.complete_error_no_eligible, 'warning');
+                }
+            } catch (err) {
+                showAlert(translations.complete_error_generic, 'danger');
+            }
+            return;
+        }
+
         bsModal.show();
+    }
+
+    document.addEventListener('click', function (e) {
+        const fail = e.target.closest('.btn-fail-task');
+        if (fail) { openModal(fail, 'fail'); return; }
+
+        const btn = e.target.closest('.btn-complete-task');
+        if (!btn) return;
+
+        const needsPhoto = btn.dataset.requiresPhoto === '1';
+        if (!needsPhoto && SHIFT_OPEN) {
+            submitTask({
+                button: btn,
+                taskId: btn.dataset.taskId,
+                date:   btn.dataset.date,
+                status: 'DONE',
+                note:   '',
+                photo:  null,
+            });
+            return;
+        }
+
+        openModal(btn, 'done');
     });
 
     // Zmiana pliku przez file input
@@ -601,6 +1141,19 @@
 
     if (!confirmBtn) return;
 
+    // Passer la main : on referme le poste et on recharge. La tâche suivante
+    // redemandera un nom et un code — c'est exactement ce qu'on veut quand
+    // quelqu'un d'autre prend le relais.
+    const shiftCloseBtn = document.getElementById('shiftClose');
+    if (shiftCloseBtn) {
+        shiftCloseBtn.addEventListener('click', function () {
+            shiftCloseBtn.disabled = true;
+            fetch(ROOT + '/ajax/checklists/shift/close', { method: 'POST', credentials: 'same-origin' })
+                .then(function () { window.location.reload(); })
+                .catch(function () { shiftCloseBtn.disabled = false; });
+        });
+    }
+
     confirmBtn.addEventListener('click', async function () {
         hideAlert();
 
@@ -610,16 +1163,27 @@
         const photoFile  = photoInput && photoInput.files && photoInput.files[0]
                             ? photoInput.files[0] : null;
 
-        if (!employeeId) {
-            showAlert(translations.complete_error_employee_required, 'warning');
-            return;
-        }
-        if (!pin) {
-            showAlert(translations.complete_error_pin_required, 'warning');
-            return;
+        // Poste ouvert : ni nom ni code à saisir, c'est tout l'objet de la
+        // prise de poste. On ne réclame donc pas ce qui n'est plus demandé.
+        if (!SHIFT_OPEN) {
+            if (!employeeId) {
+                showAlert(translations.complete_error_employee_required, 'warning');
+                return;
+            }
+            if (!pin) {
+                showAlert(translations.complete_error_pin_required, 'warning');
+                return;
+            }
         }
         if (currentRequiresPhoto && !photoFile) {
             showAlert(translations.complete_error_photo_required, 'warning');
+            return;
+        }
+        // Déclarer une tâche non faite sans dire pourquoi n'apprend rien à
+        // celui qui relira la checklist : c'est le seul cas où la note est
+        // exigée, et le serveur le refuse aussi de son côté.
+        if (currentStatus === 'FAILED' && !note) {
+            showAlert(translations.complete_error_note_required, 'warning');
             return;
         }
 
@@ -627,43 +1191,16 @@
         confirmBtn.disabled = true;
 
         try {
-            const formData = new FormData();
-            formData.append('employee_id', employeeId);
-            formData.append('pin',         pin);
-            formData.append('date',        currentTaskDate);
-            formData.append('note',        note);
-            if (photoFile) {
-                formData.append('photo', photoFile);
-            }
-
-            const response = await fetch(ROOT + '/checklists/tasks/' + currentTaskId + '/complete', {
-                method: 'POST',
-                body:   formData,
+            await submitTask({
+                taskId:     currentTaskId,
+                date:       currentTaskDate,
+                status:     currentStatus,
+                note:       note,
+                photo:      photoFile,
+                employeeId: employeeId,
+                pin:        pin,
+                stayLogged: !SHIFT_OPEN && stayLoggedInput && stayLoggedInput.checked,
             });
-
-            const data = await response.json();
-
-            if (data.success) {
-                bsModal.hide();
-                window.location.reload();
-            } else {
-                const msg = data.message || 'error';
-                let displayMsg;
-                if (msg === 'invalid_pin') {
-                    displayMsg = translations.complete_error_invalid_pin;
-                } else if (msg === 'employee_not_found') {
-                    displayMsg = translations.complete_error_employee_not_found;
-                } else if (msg === 'employee_required') {
-                    displayMsg = translations.complete_error_employee_required;
-                } else if (msg === 'pin_required') {
-                    displayMsg = translations.complete_error_pin_required;
-                } else {
-                    displayMsg = translations.complete_error_generic;
-                }
-                showAlert(displayMsg, 'danger');
-            }
-        } catch (err) {
-            showAlert(translations.complete_error_generic, 'danger');
         } finally {
             spinner.classList.add('d-none');
             confirmBtn.disabled = false;
@@ -677,6 +1214,7 @@
             resetModal();
         });
     }
+
 })();
 </script>
 

@@ -1,0 +1,51 @@
+{# production/_rail.twig — le parcours d'un produit, en une ligne.
+
+   Remplace la bande à quatre cartes. Elle disait la même chose, mais elle
+   prenait la hauteur d'un demi-écran sur une tablette, avant le premier
+   chiffre. Or ce parcours ne s'apprend qu'une fois : passé le premier jour, ce
+   n'est plus une explication, c'est un repère. Un repère se met en marge.
+
+   Chaque étape reste un lien vers son écran — un rappel qui ne mène nulle part
+   se transforme vite en décor qu'on ne lit plus.
+
+   Reçoit : active_view, periods, sector_qs. #}
+{% set needs_key = active_view in periods|map(p => p.key) ? active_view : periods|first.key %}
+
+{% set rail = [
+    {
+        n: '1',
+        label: translations.rail_1 | default('Veille'),
+        href:  ROOT ~ '/production?view=mep' ~ sector_qs,
+        on:    active_view == 'mep'
+    },
+    {
+        n: '2',
+        label: translations.rail_2 | default('Fabriqué'),
+        href:  ROOT ~ '/production?view=planning' ~ sector_qs,
+        on:    active_view == 'planning'
+    },
+    {
+        n: '3',
+        label: translations.rail_3 | default('En rayon'),
+        href:  ROOT ~ '/production?view=' ~ needs_key ~ sector_qs,
+        on:    active_view in periods|map(p => p.key)
+    },
+    {
+        n: '4',
+        label: translations.rail_4 | default('En vente'),
+        href:  ROOT ~ '/production?view=stock' ~ sector_qs,
+        on:    active_view in ['stock', 'minimums']
+    }
+] %}
+
+<nav class="pr-rail" aria-label="{{ translations.flow_title | default('Parcours du produit') }}">
+    {% for s in rail %}
+        {# L'étape 3 porte le vert : c'est elle qui met le stock en vente, et le
+           lien entre le geste et son effet doit rester visible même réduit. #}
+        <a class="pr-rail-i {{ s.on ? 'is-on' : '' }} {{ loop.index == 3 ? 'is-shelf' : '' }}"
+           href="{{ s.href }}" {{ s.on ? 'aria-current="page"' : '' }}>
+            <b>{{ s.n }}</b><span>{{ s.label }}</span>
+        </a>
+        {% if not loop.last %}<i class="pr-rail-s" aria-hidden="true"></i>{% endif %}
+    {% endfor %}
+</nav>

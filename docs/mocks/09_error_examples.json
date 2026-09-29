@@ -1,0 +1,38 @@
+{
+  "not_found_404": {
+    "http_status": 404,
+    "body": {
+      "description": "mep_not_found"
+    }
+  },
+  "validation_422": {
+    "http_status": 422,
+    "body": {
+      "description": "invalid_quantity",
+      "errors": [
+        {
+          "id": 4401,
+          "message": "quantity must be >= 0"
+        }
+      ]
+    }
+  },
+  "conflict_409": {
+    "http_status": 409,
+    "body": {
+      "description": "mep_already_validated"
+    }
+  },
+  "server_500": {
+    "http_status": 500,
+    "body": {
+      "description": "internal_error"
+    }
+  },
+  "shelf_exceeds_produced_409": {
+    "http_status": 409,
+    "body": {
+      "description": "shelf_exceeds_produced"
+    }
+  }
+}

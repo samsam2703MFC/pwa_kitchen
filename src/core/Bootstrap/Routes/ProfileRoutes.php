@@ -10,4 +10,9 @@ return function(RouteCollector $r) {
         'method'     => 'index'
     ]);
 
+    $r->addRoute('POST', '/me/settings', [
+        'controller' => \App\Kitchen\app\Http\Controllers\Me\ProfileController::class,
+        'method'     => 'save'
+    ]);
+
 };

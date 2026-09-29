@@ -1,0 +1,218 @@
+{# baking/_next.twig — les ordres, juste sous la vue d'ensemble.
+
+   La frise dit où en est la matinée, les cartes disent où en est chaque
+   fournée. Il manquait la question qu'on se pose en entrant dans le fournil :
+   « je fais quoi, là, maintenant ». C'est ce panneau, et il ne répond qu'à
+   ça — un ordre en gros, les deux suivants en petit.
+
+   Trié par échéance seule : un four à vider dans deux minutes passe devant une
+   préparation à lancer dans vingt, quelle que soit l'étape. #}
+{% import "components/_icons.twig" as icons %}
+
+{% set verbs = {
+    'start_prep':  translations.order_start_prep  | default('Commencer la préparation'),
+    'prep_done':   translations.order_prep_done   | default('Terminer la préparation'),
+    'bake':        translations.order_bake        | default('Enfourner'),
+    'out':         translations.order_out         | default('Sortir du four'),
+    'finish_done': translations.order_finish_done | default('Finition terminée')
+} %}
+{% set kinds = { 'start_prep': 'prep', 'prep_done': 'prep', 'bake': 'cook', 'out': 'cook', 'finish_done': 'finish' } %}
+
+{# ── La réserve ──
+   Une fournée gardée en réserve est terminée : elle a donc quitté la frise et
+   les ordres, et plus rien à l'écran ne rappelle qu'elle attend d'être portée.
+   Sans cette bande, « garder en réserve » voulait dire « oublier ».
+
+   Elle vit sur la tablette qui a le plateau dans les mains (sessionStorage),
+   et pas côté serveur : une autre tablette n'a pas à être avertie d'un plateau
+   qu'elle ne voit pas, et le serveur n'a rien à enregistrer tant que le produit
+   n'est pas en vente. #}
+<div class="bk-reserve mt-3" id="bkReserve" hidden data-today="{{ today | default('') }}">
+    <p class="bk-reserve-t">{{ translations.reserve_title | default('En réserve — pas encore en vente') }}</p>
+    <div id="bkReserveList"></div>
+</div>
+
+{# En mode service, le fil de production dit déjà où en est chaque fournée, et
+   ce panneau ne ferait que répéter sa première ligne. La feuille de validation,
+   elle, reste montée : c'est elle qui enchaîne sur la mise en magasin. #}
+{% if orders is not empty and not (hide_orders | default(false)) %}
+    {% set lead = orders|first %}
+
+    <div class="card mt-3">
+        <div class="card-body">
+            <h2 class="bk-h">{{ translations.order_title | default('Prochaine action') }}</h2>
+
+            {% for b in orders|slice(0, 3) %}
+                {% set k    = kinds[b.actionKey] | default('prep') %}
+                {% set left = b.getMinutesLeft(now) %}
+                <button type="button"
+                        class="bk-order {{ loop.first ? 'is-lead' : '' }} o-{{ k }}"
+                        data-id="{{ b.id }}"
+                        data-next="{{ b.nextStatus }}"
+                        data-oven="{{ b.ovenName | default('') }}"
+                        data-verb="{{ verbs[b.actionKey] | default('—') }}"
+                        data-name="{{ b.name | default('—') }}"
+                        data-minutes="{{ b.plannedMinutes }}"
+                        data-stage="{{ k }}"
+                        data-product="{{ b.idProduct }}"
+                        data-qty="{{ b.quantity|number_format(0, '.', '') }}"
+                        data-unit="{{ b.unitName | default('pc') }}"
+                        data-meta="{{ b.quantity|number_format(0, ',', ' ') }} {{ b.unitName | default('pc') }}
+                                   {{- b.ovenName ? ' · ' ~ b.ovenName : '' }} · {{ b.dueClock }}">
+                    <span class="bk-order-verb">{{ verbs[b.actionKey] | default('—') }}</span>
+                    <span class="bk-order-what">
+                        <b>{{ b.name | default('—') }}</b>
+                        <span>
+                            {{- b.quantity|number_format(0, ',', ' ') }} {{ b.unitName | default('pc') }}
+                            {{- b.ovenName ? ' · ' ~ b.ovenName : '' -}}
+                        </span>
+                    </span>
+                    <span class="bk-order-when">
+                        <b>{{ b.dueClock }}</b>
+                        {# Le retard est l'information la plus utile de l'écran :
+                           il se lit avant l'heure, pas après. #}
+                        <span class="{{ left < 0 ? 'is-late' : (left <= 5 ? 'is-soon' : '') }}">
+                            {%- if left < 0 -%}
+                                {{ translations.order_late | default('en retard de') }} {{ -left }} min
+                            {%- elseif left == 0 -%}
+                                {{ translations.order_now | default('maintenant') }}
+                            {%- else -%}
+                                {{ translations.order_in | default('dans') }} {{ left }} min
+                            {%- endif -%}
+                        </span>
+                    </span>
+                </button>
+            {% endfor %}
+
+            {% if orders|length > 3 %}
+                <p class="bk-more">
+                    {{ translations.order_more | default('+ %s autres fournées en cours')|replace({'%s': orders|length - 3}) }}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+{% endif %}
+
+{# ── Attribution ──
+   Un ordre se donne à quelqu'un, avec un temps. Les deux tiennent dans la même
+   feuille parce qu'ils forment un seul geste : « Nathan prend l'enfournement,
+   vingt minutes ». Une seule feuille pour tout l'écran — le bouton d'une carte
+   ouvre exactement la même, sinon deux chemins pour la même action donneraient
+   deux enregistrements différents, l'un avec un nom et l'autre sans. #}
+<div class="bk-sheet" id="bkAssign" hidden>
+    <div class="bk-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="bkAssignTitle">
+        <header class="bk-sheet-head">
+            <p class="bk-sheet-kicker">{{ translations.order_kicker | default('Ordre à donner') }}</p>
+            <button type="button" class="bk-sheet-x" id="bkAssignClose"
+                    aria-label="{{ translations.close | default('Fermer') }}">
+                {{ icons.svg('x', 18) }}
+            </button>
+        </header>
+
+        {# L'ordre est répété ici, en grand, avant le choix de l'opérateur.
+           Entre le tap et la validation il y a deux listes à parcourir et
+           un réglage : le temps de choisir un nom, on ne sait plus si on
+           enfournait ou si on sortait du four. #}
+        <div class="bk-recall" id="bkRecall">
+            <span class="bk-recall-verb" id="bkAssignTitle">—</span>
+            <span class="bk-recall-what">
+                <b id="bkAssignSub">—</b>
+                <span id="bkAssignMeta"></span>
+            </span>
+        </div>
+
+        <p class="bk-sheet-lbl">{{ translations.order_who | default("Qui s'en occupe ?") }}</p>
+
+        {% if not staff_available %}
+            {# La route est nommée par le bandeau en haut de l'écran. Ici on dit
+               seulement ce que ça change pour le geste en cours. #}
+            <p class="emp-note">
+                {{ translations.staff_not_served | default("L'équipe vient de l'API, qui ne répond pas encore : l'ordre peut être validé sans nom.") }}
+            </p>
+        {% elseif staff is empty %}
+            <p class="emp-note">{{ translations.no_employees | default('Aucun employé disponible.') }}</p>
+        {% else %}
+            <div class="emp-grid" id="bkStaff">
+                {% for e in staff %}
+                    <button type="button" class="emp-badge" data-emp-id="{{ e.id }}">
+                        <span class="emp-initials">{{ e.initials ?: '—' }}</span>
+                        <span class="emp-name">{{ e.name }}</span>
+                    </button>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <p class="bk-sheet-lbl">{{ translations.order_time | default('Temps imparti') }}</p>
+        <div class="bk-time">
+            <button type="button" class="bk-time-step" data-step="-1" aria-label="− 5 min">−</button>
+            <span class="bk-time-val"><b id="bkTimeVal">0</b> min</span>
+            <button type="button" class="bk-time-step" data-step="1" aria-label="+ 5 min">+</button>
+        </div>
+        <p class="bk-sheet-hint" id="bkTimeHint"></p>
+
+        <button type="button" class="bk-sheet-go" id="bkAssignGo">
+            <span id="bkAssignSpin" class="spinner-border spinner-border-sm d-none"></span>
+            {{ icons.svg('check', 19) }}
+            <span id="bkAssignGoLabel">{{ translations.order_confirm | default('Valider') }}</span>
+        </button>
+    </div>
+
+    {# ── Second temps : la dernière étape vient d'être validée ──
+       Une fournée finie ne sert à rien tant qu'elle est en cuisine. Plutôt que
+       de renvoyer l'équipe chercher le produit dans un autre écran, la feuille
+       enchaîne : le geste suivant est là, la quantité pré-remplie, et c'est
+       lui qui met le stock en vente. #}
+    <div class="bk-sheet-panel bk-shelf-panel" id="bkShelfStep" hidden
+         role="dialog" aria-modal="true" aria-labelledby="bkShelfTitle">
+        <header class="bk-sheet-head">
+            <p class="bk-sheet-kicker">{{ translations.shelf_step_kicker | default('Fournée terminée') }}</p>
+            {# La croix et « garder en réserve » sont la même sortie : deux
+               libellés pour un seul geste laissaient croire à deux issues, dont
+               une qui aurait annulé quelque chose. Rien n'est annulable ici —
+               la fournée est faite. #}
+            <button type="button" class="bk-sheet-x" id="bkShelfClose"
+                    aria-label="{{ translations.shelf_step_later | default('Garder en réserve') }}">
+                {{ icons.svg('x', 18) }}
+            </button>
+        </header>
+
+        <div class="bk-recall f-shelf">
+            <span class="bk-recall-verb" id="bkShelfTitle">
+                {{ translations.shelf_step_title | default('Mettre en magasin') }}
+            </span>
+            <span class="bk-recall-what">
+                <b id="bkShelfName">—</b>
+                <span>{{ translations.shelf_step_hint | default("c'est ce geste qui met le produit en vente") }}</span>
+            </span>
+        </div>
+
+        <p class="bk-sheet-lbl">{{ translations.shelf_step_qty | default('Quantité mise en rayon') }}</p>
+        <div class="bk-time">
+            <button type="button" class="bk-time-step" data-shelf-step="-1" aria-label="−">−</button>
+            <span class="bk-time-val">
+                <b id="bkShelfQty">0</b> <span id="bkShelfUnit">pc</span>
+            </span>
+            <button type="button" class="bk-time-step" data-shelf-step="1" aria-label="+">+</button>
+        </div>
+        <p class="bk-sheet-hint" id="bkShelfHint"></p>
+
+        <button type="button" class="bk-sheet-go bk-sheet-go-shelf" id="bkShelfGo">
+            <span id="bkShelfSpin" class="spinner-border spinner-border-sm d-none"></span>
+            {{ icons.svg('store', 19) }}
+            {{ translations.shelf_step_go | default('Mettre en magasin') }}
+        </button>
+        {# « Plus tard » ne disait pas ce qu'il laissait derrière lui, et pesait
+           autant que l'enregistrement : même taille, même forme, un bouton
+           plein contre un bouton plein. Or l'un met le produit en vente et
+           l'autre ne fait rien. Il devient un lien, et il écrit sa
+           conséquence — c'est la seule information qui manquait pour choisir. #}
+        <button type="button" class="bk-sheet-later" id="bkShelfLater">
+            {# Le soulignement ne porte que sur le libellé : appliqué au bouton
+               entier, il barre aussi la conséquence, qui n'est pas cliquable et
+               se met alors à ressembler à un second lien. #}
+            <span class="bk-later-lbl">{{ translations.shelf_step_later | default('Garder en réserve') }}</span>
+            <small>{{ translations.shelf_step_later_hint | default("le produit ne sera pas en vente — rappel gardé en haut de l'atelier") }}</small>
+        </button>
+    </div>
+</div>

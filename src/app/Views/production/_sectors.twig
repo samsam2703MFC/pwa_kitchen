@@ -1,0 +1,35 @@
+{# production/_sectors.twig — le secteur de production ouvert.
+
+   Boulangerie et traiteur sont deux ateliers, deux équipes, souvent deux
+   pièces — mais un seul magasin, une seule vitrine, et exactement les mêmes
+   questions : qu'est-ce qui va manquer, qu'est-ce qui est au four, qu'est-ce
+   qui part en rayon. D'où un sélecteur en tête de module plutôt qu'un second
+   menu : le boulanger qui passe au traiteur retrouve ses gestes.
+
+   Le secteur se transporte dans l'URL et survit à chaque changement d'onglet.
+   Un magasin qui n'en déclare qu'un ne voit pas cette barre : elle n'aurait
+   rien à choisir.
+
+   Reçoit du contrôleur : sectors, sector, active_view, mep_sub. #}
+{% if sectors|length > 1 %}
+    {% set base = ROOT ~ '/production?view=' ~ active_view
+        ~ (active_view == 'mep' and mep_sub is defined ? '&mep=' ~ mep_sub : '') %}
+
+    {# Plus de libellé « SECTEUR » ni de rangée à soi : les pastilles rejoignent
+       le commutateur dans .pr-bar. Un mot pour annoncer trois pastilles dont
+       les noms se lisent — Boulangerie, Traiteur — n'apprenait rien. #}
+    <nav class="pr-sectors" aria-label="{{ translations.sector_title | default('Secteur de production') }}">
+        <a class="cat-chip {{ sector is null ? 'is-on' : '' }}" href="{{ base }}"
+           {{ sector is null ? 'aria-current="page"' : '' }}>
+            {{ translations.sector_all | default('Tous') }}
+        </a>
+        {% for s in sectors %}
+            <a class="cat-chip {{ sector == s.key ? 'is-on' : '' }}"
+               href="{{ base }}&sector={{ s.key|url_encode }}"
+               {{ sector == s.key ? 'aria-current="page"' : '' }}>
+                {{ translations['sector_' ~ s.key] ?? s.label }}
+                <span class="n">{{ s.count }}</span>
+            </a>
+        {% endfor %}
+    </nav>
+{% endif %}
