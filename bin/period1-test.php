@@ -249,6 +249,43 @@ $base = $svc->dayReportBase([
 check('bilan : vendu additionne tout', $base['vendu'], 11.0);
 check('bilan : prévu additionne les connus', $base['prevu'], 44.0);
 
+// ── La journée en 4 cuissons ───────────────────────────────────────────────
+$rowsDay = [
+    ['product_id' => 101, 'name' => 'Baguette', 'section' => 'boulangerie', 'prevu' => 36.0, 'vendu' => 8.0],
+    ['product_id' => 102, 'name' => 'Croissant', 'section' => 'boulangerie', 'prevu' => null, 'vendu' => 5.0],
+    ['product_id' => 103, 'name' => 'Éclair',    'section' => 'patisserie',  'prevu' => 10.0, 'vendu' => 0.0],
+];
+$pickups = [
+    ['id' => 101, 'name' => 'Baguette', 'qty' => 4.0,  'at' => '06:30'],   // avant 10 h → ouverture
+    ['id' => 101, 'name' => 'Baguette', 'qty' => 6.0,  'at' => '12:15'],   // 10–14 → relance 10 h
+    ['id' => 101, 'name' => 'Baguette', 'qty' => 3.0,  'at' => '15:00'],   // 14–16 → relances 10 h ET 14 h (2 périodes)
+    ['id' => 104, 'name' => 'Tarte',    'qty' => 2.0,  'at' => '17:30'],   // 16 h → fermeture → relances 14 h et 16 h
+    ['id' => 103, 'name' => 'Éclair',   'qty' => 1.0,  'at' => null],      // heure inconnue → ouverture, dite
+];
+$slots = $svc->bakingSlots($rowsDay, $pickups, '18:30', '11:20');
+check('4 cuissons : quatre créneaux', array_column($slots, 'at'), ['06:00', '10:00', '14:00', '16:00']);
+check('4 cuissons : horizon de 2 périodes', array_column($slots, 'until'), ['14:00', '16:00', '18:30', '18:30']);
+check('4 cuissons : le créneau courant à 11 h 20 est 10 h', array_column($slots, 'is_current'), [false, true, false, false]);
+check('4 cuissons : seule l\'ouverture a une prévision', array_column($slots, 'forecast_known'), [true, false, false, false]);
+$open = $slots[0]; $byId = fn(array $sl) => array_column($sl['rows'], null, 'product_id');
+check('ouverture : 40 % de la prévision, arrondi haut', $byId($open)[101]['forecast_part'], 15.0);
+check('ouverture : commandes avant 10 h', $byId($open)[101]['orders'], 4.0);
+check('ouverture : ferme = 40 % + commandes', $byId($open)[101]['firm'], 19.0);
+check('ouverture : sans prévision ni commande → absent', isset($byId($open)[102]), false);
+check('ouverture : heure de retrait inconnue comptée et dite', [$byId($open)[103]['orders'], $open['unknown_time']], [1.0, 1.0]);
+check('ouverture : total prévision', $open['forecast_total'], 19.0);
+$r10 = $slots[1];
+check('relance 10 h : commandes 10 h → 16 h', $byId($r10)[101]['orders'], 9.0);
+check('relance 10 h : prévision comptoir en attente ERP', $byId($r10)[101]['forecast_part'], null);
+check('relance 10 h : produit sans commande → absent', isset($byId($r10)[103]), false);
+$r14 = $slots[2];
+check('relance 14 h : 14 h → fermeture', [$byId($r14)[101]['orders'], $byId($r14)[104]['orders']], [3.0, 2.0]);
+check('relance 14 h : produit commandé inconnu de la prévision entre', $byId($r14)[104]['name'], 'Tarte');
+$r16 = $slots[3];
+check('relance 16 h : jusqu\'à la fermeture', array_column($r16['rows'], 'orders', 'product_id'), [104 => 2.0]);
+check('4 cuissons : avant 6 h le courant est l\'ouverture', $svc->bakingSlots($rowsDay, [], '18:30', '05:10')[0]['is_current'], true);
+check('4 cuissons : fermeture inconnue → dernier horizon ouvert', $svc->bakingSlots($rowsDay, [], null, '17:00')[3]['until'], null);
+
 // ── Rien à assembler ────────────────────────────────────────────────────────
 check('aucun produit → aucune ligne', $svc->rows([], [], [], $C), []);
 check('aucun produit → rien à produire', $svc->toProduce([])['total'], 0.0);

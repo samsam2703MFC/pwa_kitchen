@@ -74,6 +74,37 @@ function ok(msg) { console.log('✓ ' + msg); }
   if (stock !== launched) fail('compteur EN STOCK attendu ' + launched + ', vu ' + stock);
   ok('sortir : ' + stock + ' pièces cuites, compteur juste');
 
+  // La journée en 4 cuissons : la barre bascule, et la vitrine (fournées
+  // sorties − vendu) se déduit de la liste d'ouverture pour la baguette.
+  const slots = await page.evaluate(() => {
+    const bar = [...document.querySelectorAll('#plSlots .pl-slot-btn')];
+    if (bar.length !== 4) return { n: bar.length };
+    bar[0].click();
+    const pane = document.querySelector('#plSlots .pl-slot-pane[data-i="0"]');
+    const row = pane && [...pane.querySelectorAll('.pl-slot-row')].find(r => r.dataset.pid === '1300003');
+    return {
+      n: bar.length,
+      activeIs0: bar[0].classList.contains('is-active'),
+      paneShown: pane && !pane.hidden,
+      firm: row ? +row.dataset.firm : null,
+      vendu: row ? +row.dataset.vendu : null,
+      vit: row ? +row.querySelector('.pl-slot-vit').textContent : null,
+      out: row ? +row.querySelector('.pl-slot-out-n').textContent : null,
+    };
+  });
+  if (slots.n !== 4) fail('4 créneaux attendus, vu ' + slots.n);
+  if (!slots.activeIs0 || !slots.paneShown) fail('la barre des créneaux ne bascule pas sur l\'ouverture');
+  if (slots.firm === null) fail('la baguette manque dans la liste d\'ouverture');
+  await page.waitForTimeout(100);
+  const after = await page.evaluate(() => {
+    const row = [...document.querySelectorAll('#plSlots .pl-slot-pane[data-i="0"] .pl-slot-row')].find(r => r.dataset.pid === '1300003');
+    return { vit: +row.querySelector('.pl-slot-vit').textContent, out: +row.querySelector('.pl-slot-out-n').textContent };
+  });
+  const wantVit = Math.max(0, launched - slots.vendu);
+  if (after.vit !== wantVit) fail('vitrine baguette attendue ' + wantVit + ' (sorties ' + launched + ' − vendu ' + slots.vendu + '), vue ' + after.vit);
+  if (after.out !== Math.max(0, slots.firm - wantVit)) fail('à cuire baguette attendu ' + Math.max(0, slots.firm - wantVit) + ', vu ' + after.out);
+  ok('4 cuissons : ouverture ' + slots.firm + ' ferme, vitrine ' + after.vit + ' déduite, à cuire ' + after.out);
+
   // Fin de journée : jeter une pièce, le bilan suit.
   await page.click('#flowBar [data-pane="p4"]');
   await page.waitForTimeout(200);

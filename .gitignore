@@ -40,3 +40,8 @@ desktop.ini
 
 # Écrit par le déploiement : la version servie, jamais versionnée.
 /BUILD
+
+# Outils E2E (playwright) installés localement, jamais versionnés
+node_modules/
+package.json
+package-lock.json

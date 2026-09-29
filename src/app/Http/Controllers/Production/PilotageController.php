@@ -268,6 +268,20 @@ class PilotageController extends Controller
         // ── Le bandeau de volumes de la recuisson ──
         $volumes = $this->period1->volumesOfDay($rows, $reheat);
 
+        // ── La journée en 4 cuissons : une liste par créneau ──
+        // Ouverture à 40 % de la prévision du jour ; relances = commandes à
+        // retirer sur les 2 prochaines périodes (heure de retrait servie par
+        // l'ERP) ; la dernière va jusqu'à la fermeture lue sur la fiche
+        // boutique. La part « prévision comptoir » des relances attend le
+        // filtre horaire de l'ERP (demande P4) : la case reste vide, dite.
+        $hours = $this->safeFetch(fn() => $this->planning->shopHours($shopId), $this->warnings, null, null);
+        $bakingSlots = $this->period1->bakingSlots(
+            $rows,
+            $ordersToday['pickups'] ?? [],
+            $hours['close'] ?? null,
+            date('H:i', $now)
+        );
+
         // ── Ce que l'écran de recuisson affiche ──
         // Les 12 plus urgents, PLUS tous les « fin de cycle » (tenue courte
         // encore en manque) même au-delà du plafond : le filtre doit les
@@ -315,6 +329,10 @@ class PilotageController extends Controller
             'orders_missing'  => $ordersToday === null ? 'GET /shops/{id}/client-orders' : null,
             'reheat_rows'   => $reheat,
             'queue_rows'    => $queueDisplay,
+            'baking_slots'  => $bakingSlots,
+            'now_hm'        => date('H:i', $now),
+            'shop_hours'    => $hours,
+            'hours_missing' => $hours === null ? 'GET /public/shops' : null,
             'flags_missing' => $flagsMissing,
             'stock_panels'  => $stockPanels,
             'oven_plan'     => $ovenPlan,

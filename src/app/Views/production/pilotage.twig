@@ -188,6 +188,40 @@
     .pl-wz-next { margin-left: auto; }
     .pl-wz-foot { margin-top: 10px; font-size: .76rem; color: var(--c-muted, #7a7168); text-align: center; }
 
+    /* La journée en 4 cuissons : barre de créneaux + liste par créneau. */
+    .pl-slot-bar { display: flex; width: 100%; gap: 3px; background: #fff; border: 1.5px solid var(--c-line, rgba(36,26,22,.12));
+        border-radius: var(--r-md, 13px); padding: 3px; margin-bottom: 10px; }
+    .pl-slot-btn { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--c-muted, #7a7168);
+        padding: 8px 4px; border-radius: calc(var(--r-md, 13px) - 4px); cursor: pointer; text-align: center; outline: none !important; }
+    .pl-slot-btn b { display: block; font-family: Vank, Gotham, sans-serif; font-size: 1.05rem; line-height: 1.1; color: inherit; }
+    .pl-slot-btn small { display: block; font-size: .62rem; letter-spacing: .05em; text-transform: uppercase; margin-top: 2px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-slot-btn.is-past { opacity: .55; }
+    .pl-slot-btn.is-active { background: var(--c-encre, #1F4F6B); color: #fff; opacity: 1; }
+    .pl-slot-btn.is-active.is-opening { background: var(--c-ambre, #C17A2A); }
+    .pl-slot-head { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px; }
+    .pl-slot-head span { background: #fff; border: 1.5px solid var(--c-line, rgba(36,26,22,.12)); border-radius: var(--r-md, 13px);
+        padding: 8px 6px; text-align: center; font-size: .62rem; letter-spacing: .05em; text-transform: uppercase; color: var(--c-muted, #7a7168); }
+    .pl-slot-head span b { display: block; font-family: Vank, Gotham, sans-serif; font-size: 1.15rem; letter-spacing: 0; text-transform: none;
+        color: var(--c-ink, #241a16); line-height: 1.15; margin-bottom: 2px; }
+    .pl-slot-head span.is-out b { color: var(--c-primary, #8D1D2C); }
+    .pl-slot-head span.is-wait b { color: var(--c-muted, #7a7168); font-size: .8rem; font-family: inherit; font-weight: 700; }
+    .pl-slot-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fff;
+        border: 1.5px solid var(--c-line, rgba(36,26,22,.12)); border-radius: var(--r-md, 13px); margin-bottom: 8px; }
+    .pl-slot-row .pl-body { flex: 1; min-width: 0; }
+    .pl-slot-math { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 6px; }
+    .pl-slot-sec { font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: var(--c-muted, #7a7168); margin: 10px 4px 6px; }
+    .pl-slot-math span { text-align: center; font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; color: var(--c-muted, #7a7168);
+        background: var(--c-bg, #f6f3ef); border-radius: 9px; padding: 5px 3px; }
+    .pl-slot-math span b { display: block; font-size: .95rem; letter-spacing: 0; text-transform: none; color: var(--c-ink, #241a16); font-variant-numeric: tabular-nums; }
+    .pl-slot-math span.is-wait b { font-size: .68rem; color: var(--c-muted, #7a7168); }
+    .pl-slot-out { flex: none; width: 66px; text-align: center; }
+    .pl-slot-out b { display: block; font-family: Vank, Gotham, sans-serif; font-size: 1.5rem; color: var(--c-primary, #8D1D2C); line-height: 1; }
+    .pl-slot-out small { font-size: .6rem; letter-spacing: .07em; text-transform: uppercase; color: var(--c-muted, #7a7168); }
+    .pl-slot-out.is-min b { color: var(--c-encre, #1F4F6B); }
+    .pl-slot-note { font-size: .76rem; color: var(--c-muted, #7a7168); margin: 0 2px 8px; }
+    .pl-slot-note i { color: var(--c-ambre, #C17A2A); }
+
     /* File de recuisson (étape 3). */
     .pl-rq-filter { display: flex; width: 100%; gap: 3px; background: #fff; border: 1.5px solid var(--c-line, rgba(36,26,22,.12));
         border-radius: var(--r-md, 13px); padding: 3px; margin-bottom: 12px; }
@@ -508,6 +542,74 @@
             </div>
 
             <div id="bucketDay" style="display:none;">
+
+            {# ── La journée en 4 cuissons ──
+               Une liste de cuisson par créneau : à cuire = prévision des 2
+               prochaines périodes + commandes à retirer sur ces périodes −
+               stock en vitrine. La vitrine (fournées sorties − vendu) se
+               calcule sur la tablette, en JS. #}
+            {% if baking_slots|length > 0 %}
+            <div class="pl-slots" id="plSlots" data-day="{{ selected_date }}">
+                <details class="pl-info" style="margin-bottom:8px;">
+                    <summary><i class="bi bi-info-circle"></i> {{ translations.pilot_slots_why | default('Pourquoi 4 cuissons ?') }}</summary>
+                    <div class="pl-hint" style="margin-bottom:8px;">{{ translations.pilot_slots_why_txt | default('Un produit cuit il y a 1 heure se vend mieux qu\'un produit cuit il y a 6 heures. On cuit en quatre fois, au plus près des ventes : le client trouve des produits chauds à toute heure, et il reste moins d\'invendus le soir.') }}</div>
+                    <div class="pl-hint" style="margin-bottom:8px;">{{ translations.pilot_slots_rule | default('Ouverture : 40 % du volume de vente prévu pour la journée. Relances : ventes prévues sur les 2 prochaines périodes + commandes webshop à retirer sur ces périodes − ce qui est encore en vitrine. À 16:00, la prévision va jusqu\'à la fermeture.') }}</div>
+                    <div class="pl-hint"><i class="bi bi-hand-index-thumb"></i> {{ translations.pilot_slots_team | default('Les quantités à cuire sont sur la liste. En cas d\'écart, prévenez votre responsable.') }}</div>
+                </details>
+
+                <div class="pl-slot-bar" role="tablist">
+                    {% for sl in baking_slots %}
+                        <button type="button" role="tab" class="pl-slot-btn{{ sl.is_current ? ' is-active' : '' }}{{ sl.kind == 'opening' ? ' is-opening' : '' }}{{ (not sl.is_current and sl.at < now_hm) ? ' is-past' : '' }}" data-i="{{ loop.index0 }}">
+                            <b>{{ sl.at }}</b>
+                            <small>{{ sl.kind == 'opening' ? (translations.pilot_slot_opening | default('Ouverture')) : (translations.pilot_slot_relance | default('Relance')) }} · {{ sl.rows|length }}</small>
+                        </button>
+                    {% endfor %}
+                </div>
+
+                {% for sl in baking_slots %}
+                    <div class="pl-slot-pane" data-i="{{ loop.index0 }}"{% if not sl.is_current %} hidden{% endif %}>
+                        {% set horizon = sl.until ?: (translations.pilot_slot_close | default('fermeture')) %}
+                        <div class="pl-slot-head">
+                            <span class="{{ sl.forecast_known ? '' : 'is-wait' }}">
+                                <b>{% if sl.forecast_known %}{{ sl.forecast_total|round }}{% else %}{{ translations.pilot_slot_wait | default('attente ERP') }}{% endif %}</b>
+                                {% if sl.kind == 'opening' %}{{ translations.pilot_slot_fc_open | default('40 % du jour') }}{% else %}{{ (translations.pilot_slot_fc_next | default('prévu %a→%b'))|replace({'%a': sl.at, '%b': horizon}) }}{% endif %}</span>
+                            <span><b>+ {{ sl.orders_total|round }}</b>{{ (translations.pilot_slot_orders | default('commandes → %b'))|replace({'%b': sl.kind == 'opening' ? (baking_slots[1].at ?? horizon) : horizon}) }}</span>
+                            <span><b class="pl-slot-vit-tot">—</b>{{ translations.pilot_slot_vitrine | default('en vitrine') }}</span>
+                            <span class="is-out"><b class="pl-slot-out-tot">—</b>{{ translations.pilot_slot_tobake | default('à cuire') }}</span>
+                        </div>
+                        {% if not sl.forecast_known %}
+                            <div class="pl-slot-note"><i class="bi bi-hourglass"></i>
+                                {{ translations.pilot_slot_wait_txt | default('Prévision comptoir par période : l\'ERP ne sert pas encore l\'historique par heure (demande P4). Les quantités ci-dessous sont le minimum ferme, commandes déduites de la vitrine.') }}</div>
+                        {% endif %}
+                        {% if sl.unknown_time > 0 %}
+                            <div class="pl-slot-note"><i class="bi bi-question-circle"></i>
+                                {{ (translations.pilot_slot_unknown | default('%s pièce(s) commandées sans heure de retrait : comptées à l\'ouverture.'))|replace({'%s': sl.unknown_time|round}) }}</div>
+                        {% endif %}
+                        {% if sl.rows|length == 0 %}
+                            <div class="pl-state ok" style="padding:18px;">{{ icons.svg('check', 30) }}
+                                <p>{{ translations.pilot_slot_empty | default('Rien de ferme sur ce créneau.') }}</p></div>
+                        {% endif %}
+                        {% for r in sl.rows %}
+                            {% if loop.first or r.section != sl.rows[loop.index0 - 1].section %}
+                                <div class="pl-slot-sec">{{ translations['sector_' ~ r.section] ?? (r.section ?: (translations.pilot_no_section | default('Autres'))) }}</div>
+                            {% endif %}
+                            <div class="pl-slot-row" data-pid="{{ r.product_id }}" data-firm="{{ r.firm|round }}" data-vendu="{{ r.vendu|round }}" data-known="{{ sl.forecast_known ? 1 : 0 }}">
+                                <div class="pl-body">
+                                    <div class="pl-name">{{ r.name }}</div>
+                                    <div class="pl-slot-math">
+                                        <span class="{{ r.forecast_part is null ? 'is-wait' : '' }}"><b>{% if r.forecast_part is null %}{{ translations.pilot_slot_wait | default('attente ERP') }}{% else %}{{ r.forecast_part|round }}{% endif %}</b>{% if sl.kind == 'opening' and r.prevu is not null %}{{ (translations.pilot_slot_m_fc_open | default('40 % de %s'))|replace({'%s': r.prevu|round}) }}{% else %}{{ translations.pilot_slot_m_fc | default('prévu') }}{% endif %}</span>
+                                        <span><b>+ {{ r.orders|round }}</b>{{ translations.pilot_slot_m_orders | default('commandes') }}</span>
+                                        <span><b class="pl-slot-vit">—</b>{{ translations.pilot_slot_m_vit | default('− vitrine') }}</span>
+                                    </div>
+                                </div>
+                                <span class="pl-slot-out{{ sl.forecast_known ? '' : ' is-min' }}"><b class="pl-slot-out-n">—</b>
+                                    <small>{{ sl.forecast_known ? (translations.pilot_slot_tobake | default('à cuire')) : (translations.pilot_slot_min | default('minimum')) }}</small></span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             {% if reheat_rows|length == 0 %}
                 <div class="pl-panel-in"><div class="pl-state ok">
@@ -882,6 +984,46 @@
                     });
                 });
             }
+
+            // ── La journée en 4 cuissons : choix du créneau + vitrine locale ──
+            // Vitrine = fournées SORTIES sur cette tablette − vendu (API) ;
+            // à cuire = ferme − vitrine, plancher 0. Recalculé à chaque clic.
+            (function () {
+                var box = document.getElementById('plSlots');
+                if (!box) return;
+                var day = box.dataset.day;
+                var btns = [].slice.call(box.querySelectorAll('.pl-slot-btn'));
+                var panes = [].slice.call(box.querySelectorAll('.pl-slot-pane'));
+                btns.forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        btns.forEach(function (x) { x.classList.toggle('is-active', x === b); });
+                        panes.forEach(function (p) { p.hidden = p.dataset.i !== b.dataset.i; });
+                    });
+                });
+                function doneLocal(pid) {
+                    try {
+                        return (JSON.parse(localStorage.getItem('pl.fournees.' + day + '.' + pid)) || [])
+                            .reduce(function (t, e) { return t + (e && e.state === 'done' ? (e.qty || 0) : 0); }, 0);
+                    } catch (e) { return 0; }
+                }
+                function compute() {
+                    panes.forEach(function (p) {
+                        var vitTot = 0, outTot = 0;
+                        [].slice.call(p.querySelectorAll('.pl-slot-row')).forEach(function (row) {
+                            var vit = Math.max(0, doneLocal(row.dataset.pid) - (+row.dataset.vendu || 0));
+                            var out = Math.max(0, (+row.dataset.firm || 0) - vit);
+                            vitTot += vit; outTot += out;
+                            row.querySelector('.pl-slot-vit').textContent = vit;
+                            row.querySelector('.pl-slot-out-n').textContent = out;
+                        });
+                        var vt = p.querySelector('.pl-slot-vit-tot'), ot = p.querySelector('.pl-slot-out-tot');
+                        if (vt) vt.textContent = vitTot;
+                        if (ot) ot.textContent = outTot;
+                    });
+                }
+                compute();
+                document.addEventListener('click', function () { setTimeout(compute, 0); });
+            })();
 
             // ── Le geste de recuisson : enfourner une quantité, la sortir ──
             // Suivi LOCAL tablette (localStorage, par jour et par produit).

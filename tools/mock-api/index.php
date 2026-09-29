@@ -431,7 +431,9 @@ if ($method === 'GET' && $m('/shops/\\d+/statistics/sales/product-category-group
 // Les commandes clients d'un jour de retrait — releve reel (avec lignes
 // produit, include=products). Sert la mise en rayon : ce qu'il faut reserver.
 if ($method === 'GET' && $m('/shops/\\d+/client-orders')) {
-    ok(mock_shop2_fixture()['client_orders_by_date'][(string)($q['date_from'] ?? '')] ?? []);
+    $byDate = mock_shop2_fixture()['client_orders_by_date'];
+    $d = (string)($q['date_from'] ?? '');
+    ok($byDate[$d] ?? $byDate[mock_capture_date($d)] ?? []);
 }
 
 // Les reductions programmees actives — releve reel (aucune le 27/08 : la

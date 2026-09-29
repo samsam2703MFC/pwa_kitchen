@@ -294,6 +294,156 @@ class Period1Service
         return $rows;
     }
 
+    /** La journée en quatre cuissons : ouverture, puis trois relances. */
+    public const BAKING_SLOTS = ['06:00', '10:00', '14:00', '16:00'];
+
+    /** À l'ouverture : 40 % du volume de vente prévu pour la journée. */
+    public const OPENING_SHARE = 0.4;
+
+    /**
+     * Les listes de cuisson de la journée — une par créneau.
+     *
+     * Règle métier (note « la journée en 4 cuissons ») :
+     *   ouverture  — 40 % de la prévision du jour, plus les commandes à
+     *                retirer avant la première relance ;
+     *   relance    — prévision des 2 prochaines périodes + commandes à retirer
+     *                sur ces périodes − stock en vitrine ; la dernière relance
+     *                va jusqu'à la fermeture.
+     *
+     * Ce qui est calculable ICI : la part 40 % (règle donnée) et les commandes
+     * par période (heure de retrait servie par l'ERP). La prévision PAR PÉRIODE
+     * des relances exige un historique horaire que l'ERP ne sert pas encore
+     * (`forecast_known` = false) : la case reste vide, on ne répartit pas la
+     * journée avec des pourcentages inventés. Le stock vitrine se déduit sur la
+     * tablette (fournées sorties − vendu), pas ici.
+     *
+     * @param array<int, array{product_id: int|string, name: string, section: string,
+     *                         prevu: ?float, vendu: float}> $rows
+     * @param array<int, array{id: int, name: string, qty: float, at: ?string}> $pickups
+     * @param ?string $closing  « HH:MM » ; null = inconnue (dernier créneau ouvert)
+     * @param string  $nowHm    « HH:MM »
+     * @param array<int, string> $slots
+     * @return array<int, array{at: string, until: ?string, kind: string, is_current: bool,
+     *               forecast_known: bool, unknown_time: float, orders_total: float,
+     *               forecast_total: ?float, rows: array<int, array>}>
+     */
+    public function bakingSlots(array $rows, array $pickups, ?string $closing, string $nowHm, array $slots = self::BAKING_SLOTS): array
+    {
+        $n = count($slots);
+        if ($n === 0) {
+            return [];
+        }
+        $names = [];
+        $sections = [];
+        $prevu = [];
+        $vendu = [];
+        foreach ($rows as $r) {
+            $id = (int)$r['product_id'];
+            $names[$id]    = (string)$r['name'];
+            $sections[$id] = (string)($r['section'] ?? '');
+            $prevu[$id]    = $r['prevu'];
+            $vendu[$id]    = (float)($r['vendu'] ?? 0.0);
+        }
+
+        // Le créneau courant : le dernier déjà commencé, sinon le premier.
+        $current = 0;
+        foreach ($slots as $i => $at) {
+            if ($nowHm >= $at) {
+                $current = $i;
+            }
+        }
+
+        $out = [];
+        foreach ($slots as $i => $at) {
+            $isOpening = $i === 0;
+            $next      = $slots[$i + 1] ?? null;               // fin de la 1re période
+            $until     = $slots[$i + 2] ?? $closing;            // fin des 2 périodes
+            $isLast    = $next === null;
+
+            // Les commandes du créneau, par produit.
+            $orders = [];
+            $unknownTime = 0.0;
+            foreach ($pickups as $p) {
+                $id  = (int)$p['id'];
+                $qty = (float)$p['qty'];
+                $pat = $p['at'] ?? null;
+                $names[$id] ??= (string)$p['name'];
+                $sections[$id] ??= '';
+                if ($pat === null) {
+                    // Heure de retrait inconnue : comptée à l'ouverture, et dite.
+                    if (!$isOpening) {
+                        continue;
+                    }
+                    $unknownTime += $qty;
+                } elseif ($isOpening) {
+                    if ($next !== null && $pat >= $next) {
+                        continue;
+                    }
+                } elseif ($isLast) {
+                    if ($pat < $at) {
+                        continue;
+                    }
+                } else {
+                    $end = $until ?? '99:99';
+                    if ($pat < $at || $pat >= $end) {
+                        continue;
+                    }
+                }
+                $orders[$id] = ($orders[$id] ?? 0.0) + $qty;
+            }
+
+            $lines = [];
+            $ids = array_unique(array_merge(array_keys($prevu), array_keys($orders)));
+            foreach ($ids as $id) {
+                $fp = null;
+                if ($isOpening) {
+                    $pv = $prevu[$id] ?? null;
+                    $fp = $pv !== null && $pv > 0 ? (float)ceil($pv * self::OPENING_SHARE) : ($pv === null ? null : 0.0);
+                }
+                $od = $orders[$id] ?? 0.0;
+                if (($fp === null || $fp <= 0) && $od <= 0) {
+                    continue;
+                }
+                $lines[] = [
+                    'product_id'    => $id,
+                    'name'          => $names[$id] ?? ('#' . $id),
+                    'section'       => $sections[$id] ?? '',
+                    'prevu'         => $prevu[$id] ?? null,
+                    'vendu'         => $vendu[$id] ?? 0.0,
+                    'forecast_part' => $fp,          // null aux relances : en attente ERP
+                    'orders'        => $od,
+                    'firm'          => ($fp ?? 0.0) + $od,   // avant déduction de la vitrine
+                ];
+            }
+            // Les sections les plus chargées en tête (la boulangerie avant les
+            // boissons), « Autres » en dernier ; dans une section, le plus gros
+            // besoin d'abord.
+            $secTotal = [];
+            foreach ($lines as $l) {
+                $secTotal[$l['section']] = ($secTotal[$l['section']] ?? 0.0) + $l['firm'];
+            }
+            usort($lines, static function (array $a, array $b) use ($secTotal): int {
+                $ka = [$a['section'] === '' ? 1 : 0, -$secTotal[$a['section']], mb_strtolower($a['section']), -$a['firm'], mb_strtolower($a['name'])];
+                $kb = [$b['section'] === '' ? 1 : 0, -$secTotal[$b['section']], mb_strtolower($b['section']), -$b['firm'], mb_strtolower($b['name'])];
+                return $ka <=> $kb;
+            });
+
+            $out[] = [
+                'at'             => $at,
+                'until'          => $until,
+                'kind'           => $isOpening ? 'opening' : 'relance',
+                'is_current'     => $i === $current,
+                'forecast_known' => $isOpening,
+                'unknown_time'   => $unknownTime,
+                'orders_total'   => array_sum(array_column($lines, 'orders')),
+                'forecast_total' => $isOpening ? array_sum(array_map(static fn(array $l): float => $l['forecast_part'] ?? 0.0, $lines)) : null,
+                'rows'           => $lines,
+            ];
+        }
+
+        return $out;
+    }
+
     /**
      * La liste du soir : prévision de demain ET commandes fermes de demain,
      * pour les produits à préparer la veille.

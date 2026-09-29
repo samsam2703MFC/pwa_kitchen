@@ -612,9 +612,25 @@ function mock_employee_positions(int $id): array
  * l'un des 6 memes jours de semaine precedents), renvoie les vraies lignes
  * produit servies par l'API — identifiants, noms, `group_name` (la vraie
  * structure de production), et `sold_qty` reels. Une date hors capture renvoie
- * une liste vide : le bouchon n'invente aucune vente.
+ * une liste vide : le bouchon n'invente aucune vente (voir mock_capture_date).
  */
 function mock_product_category_groups(string $date): array
 {
-    return mock_shop2_fixture()['sales_by_date'][$date] ?? [];
+    $byDate = mock_shop2_fixture()['sales_by_date'];
+    return $byDate[$date] ?? $byDate[mock_capture_date($date)] ?? [];
+}
+
+/**
+ * Poste de dev : la capture a été prise le 27/08/2026 en cours de journée
+ * (avec ses 6 jeudis et 6 vendredis d'historique). Des semaines plus tard,
+ * « aujourd'hui » n'y est plus : on décale la date demandée de l'écart entre
+ * le jour courant et le 27/08, si bien que le jour courant rejoue le 27/08,
+ * demain le 28/08, et l'historique les mêmes jours de semaine. Le scénario
+ * reste celui de la capture, quel que soit le jour où on lance le bouchon.
+ * Rien de tout cela ne tourne sur un serveur : c'est le bouchon.
+ */
+function mock_capture_date(string $wanted): string
+{
+    $offset = (int)round((strtotime(date('Y-m-d')) - strtotime('2026-08-27')) / 86400);
+    return date('Y-m-d', strtotime($wanted) - $offset * 86400);
 }

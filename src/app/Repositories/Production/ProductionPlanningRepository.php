@@ -220,7 +220,12 @@ class ProductionPlanningRepository
      * écartant les commandes déjà retirées (`picked_up`) — elles ne sont plus
      * à réserver.
      *
-     * @return array{orders: int, lines: array<int, array{id: int, name: string, qty: float}>}|null
+     * Chaque commande porte aussi `pick_up_datetime` : l'heure de retrait,
+     * que la liste de cuisson par créneau utilise (`pickups`, une entrée par
+     * ligne de commande, non agrégée).
+     *
+     * @return array{orders: int, lines: array<int, array{id: int, name: string, qty: float}>,
+     *               pickups: array<int, array{id: int, name: string, qty: float, at: ?string}>}|null
      *         null = route non servie.
      */
     public function orderedForDay(int $shopId, string $date): ?array
@@ -249,7 +254,8 @@ class ProductionPlanningRepository
      * Agrège les lignes produit des commandes d'un jour — pur.
      *
      * @param array<mixed> $data
-     * @return array{orders: int, lines: array<int, array{id: int, name: string, qty: float}>}
+     * @return array{orders: int, lines: array<int, array{id: int, name: string, qty: float}>,
+     *               pickups: array<int, array{id: int, name: string, qty: float, at: ?string}>}
      */
     public static function orderedRowsOf(array $data): array
     {
@@ -260,10 +266,11 @@ class ProductionPlanningRepository
             }
         }
         if (!array_is_list($data)) {
-            return ['orders' => 0, 'lines' => []];
+            return ['orders' => 0, 'lines' => [], 'pickups' => []];
         }
 
         $agg = [];
+        $pickups = [];
         $orders = 0;
         foreach ($data as $order) {
             if (!is_array($order)) {
@@ -278,6 +285,12 @@ class ProductionPlanningRepository
                 continue;
             }
             $orders++;
+            // L'heure de retrait, « HH:MM » ; null si l'ERP ne la donne pas.
+            $at = null;
+            $raw = $order['pick_up_datetime'] ?? $order['pickup_datetime'] ?? $order['pick_up_time'] ?? null;
+            if (is_string($raw) && preg_match('/(\d{1,2}):(\d{2})/', $raw, $m)) {
+                $at = sprintf('%02d:%s', (int)$m[1], $m[2]);
+            }
             foreach ($lines as $l) {
                 if (!is_array($l)) {
                     continue;
@@ -291,6 +304,7 @@ class ProductionPlanningRepository
                 $agg[$id]['id']   = $id;
                 $agg[$id]['name'] = (string)($l['name'] ?? ('#' . $id));
                 $agg[$id]['qty']  = ($agg[$id]['qty'] ?? 0.0) + (float)$q;
+                $pickups[] = ['id' => $id, 'name' => $agg[$id]['name'], 'qty' => (float)$q, 'at' => $at];
             }
         }
 
@@ -298,7 +312,41 @@ class ProductionPlanningRepository
         usort($lines, static fn(array $a, array $b): int =>
             [-$a['qty'], mb_strtolower($a['name'])] <=> [-$b['qty'], mb_strtolower($b['name'])]);
 
-        return ['orders' => $orders, 'lines' => $lines];
+        return ['orders' => $orders, 'lines' => $lines, 'pickups' => $pickups];
+    }
+
+    /**
+     * Les heures d'ouverture et de fermeture de la boutique.
+     *
+     * `GET /public/shops` — relevé en réel le 29/09/2026 : chaque boutique
+     * porte `opening_hours` et `closing_hours` (« 06:00 », « 18:30 »). La
+     * dernière liste de cuisson va « jusqu'à la fermeture » : c'est ici
+     * qu'elle la lit, pas dans une constante.
+     *
+     * @return array{open: ?string, close: ?string}|null null = route non servie
+     *         ou boutique absente de la liste.
+     */
+    public function shopHours(int $shopId): ?array
+    {
+        if ($shopId <= 0) {
+            return null;
+        }
+        $res = $this->apiClient->get('/public/shops');
+        $rows = $res['data'] ?? (is_array($res) && array_is_list($res) ? $res : null);
+        if (!is_array($rows)) {
+            return null;
+        }
+        foreach ($rows as $shop) {
+            if (!is_array($shop) || (int)($shop['id'] ?? 0) !== $shopId) {
+                continue;
+            }
+            $hm = static function ($v): ?string {
+                return is_string($v) && preg_match('/^(\d{1,2}):(\d{2})/', $v, $m)
+                    ? sprintf('%02d:%s', (int)$m[1], $m[2]) : null;
+            };
+            return ['open' => $hm($shop['opening_hours'] ?? null), 'close' => $hm($shop['closing_hours'] ?? null)];
+        }
+        return null;
     }
 
     /**

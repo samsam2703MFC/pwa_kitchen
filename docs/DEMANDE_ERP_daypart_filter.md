@@ -84,3 +84,40 @@ seul ce filtre manque pour les brancher sur la vraie donnée par créneau.
 `product_name`, `group_name`, `category_name`, `sector_id`, `sector_name`,
 `preparation_lead_time_hours`, `sold_qty`, `full_product_equivalent`,
 `total_earning`, `total_cost`, `margin_value`, `margin_percent`.*
+
+
+## Cas d'usage qui rend ce filtre indispensable : « la journée en 4 cuissons »
+
+La note métier du 29/09/2026 fixe la règle de cuisson de la boutique :
+
+| Créneau | Règle | Ce que la PWA calcule aujourd'hui |
+|---|---|---|
+| **06:00 · Ouverture** | 40 % du volume de vente prévu pour la journée + commandes à retirer avant 10:00 | **Calculé** (règle donnée, historique journée entière suffisant) |
+| **10:00 / 14:00 · Relances** | ventes prévues sur les **2 prochaines périodes** + commandes webshop à retirer sur ces périodes − stock en vitrine | Commandes et vitrine **calculées** ; la prévision par période reste **vide, « attente ERP »** |
+| **16:00 · Dernière relance** | idem, jusqu'à la **fermeture** (`closing_hours` de `GET /public/shops`) | idem |
+
+La prévision « sur les 2 prochaines périodes » exige l'historique des ventes
+**par tranche horaire** sur les 6 dernières semaines. Sans ce filtre, la PWA
+n'affiche aucun chiffre à la place — elle ne répartit pas la journée avec des
+pourcentages choisis à sa place.
+
+Les créneaux (06/10/14/16 h) ne coïncident pas avec les dayparts de l'ERP
+(Matin 06–11, Midi 11–13, Après-midi) : c'est pour cela que la demande porte
+sur un filtre **libre** `time_from` / `time_to` plutôt que sur `sales_daypart_id`.
+Exemples que la PWA enverra, pour chacune des 6 dates d'historique :
+
+```
+…/product-category-groups?date_from=D&date_to=D&time_from=10:00&time_to=16:00   (relance 10 h)
+…/product-category-groups?date_from=D&date_to=D&time_from=16:00&time_to=18:30   (relance 16 h, jusqu'à la fermeture)
+```
+
+### En marge : l'assortiment d'ouverture
+
+La note parle d'un « assortiment défini à l'avance » (les produits présents à
+l'ouverture, sans quantité). Le catalogue (`GET /shops/{id}/products/available`)
+n'a pas de drapeau pour cela : `is_prepared_before_sales` désigne des plats
+traiteur préparés d'avance (4 produits), pas la vitrine d'ouverture. En
+attendant, la liste d'ouverture porte tous les produits que la prévision
+annonce. Un drapeau `is_opening_assortment` (ou l'usage documenté d'un
+drapeau existant) réduirait la liste sans aucun développement côté PWA —
+à ranger dans le remplissage back-office (P3).
