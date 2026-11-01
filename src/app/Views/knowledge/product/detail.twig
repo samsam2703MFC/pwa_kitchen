@@ -423,6 +423,20 @@
                         {% endif %}
                     {% endif %}
                 </div>
+
+                {# Le pas à pas : la fiche en pages, une étape par écran (cuisson guidée façon Thermomix) #}
+                {% if book.available %}
+                    <button type="button" class="pb-launch" data-pb-open="0">
+                        <i class="bi bi-play-circle-fill"></i>
+                        <span>
+                            {{ translations.book_launch|default('Lancer le pas à pas') }}
+                            <small>
+                                {% if book.steps is not empty %}{{ book.steps|length }} {{ translations.book_steps|default('étapes') }}{% else %}{{ translations.book_mise_en_place|default('Mise en place') }}{% endif %}
+                                {%- if book.total_label %} · {{ book.total_label }}{% endif %}
+                            </small>
+                        </span>
+                    </button>
+                {% endif %}
             </div>
 
             {# Zdjęcie główne w nagłówku #}
@@ -576,6 +590,11 @@
                 {% if preparation and preparation.hasSteps() %}
                     <h4 class="fiche-section-title" style="margin-top:{% if preparation.hasTypes() %}0{% else %}0{% endif %}">
                         <i class="bi bi-list-ol me-1"></i>{{ translations.preparation|default('Przygotowanie') }}
+                        {% if book.steps is not empty %}
+                            <button type="button" class="pb-launch-inline float-end" data-pb-open="2">
+                                <i class="bi bi-play-fill"></i> {{ translations.book_open|default('Pas à pas') }}
+                            </button>
+                        {% endif %}
                     </h4>
                     {% for step in preparation.getSteps() %}
                         <div class="fiche-step">
@@ -784,6 +803,10 @@
             <i class="bi bi-arrow-left me-2"></i>{{ translations.back_to_products|default('Wróć do listy produktów') }}
         </a>
     </div>
+
+    {% if book.available %}
+        {% include "knowledge/product/book.twig" %}
+    {% endif %}
 
     {# Lightbox #}
     <div class="fiche-lightbox" id="ficheLightbox" onclick="ficheLightboxClose()">
