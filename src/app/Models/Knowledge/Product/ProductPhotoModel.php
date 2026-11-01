@@ -44,6 +44,12 @@ class ProductPhotoModel implements JsonSerializable
      */
     private function resolveUrl(?string $path): ?string
     {
+        return self::urlFor($path);
+    }
+
+    /** Le même calcul, pour les autres photos de la fiche (étapes, do / don't). */
+    public static function urlFor(?string $path): ?string
+    {
         if (!$path) return null;
         if (str_starts_with($path, 'r2://')) {
             $relativePath = substr($path, 5); // strip "r2://"

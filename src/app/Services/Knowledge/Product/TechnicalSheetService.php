@@ -17,4 +17,14 @@ class TechnicalSheetService
     {
         return $this->technicalSheetRepository->getById($id, GlobalRegistry::get('lang_code'));
     }
+
+    /** @return array{success:bool, message:?string} */
+    public function sendOvenProgram(int $productId, int $stepNumber, string $unoxProgramId): array
+    {
+        $shopId = (int) (GlobalRegistry::get('user')['shop_id'] ?? 0);
+        if ($shopId <= 0) {
+            return ['success' => false, 'message' => 'no_shop'];
+        }
+        return $this->technicalSheetRepository->sendOvenProgram($shopId, $productId, $stepNumber, $unoxProgramId);
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Kitchen\app\Models\Knowledge\Product;
 
 use App\Kitchen\app\Models\Knowledge\Recipe\RecipeModel;
 use App\Kitchen\app\Models\Knowledge\Recipe\PreparationModel;
+use App\Kitchen\app\Models\Knowledge\Recipe\VisualCheckModel;
 use JsonSerializable;
 
 /**
@@ -18,6 +19,7 @@ class ProductDetailModel implements JsonSerializable
     private $package; // PackageModel
     private $competences; // Array of CompetenceModel
     private $preparation; // PreparationModel
+    private $quality_checks; // VisualCheckModel[] — le contrôle final « à faire / à éviter »
 
     public function __construct($data)
     {
@@ -53,6 +55,14 @@ class ProductDetailModel implements JsonSerializable
         if (isset($data['preparation'])) {
             $this->preparation = new PreparationModel($data['preparation']);
         }
+
+        // Contrôle final (do / don't) — facultatif, voir docs/carte-produit-pas-a-pas.md
+        $this->quality_checks = [];
+        foreach ((array) ($data['quality_checks'] ?? []) as $check) {
+            if (is_array($check)) {
+                $this->quality_checks[] = new VisualCheckModel($check);
+            }
+        }
     }
 
     public function jsonSerialize(): mixed
@@ -63,7 +73,8 @@ class ProductDetailModel implements JsonSerializable
             'recipe' => $this->recipe,
             'package' => $this->package,
             'competences' => $this->competences,
-            'preparation' => $this->preparation
+            'preparation' => $this->preparation,
+            'quality_checks' => $this->quality_checks
         ];
     }
 
@@ -74,6 +85,7 @@ class ProductDetailModel implements JsonSerializable
     public function getPackage() { return $this->package; }
     public function getCompetences() { return $this->competences; }
     public function getPreparation() { return $this->preparation; }
+    public function getQualityChecks(): array { return $this->quality_checks; }
 
     // Helper methods
     public function hasPhotos(): bool { return $this->photos !== null; }

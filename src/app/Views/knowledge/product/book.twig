@@ -17,6 +17,29 @@
 {% set ingByKey = {} %}
 {% for ing in book.ingredients %}{% set ingByKey = ingByKey|merge({(ing.key): ing}) %}{% endfor %}
 {% set pageCount = 3 + book.steps|length %}
+{% import _self as pbm %}
+
+{#- Les photos à faire / à éviter (do / don't) : vertes et rouges, côte à côte, touchées = en grand. -#}
+{% macro checks(list, t) %}
+    <div class="pb-checks">
+        {% for c in list %}
+            <figure class="pb-check {{ c.do ? 'do' : 'dont' }}">
+                <div class="pb-check-img">
+                    {% if c.url %}
+                        <img src="{{ c.url }}" alt="{{ c.caption }}" class="fiche-zoomable" onclick="ficheLightboxOpen(this)" onerror="this.remove()">
+                    {% else %}
+                        <i class="bi bi-camera"></i>
+                    {% endif %}
+                    <span class="pb-check-badge">
+                        <i class="bi {{ c.do ? 'bi-check-circle-fill' : 'bi-x-circle-fill' }}"></i>
+                        {{ c.do ? t.book_do|default('À faire') : t.book_dont|default('À éviter') }}
+                    </span>
+                </div>
+                {% if c.caption %}<figcaption>{{ c.caption }}</figcaption>{% endif %}
+            </figure>
+        {% endfor %}
+    </div>
+{% endmacro %}
 
 <style>
     .pb-book {
@@ -159,6 +182,57 @@
     .pb-hl-speed { background: #e1eaff; color: #1d47b8; }
     .pb-hl-tray { background: #e4e8ec; color: #39424a; }
 
+    /* --- titre d'étape, point critique, photo --- */
+    .pb-step-head { display: flex; align-items: center; gap: 18px; margin-bottom: 14px; }
+    .pb-step-head .pb-step-num { margin-bottom: 0; flex: 0 0 76px; }
+    .pb-step-title { font-size: 1.7rem; font-weight: 800; margin: 0; color: #1f2328; line-height: 1.2; }
+    .pb-critical {
+        display: flex; gap: 12px; align-items: flex-start; margin-top: 18px;
+        background: #fdecec; border: 2px solid #f1aeb5; color: #842029; border-radius: 14px; padding: 12px 16px; font-size: 1.1rem;
+    }
+    .pb-critical i { font-size: 1.5rem; line-height: 1; }
+    .pb-step-photo { margin-top: 18px; max-width: 560px; border-radius: 16px; overflow: hidden; background: #f1efe9; }
+    .pb-step-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+
+    /* --- à faire / à éviter --- */
+    .pb-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 18px; max-width: 720px; }
+    .pb-check { margin: 0; background: #fff; border: 3px solid; border-radius: 16px; overflow: hidden; }
+    .pb-check.do { border-color: #1f7a4d; }
+    .pb-check.dont { border-color: #dc3545; }
+    .pb-check-img { position: relative; aspect-ratio: 4 / 3; background: #f1efe9; display: flex; align-items: center; justify-content: center; color: #b9b3a6; font-size: 2.4rem; }
+    .pb-check-img img { width: 100%; height: 100%; object-fit: cover; }
+    .pb-check-badge {
+        position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 6px;
+        border-radius: 999px; padding: 5px 12px; font-size: .95rem; font-weight: 800; color: #fff;
+    }
+    .pb-check.do .pb-check-badge { background: #1f7a4d; }
+    .pb-check.dont .pb-check-badge { background: #dc3545; }
+    .pb-check figcaption { padding: 10px 14px; font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
+    .pb-check.dont figcaption { color: #842029; }
+
+    /* --- programme four (affiché comme l'écran du four) --- */
+    .pb-oven { background: #1f2328; color: #fff; border-radius: 18px; padding: 16px 18px; }
+    .pb-oven-top { font-size: .85rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #9aa4ad; display: flex; align-items: center; gap: 8px; }
+    .pb-oven-name { display: flex; align-items: center; gap: 12px; margin: 8px 0 10px; font-size: 1.7rem; font-weight: 800; line-height: 1.15; }
+    .pb-oven-num { background: #f5a524; color: #1f2328; border-radius: 10px; padding: 2px 12px; font-size: 1.5rem; }
+    .pb-oven-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 1.05rem; color: #d6dbe0; }
+    .pb-oven-meta i { margin-right: 6px; color: #f5a524; }
+    .pb-oven-meta strong { color: #fff; }
+    .pb-oven-phases { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 1.05rem; }
+    .pb-oven-phases td { padding: 8px 6px; border-top: 1px solid #39414a; white-space: nowrap; }
+    .pb-oven-phases td.n { width: 30px; color: #f5a524; font-weight: 800; }
+    .pb-oven-phases td.v { font-weight: 800; text-align: right; }
+    .pb-oven-phases i { margin-right: 4px; color: #9aa4ad; }
+    .pb-oven-send {
+        margin-top: 14px; width: 100%; min-height: 64px; border: 0; border-radius: 14px; background: #f5a524; color: #1f2328;
+        font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .pb-oven-send:disabled { opacity: .6; }
+    .pb-oven-status { margin-top: 8px; font-size: 1rem; font-weight: 700; min-height: 1.2em; }
+    .pb-oven-status.ok { color: #8fe0b4; }
+    .pb-oven-status.ko { color: #ff9aa5; }
+    .pb-chip.tool { background: #ece8df; color: #3d3a33; }
+
     /* --- mise sur plaque --- */
     .pb-tray { max-width: 620px; }
     .pb-tray-svg { display: block; width: 100%; height: auto; }
@@ -208,7 +282,7 @@
     .pb-done-card .k { font-size: .85rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6b6f76; }
     .pb-done-card .v { font-size: 1.3rem; font-weight: 800; margin-top: 4px; }
     .pb-done-card .d { font-size: .98rem; color: #555a61; margin-top: 2px; }
-    .pb-done-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .pb-done-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 
     /* --- barre du bas --- */
     .pb-bottom { display: flex; gap: 14px; padding: 14px 20px; background: #fff; border-top: 1px solid #ebe7de; }
@@ -255,7 +329,7 @@
     }
 </style>
 
-<div class="pb-book" id="pbBook" role="dialog" aria-modal="true" aria-label="{{ t.book_open|default('Pas à pas') }} — {{ product.getName() }}">
+<div class="pb-book" id="pbBook" role="dialog" aria-modal="true" data-oven-url="{{ ROOT }}/knowledge/products/{{ product.getId() }}/oven/send" aria-label="{{ t.book_open|default('Pas à pas') }} — {{ product.getName() }}">
 
     <div class="pb-top">
         <div class="pb-top-title">
@@ -297,6 +371,9 @@
                         {% endif %}
                         {% if book.total_label %}
                             <div class="pb-fact"><i class="bi bi-stopwatch"></i>{{ t.book_total_time|default('Temps total') }} <strong>{{ book.total_label }}</strong></div>
+                        {% endif %}
+                        {% if book.oven %}
+                            <div class="pb-fact"><i class="bi bi-cpu"></i>{{ t.book_oven|default('Programme four') }} <strong>{% if book.oven.program_number %}{{ book.oven.program_number }} · {% endif %}{{ book.oven.program_name ?: book.oven.total_label }}</strong></div>
                         {% endif %}
                         {% if book.tray %}
                             <div class="pb-fact"><i class="bi bi-grid-3x3"></i>{{ t.book_tray|default('Mise sur plaque') }} <strong>{{ book.tray.label }}</strong></div>
@@ -389,21 +466,87 @@
         {# ===== 2… · LES ÉTAPES ===== #}
         {% for step in book.steps %}
             <section class="pb-page" data-step="{{ step.number }}"
-                     data-where="{{ t.book_step|default('Étape') }} {{ step.number }} {{ t.book_of|default('sur') }} {{ book.steps|length }}">
+                     data-where="{{ t.book_step|default('Étape') }} {{ step.number }} {{ t.book_of|default('sur') }} {{ book.steps|length }}{% if step.title %} · {{ step.title }}{% endif %}">
                 <div class="pb-step">
                     <div>
-                        <div class="pb-step-num">{{ step.number }}</div>
-                        <div class="pb-step-text">
-                            {%- for seg in step.segments -%}
-                                {%- if seg.t == 'text' -%}{{ seg.v|nl2br }}{%- else -%}<span class="pb-hl pb-hl-{{ seg.t }}">{{ seg.v }}</span>{%- endif -%}
-                            {%- endfor -%}
+                        <div class="pb-step-head">
+                            <div class="pb-step-num">{{ step.number }}</div>
+                            <div>
+                                {% set kindLabel = step.kind ? t['book_kind_' ~ step.kind]|default(step.kind|replace({'_': ' '})) : null %}
+                                {% if kindLabel and kindLabel|lower != step.title|default('')|lower %}<div class="pb-eyebrow">{{ kindLabel }}</div>{% endif %}
+                                {% if step.title %}<h2 class="pb-step-title">{{ step.title }}</h2>{% endif %}
+                            </div>
                         </div>
+                        {% if step.segments is not empty %}
+                            <div class="pb-step-text">
+                                {%- for seg in step.segments -%}
+                                    {%- if seg.t == 'text' -%}{{ seg.v|nl2br }}{%- else -%}<span class="pb-hl pb-hl-{{ seg.t }}">{{ seg.v }}</span>{%- endif -%}
+                                {%- endfor -%}
+                            </div>
+                        {% endif %}
+
+                        {% if step.critical_note %}
+                            <div class="pb-critical">
+                                <i class="bi bi-exclamation-octagon-fill"></i>
+                                <div><strong>{{ t.book_critical|default('Point critique') }}</strong> — {{ step.critical_note }}</div>
+                            </div>
+                        {% endif %}
+
+                        {% if step.photo_url %}
+                            <div class="pb-step-photo">
+                                <img src="{{ step.photo_url }}" alt="{{ step.title ?: product.getName() }}" class="fiche-zoomable" onclick="ficheLightboxOpen(this)" onerror="this.parentElement.remove()">
+                            </div>
+                        {% endif %}
+
+                        {% if step.checks is not empty %}
+                            {{ pbm.checks(step.checks, t) }}
+                        {% endif %}
                     </div>
 
                     <div>
+                        {% if step.oven %}
+                            {% set oven = step.oven %}
+                            <div class="pb-side-block pb-oven" data-oven-step="{{ step.number }}">
+                                <div class="pb-oven-top">
+                                    <i class="bi bi-cpu"></i>
+                                    {{ t.book_oven|default('Programme four') }}{% if oven.source == 'unox' %} · Unox{% endif %}{% if oven.oven_line %} {{ oven.oven_line }}{% endif %}
+                                </div>
+                                <div class="pb-oven-name">
+                                    {% if oven.program_number %}<span class="pb-oven-num">{{ oven.program_number }}</span>{% endif %}
+                                    <span>{{ oven.program_name ?: t.book_oven_manual|default('Réglage manuel') }}</span>
+                                </div>
+                                <div class="pb-oven-meta">
+                                    {% if oven.preheat %}<span><i class="bi bi-thermometer-half"></i>{{ t.book_oven_preheat|default('Préchauffage') }} <strong>{{ oven.preheat }}°C</strong></span>{% endif %}
+                                    {% if oven.trays %}<span><i class="bi bi-grid-3x3"></i><strong>{{ oven.trays }}</strong> {{ t.book_trays|default('plaques') }}</span>{% endif %}
+                                    {% if oven.total_label %}<span><i class="bi bi-stopwatch"></i><strong>{{ oven.total_label }}</strong></span>{% endif %}
+                                </div>
+                                {% if oven.phases is not empty %}
+                                    <table class="pb-oven-phases">
+                                        {% for ph in oven.phases %}
+                                            <tr>
+                                                <td class="n">{{ ph.n }}</td>
+                                                <td>{% if ph.mode %}{{ t['book_oven_mode_' ~ ph.mode]|default(ph.mode|replace({'_': ' '})) }}{% endif %}</td>
+                                                <td class="v">{% if ph.temperature %}{{ ph.temperature }}°C{% endif %}</td>
+                                                <td class="v">{% if ph.humidity is not null %}<i class="bi bi-droplet-half"></i>{{ ph.humidity }} %{% endif %}</td>
+                                                <td class="v">{% if ph.fan %}<i class="bi bi-arrow-repeat"></i>{{ ph.fan }}{% endif %}</td>
+                                                <td class="v">{% if ph.core %}{{ t.book_oven_core|default('à cœur') }} {{ ph.core }}°C{% elseif ph.duration %}{{ ph.duration }}{% endif %}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </table>
+                                {% endif %}
+                                {% if oven.sendable %}
+                                    <button type="button" class="pb-oven-send js-oven-send"
+                                            data-step="{{ step.number }}" data-program="{{ oven.unox_program_id }}">
+                                        <i class="bi bi-cpu"></i><span>{{ t.book_oven_send|default('Envoyer au four') }}</span>
+                                    </button>
+                                    <div class="pb-oven-status" role="status"></div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
                         {% if step.tray %}
                             <div class="pb-side-block pb-tray">
-                                <h3 class="pb-side-title"><i class="bi bi-grid-3x3 me-1"></i>{{ t.book_tray|default('Mise sur plaque') }}</h3>
+                                <h3 class="pb-side-title"><i class="bi bi-grid-3x3 me-1"></i>{{ t.book_tray|default('Mise sur plaque') }}{% if step.tray.tray_name %} · {{ step.tray.tray_name }}{% endif %}</h3>
                                 {{ step.tray.svg|raw }}
                                 <div class="pb-tray-caption">
                                     <span><strong>{{ step.tray.label }}</strong> = {{ step.tray.per_tray }} {{ t.book_per_tray|default('par plaque') }}</span>
@@ -430,10 +573,13 @@
                             </div>
                         {% endif %}
 
-                        {% if step.temperatures is not empty or step.speeds is not empty %}
+                        {% if step.temperatures is not empty or step.speeds is not empty or step.speed or step.reverse or step.equipment %}
                             <div class="pb-side-block">
                                 <div class="pb-chips">
+                                    {% if step.equipment %}<span class="pb-chip tool"><i class="bi bi-tools"></i>{{ step.equipment }}</span>{% endif %}
                                     {% for v in step.temperatures %}<span class="pb-chip temp"><i class="bi bi-thermometer-half"></i>{{ v }}</span>{% endfor %}
+                                    {% if step.speed %}<span class="pb-chip speed"><i class="bi bi-speedometer2"></i>{{ t.book_speed|default('Vitesse') }} {{ step.speed }}</span>{% endif %}
+                                    {% if step.reverse %}<span class="pb-chip speed"><i class="bi bi-arrow-counterclockwise"></i>{{ t.book_reverse|default('Sens inverse') }}</span>{% endif %}
                                     {% for v in step.speeds %}<span class="pb-chip speed"><i class="bi bi-speedometer2"></i>{{ v }}</span>{% endfor %}
                                 </div>
                             </div>
@@ -442,12 +588,12 @@
                         {% if step.ingredients is not empty %}
                             <div class="pb-side-block">
                                 <h3 class="pb-side-title"><i class="bi bi-basket me-1"></i>{{ t.book_step_ingredients|default('Ingrédients de cette étape') }}</h3>
-                                {% for key in step.ingredients %}
-                                    {% set ing = ingByKey[key] %}
+                                {% for item in step.ingredients %}
+                                    {% set ing = ingByKey[item.key] %}
                                     <div class="pb-ing-card">
                                         <span class="name">{% if ing.is_subrecipe %}<i class="bi bi-layers me-1" style="color:#b8860b"></i>{% endif %}{{ ing.name }}</span>
-                                        {% if ing.qty is not null %}
-                                            <span class="qty"><span class="js-qty" data-qty="{{ ing.qty }}">{{ ing.qty_label }}</span> <small>{{ ing.unit }}</small></span>
+                                        {% if item.qty is not null %}
+                                            <span class="qty"><span class="js-qty" data-qty="{{ item.qty }}">{{ item.qty_label }}</span> <small>{{ ing.unit }}</small></span>
                                         {% endif %}
                                     </div>
                                 {% endfor %}
@@ -515,6 +661,11 @@
                 {% endif %}
             </div>
 
+            {% if book.checks is not empty %}
+                <h3 class="pb-side-title"><i class="bi bi-camera me-1"></i>{{ t.book_final_check|default('Contrôle visuel avant la vitrine') }}</h3>
+                {{ pbm.checks(book.checks, t) }}
+            {% endif %}
+
             <div class="pb-done-actions">
                 <button type="button" class="pb-btn pb-btn-light" data-go="0"><i class="bi bi-arrow-counterclockwise"></i>{{ t.book_restart|default('Recommencer') }}</button>
                 <button type="button" class="pb-btn pb-btn-next" id="pbBackToSheet" style="flex:0 1 auto"><i class="bi bi-file-text"></i>{{ t.book_back_to_sheet|default('Retour à la fiche') }}</button>
@@ -543,6 +694,9 @@
     timerResume: t.book_timer_resume|default('Reprendre'),
     timerDone: t.book_timer_done|default('Temps écoulé !'),
     timerStop: t.book_timer_stop|default('Arrêter'),
+    ovenSending: t.book_oven_sending|default('Envoi au four…'),
+    ovenSent: t.book_oven_sent|default('Programme envoyé au four'),
+    ovenFailed: t.book_oven_failed|default("Le four n'a pas reçu le programme : choisissez-le à la main"),
     traysFor: t.book_trays_for|default('Pour'),
     pieces: t.book_pieces|default('pièces'),
     tray: t.book_tray_one|default('plaque'),
@@ -838,6 +992,28 @@
             o.start(audio.currentTime + d); o.stop(audio.currentTime + d + 0.2);
         });
     }
+
+    /* ---------- programme four : envoi aux fours Unox du magasin, par le panel ---------- */
+
+    book.querySelectorAll('.js-oven-send').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var status = btn.parentElement.querySelector('.pb-oven-status');
+            var fd = new FormData();
+            fd.append('step_number', btn.getAttribute('data-step'));
+            fd.append('unox_program_id', btn.getAttribute('data-program'));
+            btn.disabled = true;
+            status.className = 'pb-oven-status';
+            status.textContent = T.ovenSending;
+            fetch(book.getAttribute('data-oven-url'), { method: 'POST', body: fd, credentials: 'same-origin' })
+                .then(function (r) { return r.json().then(function (j) { return r.ok && j && j.success; }); })
+                .catch(function () { return false; })
+                .then(function (ok) {
+                    status.classList.add(ok ? 'ok' : 'ko');
+                    status.textContent = ok ? '✓ ' + T.ovenSent : T.ovenFailed;
+                    btn.disabled = false;
+                });
+        });
+    });
 
     /* ---------- l'écran reste allumé pendant la recette ---------- */
 

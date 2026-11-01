@@ -34,7 +34,7 @@
                 <div class="card-body">
                     <div class="row g-4">
 
-                        <div class="col-12 col-lg-6">
+                        <div class="col-12 col-lg-4">
                             <a href="{{ ROOT }}/knowledge/recipes" class="card border-2 border-primary shadow-sm h-100 text-decoration-none hover-lift">
                                 <div class="card-body p-4">
                                     <div class="d-flex gap-3 align-items-start mb-3">
@@ -56,7 +56,7 @@
                             </a>
                         </div>
 
-                        <div class="col-12 col-lg-6">
+                        <div class="col-12 col-lg-4">
                             <a href="{{ ROOT }}/knowledge/products" class="card border-2 border-success shadow-sm h-100 text-decoration-none hover-lift">
                                 <div class="card-body p-4">
                                     <div class="d-flex gap-3 align-items-start mb-3">
@@ -72,6 +72,29 @@
                                     </div>
                                     <div class="d-flex align-items-center text-success">
                                         <span class="fw-semibold">{{ translations.go_to_products|default('Go to products') }}</span>
+                                        <i class="bi bi-arrow-right ms-2"></i>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        {# Pas à pas de production : les fiches en mode guidé (une étape par écran) #}
+                        <div class="col-12 col-lg-4">
+                            <a href="{{ ROOT }}/knowledge/book" class="card border-2 border-dark shadow-sm h-100 text-decoration-none hover-lift">
+                                <div class="card-body p-4">
+                                    <div class="d-flex gap-3 align-items-start mb-3">
+                                        <div class="avatar avatar-xl">
+                                            <span class="avatar-content bg-dark">
+                                                <i class="bi bi-play-circle-fill fs-3 text-white"></i>
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <h4 class="mb-2 text-dark">{{ translations.book_library_title|default('Pas à pas de production') }}</h4>
+                                            <p class="text-muted mb-0">{{ translations.book_library_card|default('Une étape par écran : minuteurs, mise sur plaque, programme four, photos à faire / à éviter.') }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center text-dark">
+                                        <span class="fw-semibold">{{ translations.go_to_book|default('Ouvrir le pas à pas') }}</span>
                                         <i class="bi bi-arrow-right ms-2"></i>
                                     </div>
                                 </div>

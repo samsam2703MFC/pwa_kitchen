@@ -1,0 +1,146 @@
+{% extends "layouts/base.twig" %}
+
+{#
+  Base de connaissances → PAS À PAS DE PRODUCTION
+  Les produits du magasin en grandes tuiles, par catégorie ; une tuile ouvre la fiche
+  directement en pas à pas (/knowledge/products/{id}#pas-a-pas). Pensé pour la tablette :
+  un doigt, pas de clavier obligatoire (les catégories se touchent, la recherche est en plus).
+#}
+
+{% block title %}{{ translations.book_library_title|default('Pas à pas de production') }}{% endblock %}
+
+{% block head %}
+<style>
+    .pbl-tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 18px; }
+    .pbl-search { flex: 1 1 320px; position: relative; }
+    .pbl-search input {
+        width: 100%; height: 60px; border-radius: 14px; border: 2px solid #e4e0d6; padding: 0 18px 0 52px;
+        font-size: 1.15rem; background: #fff;
+    }
+    .pbl-search input:focus { outline: none; border-color: #1f7a4d; }
+    .pbl-search i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 1.3rem; color: #8a8579; }
+    .pbl-cats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+    .pbl-cat {
+        border: 2px solid #e4e0d6; background: #fff; color: #1f2328; border-radius: 999px;
+        padding: 10px 18px; font-size: 1.02rem; font-weight: 700; min-height: 48px;
+    }
+    .pbl-cat.on { background: #1f7a4d; border-color: #1f7a4d; color: #fff; }
+    .pbl-group-title {
+        font-size: .85rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #6b6f76;
+        margin: 26px 0 12px; display: flex; align-items: center; gap: 10px;
+    }
+    .pbl-group-title span { background: #ece8df; color: #3d3a33; border-radius: 999px; padding: 2px 10px; letter-spacing: 0; }
+    .pbl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+    .pbl-tile {
+        display: flex; flex-direction: column; gap: 10px; background: #fff; border: 2px solid #ebe7de; border-radius: 18px;
+        padding: 14px 16px 16px; color: #1f2328; text-decoration: none; min-height: 190px;
+        transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+    .pbl-tile:hover, .pbl-tile:focus-visible { border-color: #1f7a4d; box-shadow: 0 6px 18px rgba(31, 122, 77, .14); transform: translateY(-2px); color: #1f2328; }
+    .pbl-tile:active { transform: scale(.98); }
+    .pbl-thumb { height: 86px; border-radius: 12px; background: #f6f3ec; display: flex; align-items: center; justify-content: center; }
+    .pbl-thumb svg { height: 70px; width: auto; }
+    .pbl-name { font-size: 1.12rem; font-weight: 800; line-height: 1.25; flex: 1; }
+    .pbl-go { display: inline-flex; align-items: center; gap: 8px; color: #1f7a4d; font-weight: 800; font-size: 1rem; }
+    .pbl-go i { font-size: 1.3rem; }
+    .pbl-empty { background: #fff; border: 2px dashed #e4e0d6; border-radius: 18px; padding: 28px; text-align: center; color: #6b6f76; font-size: 1.1rem; }
+</style>
+{% endblock %}
+
+{% block page_heading %}
+    <div class="page-heading">
+        <h3>{{ translations.book_library_title|default('Pas à pas de production') }}</h3>
+        <p class="text-subtitle text-muted">{{ translations.book_library_subtitle|default('Choisissez un produit : sa fiche s’ouvre en pas à pas.') }}</p>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ ROOT }}">{{ translations.home|default('Home') }}</a></li>
+                <li class="breadcrumb-item"><a href="{{ ROOT }}/knowledge">{{ translations.knowledge|default('Connaissances') }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ translations.book_library_title|default('Pas à pas de production') }}</li>
+            </ol>
+        </nav>
+    </div>
+{% endblock %}
+
+{% block content %}
+    {% include "page_components/alerts.twig" %}
+
+    {% if groups is empty %}
+        <div class="pbl-empty"><i class="bi bi-info-circle me-2"></i>{{ translations.no_products_found|default('Aucun produit trouvé') }}</div>
+    {% else %}
+        <div class="pbl-tools">
+            <label class="pbl-search">
+                <i class="bi bi-search"></i>
+                <input type="search" id="pblSearch" autocomplete="off"
+                       placeholder="{{ translations.search_products|default('Rechercher un produit par nom...') }}"
+                       aria-label="{{ translations.search_products|default('Rechercher un produit par nom...') }}">
+            </label>
+        </div>
+
+        {% if groups|length > 1 %}
+            <div class="pbl-cats" id="pblCats">
+                <button type="button" class="pbl-cat on" data-cat="">{{ translations.all_categories|default('Toutes les catégories') }}</button>
+                {% for category, items in groups %}
+                    <button type="button" class="pbl-cat" data-cat="{{ loop.index }}">{{ category ?: translations.no_category|default('Sans catégorie') }}</button>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% for category, items in groups %}
+            <section class="pbl-group" data-cat="{{ loop.index }}">
+                <h4 class="pbl-group-title">{{ category ?: translations.no_category|default('Sans catégorie') }} <span>{{ items|length }}</span></h4>
+                <div class="pbl-grid">
+                    {% for p in items %}
+                        <a class="pbl-tile" href="{{ ROOT }}/knowledge/products/{{ p.id }}#pas-a-pas" data-name="{{ p.name|lower }}">
+                            <div class="pbl-thumb">{{ p.svg|raw }}</div>
+                            <div class="pbl-name">{{ p.name }}</div>
+                            <div class="pbl-go"><i class="bi bi-play-circle-fill"></i>{{ translations.book_open|default('Pas à pas') }}</div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endfor %}
+
+        <div class="pbl-empty d-none" id="pblNone">{{ translations.no_products_found|default('Aucun produit trouvé') }}</div>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var search = document.getElementById('pblSearch');
+    if (!search) return;
+    var groups = Array.prototype.slice.call(document.querySelectorAll('.pbl-group'));
+    var cats = Array.prototype.slice.call(document.querySelectorAll('.pbl-cat'));
+    var none = document.getElementById('pblNone');
+    var cat = '';
+
+    function norm(s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+    function filter() {
+        var q = norm(search.value.trim());
+        var shown = 0;
+        groups.forEach(function (g) {
+            var inCat = !cat || g.getAttribute('data-cat') === cat;
+            var visible = 0;
+            g.querySelectorAll('.pbl-tile').forEach(function (tile) {
+                var ok = inCat && (!q || norm(tile.getAttribute('data-name')).indexOf(q) !== -1);
+                tile.style.display = ok ? '' : 'none';
+                if (ok) visible++;
+            });
+            g.style.display = visible ? '' : 'none';
+            shown += visible;
+        });
+        none.classList.toggle('d-none', shown > 0);
+    }
+
+    search.addEventListener('input', filter);
+    cats.forEach(function (b) {
+        b.addEventListener('click', function () {
+            cat = b.getAttribute('data-cat');
+            cats.forEach(function (o) { o.classList.toggle('on', o === b); });
+            filter();
+        });
+    });
+})();
+</script>
+{% endblock %}

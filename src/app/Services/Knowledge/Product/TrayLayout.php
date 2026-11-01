@@ -25,6 +25,8 @@ namespace App\Kitchen\app\Services\Knowledge\Product;
 class TrayLayout
 {
     public const MAX = 12;
+    /** Les formes qu'on sait dessiner — `piece_shape` de la carte produit en prend une. */
+    public const SHAPE_KEYS = ['baguette', 'eclair', 'croissant', 'cookie', 'tart', 'cake', 'focaccia', 'viennoiserie', 'roll', 'loaf', 'piece'];
 
     private const W = 600;
     private const H = 400;
@@ -44,13 +46,19 @@ class TrayLayout
         'loaf' => ['pain', 'pave', 'batard', 'fermier', 'cramique', 'seigle', 'boule', 'miche', 'brood', 'chleb'],
     ];
 
+    /**
+     * La forme du produit : le nom d'abord, la catégorie ensuite (« Brownies » rangé dans une
+     * catégorie de tartes reste un brownie ; « Riz » dans les Tartes est une tarte au riz).
+     */
     public function shapeFor(?string ...$texts): string
     {
-        $hay = $this->normalize(implode(' | ', array_filter($texts)));
-        foreach (self::SHAPES as $shape => $words) {
-            foreach ($words as $w) {
-                if (preg_match('/(?<![\p{L}])' . preg_quote($this->normalize($w), '/') . '/u', $hay)) {
-                    return $shape;
+        foreach (array_filter($texts) as $text) {
+            $hay = $this->normalize($text);
+            foreach (self::SHAPES as $shape => $words) {
+                foreach ($words as $w) {
+                    if (preg_match('/(?<![\p{L}])' . preg_quote($this->normalize($w), '/') . '/u', $hay)) {
+                        return $shape;
+                    }
                 }
             }
         }
@@ -93,6 +101,14 @@ class TrayLayout
         }
 
         return $out . '</svg>';
+    }
+
+    /** Une pièce seule, sans plaque : la vignette du produit dans la liste du pas à pas. */
+    public function pieceSvg(string $shape): string
+    {
+        return '<svg class="pb-piece-svg" viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+            . $this->piece(in_array($shape, self::SHAPE_KEYS, true) ? $shape : 'piece', 60, 40, 120, 80)
+            . '</svg>';
     }
 
     /** Une pièce, centrée dans sa case, allongée dans le sens long de la case. */

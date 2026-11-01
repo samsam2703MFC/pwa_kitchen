@@ -3,6 +3,9 @@
 namespace App\Kitchen\app\Services\Knowledge\Product;
 
 use App\Kitchen\app\Models\Knowledge\Product\ProductDetailModel;
+use App\Kitchen\app\Models\Knowledge\Product\ProductPhotoModel;
+use App\Kitchen\app\Models\Knowledge\Recipe\PreparationStepModel;
+use App\Kitchen\app\Models\Knowledge\Recipe\VisualCheckModel;
 use App\Kitchen\app\Models\Knowledge\Recipe\RecipeIngredientModel;
 use App\Kitchen\app\Models\Knowledge\Recipe\RecipeSubrecipeModel;
 
@@ -18,6 +21,10 @@ use App\Kitchen\app\Models\Knowledge\Recipe\RecipeSubrecipeModel;
  *   · les vitesses     « vitesse 3 », « sens inverse »                     → mises en avant ;
  *   · la mise sur plaque « mise sur plaque 3 x 3 »                         → le schéma de la plaque,
  *     garnie de la forme du produit (baguette, croissant, quiche…), et le nombre de plaques ;
+ *
+ * Quand la carte produit porte les champs structurés de l'étape (durée, température, plaque,
+ * ingrédients liés, programme four Unox, photos à faire / à éviter — docs/carte-produit-pas-a-pas.md),
+ * ce sont eux qui font foi ; la lecture du texte ne fait que compléter.
  *   · les ingrédients cités dans l'étape → rappelés avec leur quantité.
  *
  * Quand la fiche n'a pas d'étapes mais des temps par type (Préparation, Cuisson…),
@@ -79,11 +86,10 @@ class ProductionBookBuilder
         }
 
         $tray = null;
+        $oven = null;
         foreach ($steps as $st) {
-            if ($st['tray']) {
-                $tray = $st['tray'];
-                break;
-            }
+            $tray ??= $st['tray'];
+            $oven ??= $st['oven'];
         }
 
         return [
@@ -99,6 +105,10 @@ class ProductionBookBuilder
             'yield_label' => $yield && $yield > 0 ? $this->number($yield) : null,
             // la première mise sur plaque des étapes, rappelée sur la page « Avant de commencer »
             'tray' => $tray,
+            // le premier programme four des étapes, rappelé lui aussi en couverture
+            'oven' => $oven,
+            // le contrôle final avant vitrine : photos à faire / à éviter de la carte produit
+            'checks' => $this->checks($product->getQualityChecks()),
         ];
     }
 
@@ -119,6 +129,10 @@ class ProductionBookBuilder
             $qty = $this->toFloat($element->getRecipeQuantity());
             $row = [
                 'key' => 'i' . $i,
+                // pour relier une étape à ses ingrédients (carte produit) : ingredient:<id> / recipe:<id>
+                'ref' => $element instanceof RecipeSubrecipeModel
+                    ? 'recipe:' . (int) $element->getRecipeId()
+                    : 'ingredient:' . (int) $element->getIngredientId(),
                 'name' => trim((string) $element->getName()),
                 'qty' => $qty,
                 'qty_label' => $qty !== null ? $this->number($qty) : null,
@@ -179,15 +193,17 @@ class ProductionBookBuilder
         if ($prep && $prep->hasSteps()) {
             foreach ($prep->getSteps() as $i => $step) {
                 $text = trim((string) $step->getStepDescription());
-                if ($text === '') {
+                $title = $step->getStepTitle();
+                if ($text === '' && $title === null && !$step->getOvenProgram() && !$step->getTray() && !$step->getChecks()) {
                     continue;
                 }
                 $raw[] = [
                     'order' => is_numeric($step->getStepNumber()) ? (float) $step->getStepNumber() : 1000 + $i,
                     'index' => $i,
                     'text' => $text,
-                    'title' => null,
+                    'title' => $title,
                     'phase_seconds' => 0,
+                    'model' => $step,
                 ];
             }
             usort($raw, fn ($a, $b) => [$a['order'], $a['index']] <=> [$b['order'], $b['index']]);
@@ -204,8 +220,9 @@ class ProductionBookBuilder
                     'order' => $i,
                     'index' => $i,
                     'text' => $phase['name'],
-                    'title' => $phase['name'],
+                    'title' => null,
                     'phase_seconds' => $phase['seconds'],
+                    'model' => null,
                 ];
             }
         }
@@ -215,40 +232,199 @@ class ProductionBookBuilder
 
         $steps = [];
         foreach ($raw as $n => $r) {
+            /** @var PreparationStepModel|null $m */
+            $m = $r['model'];
             $parsed = $this->parse($r['text']);
 
-            $tray = null;
-            if ($parsed['trays']) {
-                $t = $parsed['trays'][0];
-                $grid = $this->trayLayout->grid($t['a'], $t['b']);
-                $tray = $grid + [
-                    'label' => $t['a'] . ' × ' . $t['b'],
-                    'shape' => $shape,
-                    'svg' => $this->trayLayout->svg($grid['cols'], $grid['rows'], $shape),
-                ];
+            // Ce que la carte produit a saisi passe devant ce que le texte laisse deviner.
+            $timers = [];
+            $temperatures = [];
+            $oven = $m ? $this->oven($m->getOvenProgram()) : null;
+            if ($oven && $oven['total_seconds'] > 0) {
+                $this->addTimer($timers, $oven['total_seconds'], $oven['total_label']);
+            }
+            if ($m && $m->getDurationSecond()) {
+                $d = $m->getDurationSecond();
+                $max = $m->getDurationMaxSecond();
+                $this->addTimer($timers, $d, $max && $max > $d
+                    ? $this->durationLabel($d) . ' – ' . $this->durationLabel($max)
+                    : $this->durationLabel($d));
+            }
+            foreach ($parsed['timers'] as $t) {
+                $this->addTimer($timers, $t['seconds'], $t['label']);
+            }
+            if ($r['phase_seconds'] > 0 && empty($timers)) {
+                $this->addTimer($timers, $r['phase_seconds'], $this->durationLabel($r['phase_seconds']));
             }
 
-            $timers = $parsed['timers'];
-            if ($r['phase_seconds'] > 0 && empty($timers)) {
-                $timers[] = [
-                    'seconds' => $r['phase_seconds'],
-                    'label' => $this->durationLabel($r['phase_seconds']),
-                ];
+            if ($m && $m->getTemperatureCelsius() !== null) {
+                $t = $m->getTemperatureCelsius();
+                $tm = $m->getTemperatureMaxCelsius();
+                $temperatures[] = $this->number($t) . ($tm !== null && $tm > $t ? '–' . $this->number($tm) : '') . '°C';
             }
+            $temperatures = array_values(array_unique(array_merge($temperatures, $parsed['temperatures'])));
+
+            $tray = $this->tray($m?->getTray(), $parsed['trays'], $shape);
 
             $steps[] = [
                 'number' => $n + 1,
+                'title' => $r['title'],
+                'kind' => $m?->getStepKind(),
                 'text' => $r['text'],
                 'segments' => $parsed['segments'],
                 'timers' => $timers,
-                'temperatures' => $parsed['temperatures'],
+                'temperatures' => $temperatures,
                 'speeds' => $parsed['speeds'],
+                'speed' => $m?->getSpeed(),
+                'reverse' => $m ? $m->isReverse() : false,
+                'equipment' => $m?->getEquipment(),
                 'tray' => $tray,
-                'ingredients' => $this->ingredientsIn($r['text'], $ingredients),
+                'ingredients' => $this->stepIngredients($m, $r['text'], $ingredients),
+                'photo_url' => $m ? ProductPhotoModel::urlFor($m->getPhotoPath()) : null,
+                'critical_note' => $m?->getCriticalNote(),
+                'checks' => $m ? $this->checks($m->getChecks()) : [],
+                'oven' => $oven,
             ];
         }
 
         return $steps;
+    }
+
+    /**
+     * La mise sur plaque : celle saisie dans la carte produit, sinon celle lue dans le texte.
+     * La forme saisie (`piece_shape`) l'emporte sur celle reconnue au nom du produit.
+     */
+    private function tray(?array $given, array $parsed, string $shape): ?array
+    {
+        $a = $b = null;
+        $name = null;
+        if ($given && (int) ($given['rows'] ?? 0) > 0 && (int) ($given['cols'] ?? 0) > 0) {
+            $a = (int) $given['cols'];
+            $b = (int) $given['rows'];
+        } elseif ($parsed) {
+            $a = $parsed[0]['a'];
+            $b = $parsed[0]['b'];
+        }
+        if ($given) {
+            $name = trim((string) ($given['tray_name'] ?? '')) ?: null;
+            $forced = trim((string) ($given['piece_shape'] ?? ''));
+            if ($forced !== '' && in_array($forced, TrayLayout::SHAPE_KEYS, true)) {
+                $shape = $forced;
+            }
+        }
+        if ($a === null || $a > TrayLayout::MAX || $b > TrayLayout::MAX) {
+            return null;
+        }
+
+        $grid = $this->trayLayout->grid($a, $b);
+        return $grid + [
+            'label' => $a . ' × ' . $b,
+            'tray_name' => $name,
+            'shape' => $shape,
+            'svg' => $this->trayLayout->svg($grid['cols'], $grid['rows'], $shape),
+        ];
+    }
+
+    /**
+     * Les ingrédients de l'étape, chacun avec la quantité à y mettre (pour une fournée).
+     * Liés dans la carte produit : ceux-là, avec leur quantité propre si elle est saisie
+     * (le sucre en deux fois). Sinon : ceux que le texte cite, avec toute leur quantité.
+     */
+    private function stepIngredients(?PreparationStepModel $m, string $text, array $ingredients): array
+    {
+        $byRef = [];
+        foreach ($ingredients as $ing) {
+            $byRef[$ing['ref']] = $ing;
+        }
+
+        $out = [];
+        $links = $m ? $m->getIngredients() : [];
+        foreach ($links as $link) {
+            $ref = isset($link['recipe_id']) ? 'recipe:' . (int) $link['recipe_id'] : 'ingredient:' . (int) ($link['ingredient_id'] ?? 0);
+            if (!isset($byRef[$ref])) {
+                continue;
+            }
+            $ing = $byRef[$ref];
+            $qty = $this->toFloat($link['quantity'] ?? null) ?? $ing['qty'];
+            $out[] = ['key' => $ing['key'], 'qty' => $qty, 'qty_label' => $qty !== null ? $this->number($qty) : null];
+        }
+        if ($out || $links) {
+            return $out;
+        }
+
+        $byKey = array_column($ingredients, null, 'key');
+        foreach ($this->ingredientsIn($text, $ingredients) as $key) {
+            $out[] = ['key' => $key, 'qty' => $byKey[$key]['qty'], 'qty_label' => $byKey[$key]['qty_label']];
+        }
+        return $out;
+    }
+
+    /** Les photos à faire / à éviter, prêtes pour la vue (les « à faire » d'abord). */
+    private function checks(array $models): array
+    {
+        $out = [];
+        foreach ($models as $c) {
+            if ($c instanceof VisualCheckModel && !$c->isEmpty()) {
+                $out[] = ['do' => $c->isDo(), 'url' => $c->getPhotoUrl(), 'caption' => $c->getCaption()];
+            }
+        }
+        usort($out, fn ($a, $b) => $b['do'] <=> $a['do']);
+        return $out;
+    }
+
+    /**
+     * Le programme du four, tel que la carte produit le porte (Unox ou saisi à la main) :
+     * nom et numéro du programme sur le four, préchauffage, et ses phases.
+     */
+    private function oven(?array $p): ?array
+    {
+        if (!$p) {
+            return null;
+        }
+
+        $phases = [];
+        $total = 0;
+        foreach ((array) ($p['phases'] ?? []) as $i => $ph) {
+            if (!is_array($ph)) {
+                continue;
+            }
+            $sec = (int) ($ph['duration_second'] ?? 0);
+            $total += max(0, $sec);
+            $phases[] = [
+                'n' => $i + 1,
+                'mode' => trim((string) ($ph['mode'] ?? '')) ?: null,
+                'temperature' => isset($ph['temperature_celsius']) && is_numeric($ph['temperature_celsius']) ? $this->number((float) $ph['temperature_celsius']) : null,
+                'humidity' => isset($ph['humidity_percent']) && is_numeric($ph['humidity_percent']) ? (int) $ph['humidity_percent'] : null,
+                'fan' => isset($ph['fan_speed']) && $ph['fan_speed'] !== '' ? (string) $ph['fan_speed'] : null,
+                'core' => isset($ph['core_probe_celsius']) && is_numeric($ph['core_probe_celsius']) ? $this->number((float) $ph['core_probe_celsius']) : null,
+                'duration' => $sec > 0 ? $this->durationLabel($sec) : null,
+            ];
+        }
+
+        $name = trim((string) ($p['program_name'] ?? ''));
+        $number = trim((string) ($p['program_number'] ?? ''));
+        if ($name === '' && $number === '' && !$phases) {
+            return null;
+        }
+
+        $source = strtolower(trim((string) ($p['source'] ?? '')));
+        $unoxId = trim((string) ($p['unox_program_id'] ?? ''));
+
+        return [
+            'source' => $source === 'unox' || $unoxId !== '' ? 'unox' : 'manual',
+            'program_name' => $name ?: null,
+            'program_number' => $number ?: null,
+            'oven_line' => trim((string) ($p['oven_line'] ?? '')) ?: null,
+            'unox_program_id' => $unoxId ?: null,
+            'preheat' => isset($p['preheat_celsius']) && is_numeric($p['preheat_celsius']) ? $this->number((float) $p['preheat_celsius']) : null,
+            'trays' => isset($p['trays']) && (int) $p['trays'] > 0 ? (int) $p['trays'] : null,
+            'phases' => $phases,
+            'total_seconds' => $total,
+            'total_label' => $total > 0 ? $this->durationLabel($total) : null,
+            // Le bouton « Envoyer au four » n'apparaît que si le panel dit que c'est possible
+            // (intégration Unox active pour ce magasin, programme présent dans la bibliothèque Unox).
+            'sendable' => $unoxId !== '' && !empty($p['sendable']),
+        ];
     }
 
     /**
