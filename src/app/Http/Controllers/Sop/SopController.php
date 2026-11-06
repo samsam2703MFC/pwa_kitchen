@@ -7,7 +7,7 @@ use App\Kitchen\core\Support\GlobalRegistry;
 
 /**
  * L'onglet « SOP » : les standards du réseau (SOP), en français et en néerlandais, lus pas à pas sur la tablette du
- * poste. Ils vivent dans le module Formation du cockpit (/consulant_bo/formation/tablette.html) : cet onglet y mène
+ * poste. Ils vivent dans le module Formation du cockpit, section Standards (SOP) (/consulant_bo/formation/sop/tablette.html) : cet onglet y mène
  * avec le magasin de l'appareil, le poste de cuisson et la langue de l'appareil. On s'y identifie comme pour les
  * checklists (son nom, son PIN) et la responsable y valide « vu faire ».
  *
@@ -43,6 +43,6 @@ class SopController extends Controller
         }
         $https = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on')
             || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-        return ($https ? 'https://' : 'http://') . ($_SERVER['SERVER_NAME'] ?? 'localhost') . '/consulant_bo/formation/tablette.html';
+        return ($https ? 'https://' : 'http://') . ($_SERVER['SERVER_NAME'] ?? 'localhost') . '/consulant_bo/formation/sop/tablette.html';
     }
 }
