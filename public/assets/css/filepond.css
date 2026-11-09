@@ -978,9 +978,8 @@
     /* base line height */
     line-height: normal;
 
-    /* up uses default system font family */
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    /* police de l'interface (Gotham, design system §4.1) : héritée de la page */
+    font-family: inherit;
 
     /* will increase font weight a bit on Safari */
     font-weight: 450;

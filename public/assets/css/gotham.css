@@ -1,0 +1,11 @@
+/* Police de l'interface — design system « L'Atelier By », §4.1
+   (docs : consultant_BO/docs/design-system/DESIGN_SYSTEM.md).
+   Police unique : Gotham, deux fichiers, déclarés exactement ainsi.
+   ATTENTION aux noms de fichier, ils trompent : Gotham_Medium.otf est le
+   trait NORMAL du système (tout le texte), Gotham_Regular.otf le trait
+   APPUYÉ (les accents de la liste fermée §4.3). 500 et 600 sont interdits :
+   500 retombe sur 400, 600 sur 700. Aucun autre fichier Gotham (Light,
+   Book, italiques…), aucune autre police d'interface.
+   Chemins relatifs à cette feuille : l'app peut vivre sous un sous-répertoire. */
+@font-face { font-family: 'Gotham'; src: url('../fonts/Gotham_Medium.otf')  format('opentype'); font-weight: 400; font-display: swap; } /* texte */
+@font-face { font-family: 'Gotham'; src: url('../fonts/Gotham_Regular.otf') format('opentype'); font-weight: 700; font-display: swap; } /* accents */
