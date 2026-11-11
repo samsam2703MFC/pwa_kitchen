@@ -1,0 +1,112 @@
+{# baking/index.twig — module Plan de production.
+
+   « Cuisson » était trop étroit : un ressuage, un nappage, un dressage ne
+   passent pas au four, et la moitié du plan ne cuit jamais. C'est le plan de
+   production de la journée.
+
+   Deux lectures superposées, et c'est délibéré : la frise répond à « où en est
+   la journée », les cartes répondent à « qu'est-ce que je fais maintenant ».
+   On lit la première debout devant le four, on tape sur les secondes.
+
+   La frise ne garde pas le validé et se cadre sur l'heure en cours : ce qui se
+   pilote, c'est ce qui vient. Sur ce qui reste, elle distingue l'intention du
+   fait — 60 % d'opacité pour ce qui est prévu, plein pour ce qui est déjà
+   validé sur une fournée encore en route.
+
+   Une ligne par fournée dans la frise, pas une par ressource : la ligne EST le
+   cycle du produit — préparation, cuisson, finition bout à bout — et sa
+   longueur dit à elle seule combien de temps sépare le début du travail de la
+   vente. Un plan de charge par four serait plus juste techniquement et
+   illisible sur une tablette d'atelier.
+
+   Contrat d'API : docs/ENDPOINTS_CUISSON.md. #}
+{% extends "layouts/base.twig" %}
+{% import "components/_icons.twig" as icons %}
+
+{% block title %}{{ translations.baking_title | default('Plan de production') }}{% endblock %}
+
+{% block head %}
+<style>{% include "baking/_styles.twig" %}</style>
+{% endblock %}
+
+{% block page_heading %}
+    <div class="page-heading d-flex align-items-end justify-content-between gap-3 flex-wrap">
+        <div>
+            <h3>{{ translations.baking_title | default('Plan de production') }}</h3>
+            <p class="text-subtitle text-muted mb-0">
+                {{ translations.baking_subtitle | default('Ce qui reste à produire, replanifié en continu') }}
+            </p>
+        </div>
+        <div class="app-title" style="font-family:var(--font-display);font-size:1.5rem;" id="bkClock">
+            {{ now_clock }}
+        </div>
+    </div>
+{% endblock %}
+
+{% block content %}
+
+    {# ── Filtres ── #}
+    {% set stages = [
+        { key: 'all',    label: translations.filter_all  | default('Tout') },
+        { key: 'prep',   label: translations.stage_prep  | default('Préparation') },
+        { key: 'cook',   label: translations.stage_cook  | default('Cuisson') },
+        { key: 'finish', label: translations.stage_finish| default('Finition') }
+    ] %}
+    <nav class="bk-filters" aria-label="{{ translations.baking_title | default('Plan de production') }}">
+        {% for s in stages %}
+            <a class="bk-f bk-f-{{ s.key }} {{ active_stage == s.key ? 'is-on' : '' }}"
+               href="{{ ROOT }}/baking{{ s.key == 'all' ? '' : '?stage=' ~ s.key }}"
+               {{ active_stage == s.key ? 'aria-current="page"' : '' }}>
+                {% if s.key != 'all' %}<i class="i-{{ s.key }}"></i>{% endif %}
+                {{ s.label }}
+                <span class="n" data-count="{{ s.key }}">{{ counts[s.key] ?? 0 }}</span>
+            </a>
+        {% endfor %}
+    </nav>
+
+    {# Seconde rangée : les fours. On est rarement aux trois postes à la fois,
+       et la question « qu'est-ce qui se passe sur le four 3 » ne se pose pas au
+       même moment que « où en sont les finitions ». Les deux filtres se
+       croisent : l'étape reste un lien serveur, le four masque à l'écran. #}
+    {% if ovens|length > 1 %}
+        <nav class="bk-ovens" aria-label="{{ translations.oven_filter | default('Four') }}">
+            <button type="button" class="cat-chip is-on" data-oven="">
+                {{ translations.oven_all | default('Tous les fours') }}
+            </button>
+            {% for o in ovens %}
+                <button type="button" class="cat-chip" data-oven="{{ o }}">{{ o }}</button>
+            {% endfor %}
+        </nav>
+    {% endif %}
+
+    {% if not plan_available %}
+
+        <div class="card mt-3">
+            <div class="card-body bk-state">
+                {{ icons.svg('flame', 40) }}
+                <p>{{ translations.baking_not_served | default("Le plan de cuisson n'est pas encore servi par l'API. L'écran est prêt : il s'affichera dès que l'endpoint répondra.") }}</p>
+            </div>
+        </div>
+
+    {% elseif batches is empty %}
+
+        <div class="card mt-3">
+            <div class="card-body bk-state">
+                {{ icons.svg('check-check', 40) }}
+                <p>{{ translations.baking_empty | default('Aucune fournée en cours.') }}</p>
+            </div>
+        </div>
+
+    {% else %}
+
+        {% include "baking/_gantt.twig" %}
+        {% include "baking/_next.twig" %}
+        {% include "baking/_cards.twig" %}
+
+    {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+    {% if plan_available %}{% include "baking/_scripts.twig" %}{% endif %}
+{% endblock %}

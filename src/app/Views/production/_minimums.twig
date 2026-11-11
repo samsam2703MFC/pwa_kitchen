@@ -1,0 +1,179 @@
+{# production/_minimums.twig — le plancher de vitrine, période par période.
+
+   Une autre question que celle du stock, d'où un autre tableau. « Est-ce que ça
+   tient » se répond avec les ventes prévues ; « est-ce que la vitrine est
+   présentable » se répond avec un plancher. Une boulangerie avec deux baguettes
+   en rayon ne vend pas, même si deux baguettes suffisent à la demande de 16 h.
+
+   Seuls les produits marqués `is_pdm` sont ici : les autres se pilotent à la
+   prévision, et les mêler ferait chercher un minimum qui n'existe pas.
+
+   Reçoit du contrôleur : min_rows, min_counts, min_categories, min_focus,
+   periods, products_available, stock_available, orders_available. #}
+{% import "components/_icons.twig" as icons %}
+
+<div class="mt-3" id="minRoot">
+
+    <div class="stk-head">
+        <h2 class="pr-cat-title mb-0">
+            {{ translations.min_title | default('Minimum en magasin') }}
+            <span class="pr-cat-count">{{ min_rows|length }}</span>
+        </h2>
+        <p class="stk-hint">
+            {{ translations.min_hint | default('Le plancher à tenir en rayon, période par période. Une vitrine vide ne vend pas.') }}
+        </p>
+    </div>
+
+    {% if not products_available %}
+        <div class="card">
+            <div class="card-body pr-state">
+                {{ icons.svg('package', 38) }}
+                <p>{{ translations.prod_catalog_not_served | default("Le catalogue de production n'est pas encore servi par l'API.") }}</p>
+            </div>
+        </div>
+    {% elseif min_rows is empty %}
+        <div class="card">
+            <div class="card-body pr-state">
+                {{ icons.svg('store', 38) }}
+                <p>{{ translations.min_none | default("Aucun produit n'est tenu à un minimum en magasin. Le réglage se fait sur la fiche produit (is_pdm).") }}</p>
+            </div>
+        </div>
+    {% else %}
+
+        {# Ce qui manque à l'écran se lit à l'écran : un plancher comparé à un
+           stock qu'on n'a pas serait un ordre inventé. #}
+        {% set missing = [] %}
+        {% if not stock_available %}
+            {% set missing = missing|merge([translations.board_no_stock | default("le stock live n'est pas servi")]) %}
+        {% endif %}
+        {% if not orders_available %}
+            {% set missing = missing|merge([translations.min_no_orders | default("le carnet de commandes n'est pas servi : le plancher est comparé au stock seul")]) %}
+        {% endif %}
+        {% if missing is not empty %}
+            <p class="pr-warn">{{ icons.svg('circle-alert', 15) }} {{ missing|join(' · ') }}</p>
+        {% endif %}
+
+        <div class="cat-filters" data-target="#minTable">
+            <button type="button" class="cat-chip is-on" data-flag="">
+                {{ translations.filter_all | default('Tout') }}
+                <span class="n">{{ min_counts.all }}</span>
+            </button>
+            <button type="button" class="cat-chip ck-out1" data-flag="short">
+                {{ translations.min_below | default('Sous le minimum') }}
+                <span class="n">{{ min_counts.short }}</span>
+            </button>
+            <button type="button" class="cat-chip ck-out2" data-flag="tight">
+                {{ translations.min_tight | default('Juste au-dessus') }}
+                <span class="n">{{ min_counts.tight }}</span>
+            </button>
+        </div>
+
+        {% if min_categories|length > 1 %}
+            <div class="cat-filters cat-filters-2" data-target="#minTable" data-kind="cat">
+                <button type="button" class="cat-chip is-on" data-cat="">
+                    {{ translations.cat_all | default('Toutes') }}
+                </button>
+                {% for c in min_categories %}
+                    <button type="button" class="cat-chip" data-cat="{{ c }}">{{ c }}</button>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="stk-table-wrap">
+            <table class="stk-table" id="minTable">
+                <thead>
+                    <tr>
+                        <th>{{ translations.outlook_category | default('Catégorie') }}</th>
+                        <th>{{ translations.outlook_product | default('Produit') }}</th>
+                        <th class="num">{{ translations.rebake_stock | default('Stock') }}</th>
+                        {# Une colonne par période : c'est la journée entière
+                           qu'on prépare, pas seulement l'heure qu'il est. Celle
+                           en cours est mise en avant — c'est elle qui décide de
+                           la couleur de la ligne. #}
+                        {% for p in periods %}
+                            <th class="num {{ p.key == min_focus ? 'is-focus' : '' }}">
+                                {{ translations['period_' ~ p.key] ?? (p.label ?? p.key) }}
+                            </th>
+                        {% endfor %}
+                        <th class="num">{{ translations.min_ordered | default('Commandé') }}</th>
+                        <th class="num">{{ translations.min_to_produce | default('À produire') }}</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in min_rows %}
+                        <tr data-flag="{{ r.level }}" data-cat="{{ r.category }}"
+                            data-product-id="{{ r.id_product }}"
+                            data-batch="{{ r.batch }}">
+                            <td class="cat">{{ r.category }}</td>
+                            <td class="name">{{ r.name }}</td>
+                            <td class="num">
+                                {%- if r.stock is not null -%}
+                                    <b class="dlt {{ r.level == 'short' ? 'is-neg' : (r.level == 'tight' ? 'is-over' : '') }}">
+                                        {{- r.stock|number_format(0, ',', ' ') -}}
+                                    </b>
+                                {%- else -%}—{%- endif -%}
+                            </td>
+                            {% for p in periods %}
+                                <td class="num {{ p.key == min_focus ? 'is-focus' : 'soft' }}">
+                                    {%- set m = r.minimums[p.key] ?? null -%}
+                                    {%- if m is not null -%}
+                                        {{ m|number_format(0, ',', ' ') }}
+                                    {%- else -%}—{%- endif -%}
+                                </td>
+                            {% endfor %}
+                            <td class="num soft">
+                                {%- if r.ordered > 0 -%}
+                                    {{ r.ordered|number_format(0, ',', ' ') }}
+                                {%- else -%}—{%- endif -%}
+                            </td>
+                            <td class="num">
+                                {%- if r.to_produce is null -%}
+                                    <span class="soft">—</span>
+                                {%- elseif r.to_produce > 0 -%}
+                                    <b class="dlt is-neg">{{ r.to_produce|number_format(0, ',', ' ') }}</b>
+                                {%- else -%}
+                                    <span class="soft">—</span>
+                                {%- endif -%}
+                            </td>
+                            <td>
+                                {% if r.level == 'short' %}
+                                    {# Reproduire se fait par fournée : « il en
+                                       manque 7 » n'est pas exécutable devant un
+                                       four qui sort des plaques de 12. Les
+                                       boutons montent d'une fournée, le clavier
+                                       reste là pour le chiffre exact. #}
+                                    <div class="min-launch">
+                                        <span class="mep-ctl">
+                                            <button type="button" class="mep-step" data-step="-1" aria-label="−">−</button>
+                                            <input type="number" class="form-control mep-qty min-qty"
+                                                   inputmode="numeric" min="0" step="1"
+                                                   value="{{ r.to_produce|number_format(0, '.', '') }}"
+                                                   aria-label="{{ translations.board_launch_qty | default('Quantité à produire') }} — {{ r.name }}">
+                                            <button type="button" class="mep-step" data-step="1" aria-label="+">+</button>
+                                        </span>
+                                        {# Libellé court : dans une cellule de
+                                           tableau, « Lancer la production » pousse
+                                           la colonne hors de l'écran et le bouton
+                                           se retrouve coupé au bord. #}
+                                        <button type="button" class="pr-launch-go min-go"
+                                                aria-label="{{ translations.board_launch | default('Lancer la production') }} — {{ r.name }}">
+                                            {{ icons.svg('flame', 16) }}
+                                            {{ translations.min_launch | default('Lancer') }}
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="stk-empty-filter d-none" id="minNoMatch">
+            {{ translations.outlook_none | default('Aucun produit dans ce filtre.') }}
+        </p>
+    {% endif %}
+
+    <div id="minAlert" class="alert mt-3 d-none"></div>
+</div>

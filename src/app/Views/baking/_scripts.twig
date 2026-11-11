@@ -1,0 +1,459 @@
+{# baking/_scripts.twig — l'écran vit tout seul.
+
+   Le plan bouge en continu : une fournée sortie du four par un collègue doit
+   disparaître de la tablette d'à côté sans que personne ne rafraîchisse. On
+   sonde toutes les 30 secondes.
+
+   Deux régimes, volontairement : tant que rien ne change d'état, on déplace la
+   barre du présent et les jauges — pas de rechargement, pas de scintillement
+   sous les doigts. Dès qu'une fournée change de statut, la page se relit : le
+   serveur arbitre, et réécrire les cartes en JavaScript reviendrait à
+   maintenir deux fois le même rendu. #}
+<script>
+(function () {
+    // Le panneau d'ordres vit sur tous les écrans du module, la frise seulement
+    // sur l'onglet Planning. Le script sert les deux : il ne s'arrête que s'il
+    // n'y a ni l'un ni l'autre.
+    var gantt = document.getElementById('bkGantt');
+    var sheet = document.getElementById('bkAssign');
+    if (!gantt && !sheet) return;
+
+    var ROOT  = {{ ROOT | json_encode | raw }};
+    var STAGE = gantt ? gantt.dataset.stage : 'all';
+    var URL   = ROOT + '/ajax/baking' + (STAGE !== 'all' ? '?stage=' + STAGE : '');
+    var ERR   = {{ (translations.baking_error | default("L'étape n'a pas pu être enregistrée.")) | json_encode | raw }};
+
+    var FROM = gantt ? parseInt(gantt.dataset.from, 10) : 0;
+    var TO   = gantt ? parseInt(gantt.dataset.to, 10) : 60;
+    var SPAN = (TO - FROM) || 60;
+
+    // Signature de l'état affiché : elle seule décide s'il faut recharger.
+    function signature(batches) {
+        return batches.map(function (b) { return b.id + ':' + b.status; }).join(',');
+    }
+    // Signature de ce qui est affiché : sur les écrans sans frise, ce sont les
+    // ordres qui font foi — c'est eux qu'il faudra relire si un collègue avance
+    // une fournée.
+    var current = {{ (batches is not empty ? batches : orders)|map(b => b.id ~ ':' ~ b.status)|join(',')|json_encode|raw }};
+
+    function paintNow(now, clock) {
+        var line = document.getElementById('bkNow');
+        if (line) {
+            var r = Math.max(0, Math.min(1, (now - FROM) / SPAN));
+            line.style.left = 'calc(190px + (100% - 190px) * ' + r + ')';
+            var lbl = line.querySelector('b');
+            if (lbl) lbl.textContent = clock;
+        }
+        var head = document.getElementById('bkClock');
+        if (head) head.textContent = clock;
+    }
+
+    function paintCounts(counts) {
+        Object.keys(counts || {}).forEach(function (k) {
+            var el = document.querySelector('.n[data-count="' + k + '"]');
+            if (el) el.textContent = counts[k];
+        });
+    }
+
+    // Les échéances des ordres bougent sans que rien ne change d'état : sans
+    // ce repeint, « dans 12 min » resterait affiché une heure durant, puisque
+    // le rechargement n'a lieu qu'au changement de statut.
+    var OMSG = {
+        late: {{ (translations.order_late | default('en retard de')) | json_encode | raw }},
+        now:  {{ (translations.order_now  | default('maintenant')) | json_encode | raw }},
+        'in': {{ (translations.order_in   | default('dans')) | json_encode | raw }}
+    };
+    function paintOrders(batches) {
+        batches.forEach(function (b) {
+            var el = document.querySelector('.bk-order[data-id="' + b.id + '"] .bk-order-when span');
+            if (!el) return;
+            var n = b.left;
+            el.textContent = n < 0 ? OMSG.late + ' ' + (-n) + ' min'
+                           : (n === 0 ? OMSG.now : OMSG['in'] + ' ' + n + ' min');
+            el.classList.toggle('is-late', n < 0);
+            el.classList.toggle('is-soon', n >= 0 && n <= 5);
+        });
+    }
+
+    function paintProgress(batches) {
+        batches.forEach(function (b) {
+            var card = document.querySelector('.bk-card[data-id="' + b.id + '"] .bk-prog > i');
+            if (card) card.style.width = b.progress + '%';
+        });
+    }
+
+    function poll() {
+        if (document.hidden) return;
+        fetch(URL, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || !d.success) return;
+                if (signature(d.batches) !== current) { window.location.reload(); return; }
+                paintNow(d.now, d.now_clock);
+                paintCounts(d.counts);
+                paintProgress(d.batches);
+                paintOrders(d.batches);
+            })
+            .catch(function () { /* réseau de magasin : on retentera dans 30 s */ });
+    }
+
+    function advance(id, status, body, onDone, onFail) {
+        fetch(ROOT + '/ajax/baking/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(Object.assign({ status: status }, body || {}))
+        })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (res) {
+            if (!res || !res.success) { showSnack(false, ERR); if (onFail) onFail(); return; }
+            // Le serveur a arbitré. Sauf enchaînement demandé, on relit plutôt
+            // que de deviner la suite.
+            if (onDone) { onDone(); return; }
+            window.location.reload();
+        })
+        .catch(function () { showSnack(false, ERR); if (onFail) onFail(); });
+    }
+
+    // ── Filtre par four ──────────────────────────────────────────────────
+    // Masque, ne réordonne pas : la frise garde ses horaires en place, et on
+    // retrouve une fournée au même endroit après avoir relâché le filtre. Les
+    // trois listes suivent ensemble — un ordre affiché pour un four qu'on a
+    // masqué serait une contradiction à l'écran.
+    document.addEventListener('click', function (e) {
+        var chip = e.target.closest('.bk-ovens .cat-chip');
+        if (!chip) return;
+
+        chip.parentNode.querySelectorAll('.cat-chip').forEach(function (c) {
+            c.classList.toggle('is-on', c === chip);
+        });
+
+        var want = chip.dataset.oven || '';
+        document.querySelectorAll('.bk-row[data-oven], .bk-card[data-oven], .f-row[data-oven], .bk-order[data-oven]')
+            .forEach(function (el) {
+                el.hidden = !!want && el.dataset.oven !== want;
+            });
+    });
+
+    // ── Attribuer un ordre ───────────────────────────────────────────────
+    if (sheet) {
+        var TIME_STEP = 5;                       // l'atelier ne raisonne pas à la minute
+        var A = {
+            planned: {{ (translations.order_planned | default('Planifié : %s min')) | json_encode | raw }},
+            go:      {{ (translations.order_confirm | default('Valider')) | json_encode | raw }}
+        };
+
+        var recall = document.getElementById('bkRecall');
+        var title  = document.getElementById('bkAssignTitle');
+        var sub    = document.getElementById('bkAssignSub');
+        var meta   = document.getElementById('bkAssignMeta');
+        var val   = document.getElementById('bkTimeVal');
+        var hint  = document.getElementById('bkTimeHint');
+        var go    = document.getElementById('bkAssignGo');
+        var spin  = document.getElementById('bkAssignSpin');
+
+        var order = null;      // { id, next, product, qty, unit, name }
+        var planned = 0;
+        var minutes = 0;
+        var empId = null;
+
+        // ── Second temps : mettre en magasin ──
+        // La dernière étape validée laisse une fournée finie en cuisine. Le
+        // geste qui la met en vente s'enchaîne ici, quantité pré-remplie, au
+        // lieu d'attendre que quelqu'un pense à changer d'écran.
+        var shelfStep = document.getElementById('bkShelfStep');
+        var SH = {
+            err: {{ (translations.shelf_error   | default("La mise en rayon n'a pas pu être enregistrée.")) | json_encode | raw }},
+            ok:  {{ (translations.shelf_success | default('Mis en rayon : les produits sont en vente.')) | json_encode | raw }},
+            made:{{ (translations.shelf_step_made | default('Fournée de %s')) | json_encode | raw }}
+        };
+        var shelfQty = 0;
+        var shelfMax = 0;
+
+        // ── La réserve ──
+        // Une fournée terminée mais pas portée a quitté la frise et les ordres :
+        // sans trace, « garder en réserve » voudrait dire « oublier ». On la
+        // garde sur CETTE tablette — c'est elle qui a le plateau dans les mains,
+        // et le serveur n'a rien à enregistrer tant que rien n'est en vente.
+        var resBox  = document.getElementById('bkReserve');
+        var RES_KEY = 'kitchen.shelfReserve';
+        var TODAY   = resBox ? (resBox.dataset.today || '') : '';
+        var RES = {
+            title: {{ (translations.reserve_go | default('Mettre en magasin')) | json_encode | raw }}
+        };
+
+        function resLoad() {
+            try {
+                var raw = JSON.parse(window.sessionStorage.getItem(RES_KEY) || '[]');
+                // Une réserve d'hier n'a plus de sens : le plateau a été porté,
+                // vendu ou jeté, mais il n'attend plus personne.
+                return Array.isArray(raw) ? raw.filter(function (e) { return e && e.day === TODAY; }) : [];
+            } catch (err) { return []; }
+        }
+
+        function resSave(list) {
+            try { window.sessionStorage.setItem(RES_KEY, JSON.stringify(list)); } catch (err) {}
+        }
+
+        function resPaint() {
+            if (!resBox) return;
+            var list = resLoad();
+            var box  = document.getElementById('bkReserveList');
+            box.textContent = '';
+
+            list.forEach(function (e) {
+                var row = document.createElement('div');
+                row.className = 'bk-reserve-row';
+
+                var txt = document.createElement('span');
+                txt.className = 'bk-reserve-x';
+                var b = document.createElement('b');
+                b.textContent = e.name || '—';
+                var s = document.createElement('small');
+                s.textContent = e.qty + ' ' + (e.unit || 'pc');
+                txt.appendChild(b); txt.appendChild(s);
+
+                var go = document.createElement('button');
+                go.type = 'button';
+                go.className = 'bk-reserve-go';
+                go.dataset.reserve = e.id;
+                go.textContent = RES.title;
+
+                row.appendChild(txt); row.appendChild(go);
+                box.appendChild(row);
+            });
+
+            resBox.hidden = list.length === 0;
+        }
+
+        function resAdd(entry) {
+            var list = resLoad().filter(function (e) { return e.id !== entry.id; });
+            list.push(entry);
+            resSave(list);
+            resPaint();
+        }
+
+        function resDrop(id) {
+            resSave(resLoad().filter(function (e) { return e.id !== id; }));
+            resPaint();
+        }
+
+        resPaint();
+
+        function paintShelf() {
+            document.getElementById('bkShelfQty').textContent = shelfQty;
+            var hint = document.getElementById('bkShelfHint');
+            hint.textContent = shelfQty === shelfMax ? '' : SH.made.replace('%s', shelfMax);
+            document.getElementById('bkShelfGo').disabled = shelfQty <= 0;
+        }
+
+        function openShelf() {
+            shelfMax = Math.max(0, parseFloat(order.qty) || 0);
+            shelfQty = shelfMax;
+            document.getElementById('bkShelfName').textContent = order.name || '';
+            document.getElementById('bkShelfUnit').textContent = order.unit || 'pc';
+            paintShelf();
+            document.querySelector('#bkAssign .bk-sheet-panel:not(.bk-shelf-panel)').hidden = true;
+            shelfStep.hidden = false;
+            document.getElementById('bkShelfSpin').classList.add('d-none');
+        }
+
+        function paintTime() {
+            val.textContent = minutes;
+            hint.textContent = minutes === planned ? '' : A.planned.replace('%s', planned);
+        }
+
+        function open(btn) {
+            order = {
+                id:      btn.dataset.id,
+                next:    btn.dataset.next,
+                product: btn.dataset.product,
+                qty:     btn.dataset.qty,
+                unit:    btn.dataset.unit,
+                name:    btn.dataset.name
+            };
+            planned = Math.max(0, parseInt(btn.dataset.minutes, 10) || 0);
+            minutes = planned;
+            empId   = null;
+
+            title.textContent = btn.dataset.verb || '';
+            sub.textContent   = btn.dataset.name || '';
+            meta.textContent  = (btn.dataset.meta || '').replace(/\s+/g, ' ').trim();
+
+            // Le rappel prend la couleur de l'étape : c'est ce qui dit sans
+            // lire qu'on est bien sur le geste qu'on vient de taper.
+            recall.className = 'bk-recall o-' + (btn.dataset.stage || 'prep');
+
+            sheet.querySelectorAll('.emp-badge').forEach(function (b) { b.classList.remove('is-active'); });
+            paintTime();
+            go.disabled = false;
+            if (shelfStep) shelfStep.hidden = true;
+            document.querySelector('#bkAssign .bk-sheet-panel:not(.bk-shelf-panel)').hidden = false;
+            sheet.hidden = false;
+        }
+
+        function close() { sheet.hidden = true; order = null; }
+
+        // Un seul chemin : ordre du panneau ou bouton de carte, c'est la même
+        // feuille et le même enregistrement.
+        document.addEventListener('click', function (e) {
+            var trigger = e.target.closest('.bk-order[data-next], .bk-act[data-next]');
+            if (trigger && trigger.dataset.next) { open(trigger); return; }
+
+            // La réserve vit hors de la feuille : ce clic doit être traité
+            // avant la sortie anticipée ci-dessous, qui ignore tout quand la
+            // feuille est fermée — et elle l'est forcément à ce moment-là.
+            var back = e.target.closest('[data-reserve]');
+            if (back) {
+                var entry = resLoad().filter(function (x) { return x.id === back.dataset.reserve; })[0];
+                if (entry) {
+                    order = { id: entry.id, next: 'DONE', product: entry.product,
+                              qty: entry.qty, unit: entry.unit, name: entry.name };
+                    openShelf();
+                    sheet.hidden = false;
+                }
+                return;
+            }
+
+            if (sheet.hidden) return;
+
+            if (e.target.closest('#bkAssignClose') || e.target === sheet) { close(); return; }
+
+            // « Garder en réserve » : rien n'est enregistré côté serveur, donc
+            // rien à recharger — un rechargement ferait clignoter l'écran et
+            // perdrait le défilement pour aucune donnée neuve. On ferme, et on
+            // laisse la trace qui manquait.
+            if (e.target.closest('#bkShelfClose') || e.target.closest('#bkShelfLater')) {
+                if (order && order.product) {
+                    resAdd({
+                        id:   String(order.id),
+                        day:  TODAY,
+                        name: order.name || '',
+                        // La quantité affichée au moment où on renonce : c'est
+                        // celle qu'on a devant soi, pas la fournée théorique.
+                        qty:  shelfQty > 0 ? shelfQty : shelfMax,
+                        unit: order.unit || 'pc',
+                        product: order.product
+                    });
+                }
+                close();
+                return;
+            }
+
+            var sstep = e.target.closest('[data-shelf-step]');
+            if (sstep) {
+                var by = (parseInt(sstep.dataset.shelfStep, 10) || 1);
+                // Par pas de 1 : on porte ce qu'on a dans les mains, pas des
+                // fournées entières — il en reste souvent au chaud.
+                shelfQty = Math.max(0, Math.min(shelfMax, shelfQty + by));
+                paintShelf();
+                return;
+            }
+
+            if (e.target.closest('#bkShelfGo') && order && shelfQty > 0) {
+                var sgo = document.getElementById('bkShelfGo');
+                sgo.disabled = true;
+                document.getElementById('bkShelfSpin').classList.remove('d-none');
+                fetch(ROOT + '/ajax/production/shelf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ id_product: parseInt(order.product, 10), quantity: shelfQty })
+                })
+                .then(function (r) { return r.json().catch(function () { return null; }); })
+                .then(function (res) {
+                    if (!res || !res.success) {
+                        showSnack(false, SH.err);
+                        sgo.disabled = false;
+                        document.getElementById('bkShelfSpin').classList.add('d-none');
+                        return;
+                    }
+                    showSnack(true, SH.ok);
+                    // Porté : la réserve n'a plus lieu d'être, et il ne faut
+                    // surtout pas la laisser reproposer le même plateau.
+                    resDrop(String(order.id));
+                    window.location.reload();
+                })
+                .catch(function () {
+                    showSnack(false, SH.err);
+                    sgo.disabled = false;
+                    document.getElementById('bkShelfSpin').classList.add('d-none');
+                });
+                return;
+            }
+
+            var emp = e.target.closest('.emp-badge');
+            if (emp) {
+                // Re-taper le même badge le désélectionne : valider sans nom
+                // reste possible, et c'est mieux qu'attribuer au hasard.
+                var was = emp.classList.contains('is-active');
+                sheet.querySelectorAll('.emp-badge').forEach(function (b) { b.classList.remove('is-active'); });
+                if (!was) { emp.classList.add('is-active'); empId = emp.dataset.empId; }
+                else { empId = null; }
+                return;
+            }
+
+            var step = e.target.closest('.bk-time-step');
+            if (step) {
+                minutes = Math.max(0, minutes + TIME_STEP * (parseInt(step.dataset.step, 10) || 1));
+                paintTime();
+                return;
+            }
+
+            if (e.target.closest('#bkAssignGo') && order) {
+                go.disabled = true;
+                spin.classList.remove('d-none');
+                var body = {};
+                if (empId) body.id_employee = parseInt(empId, 10);
+                // Durée inchangée : on ne l'envoie pas. Le plan du serveur fait
+                // foi tant que personne ne l'a corrigé à la main.
+                if (minutes !== planned) body.allotted_minutes = minutes;
+
+                // Dernière étape (DONE) : on enchaîne sur la mise en magasin
+                // au lieu de recharger. Le produit vient d'être fini, il ne
+                // manque plus que le plateau à porter.
+                var last = String(order.next).toUpperCase() === 'DONE' && order.product;
+                var next = last ? openShelf : null;
+
+                advance(order.id, order.next, body, next, function () {
+                    go.disabled = false;
+                    spin.classList.add('d-none');
+                });
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !sheet.hidden) close();
+        });
+    }
+
+    // Arrivée depuis une tuile de Production : on amène la fournée visée sous
+    // les yeux. On vise ce qui porte le bouton d'action — la ligne du fil en
+    // mode service, la carte ailleurs —, pas la ligne de frise : c'est le
+    // geste qu'on est venu chercher, pas l'horaire.
+    var focused = document.querySelector('.f-row.is-focus, .bk-card.is-focus');
+    if (focused) {
+        var centre = function () {
+            var r = focused.getBoundingClientRect();
+            // Le milieu utile n'est pas celui de la fenêtre : la barre
+            // d'onglets mange le bas de l'écran, et une carte centrée sur la
+            // fenêtre finit à moitié dessous.
+            var bar   = parseInt(getComputedStyle(document.documentElement)
+                            .getPropertyValue('--app-tabbar-h'), 10) || 72;
+            var libre = window.innerHeight - bar;
+            var top   = r.top + window.pageYOffset - Math.max(12, (libre - r.height) / 2);
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        };
+        // Après le chargement des images : une vignette qui arrive en retard
+        // décale la liste, et le centrage viserait la carte d'à côté.
+        if (document.readyState === 'complete') {
+            centre();
+        } else {
+            window.addEventListener('load', centre);
+        }
+    }
+
+    setInterval(poll, 30000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+})();
+</script>

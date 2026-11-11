@@ -1,0 +1,253 @@
+{# production/_stock.twig — le stock live et ce qu'il faut relancer.
+
+   Les propositions de recuisson passent AVANT la liste : c'est ce sur quoi on
+   agit. Le stock complet vient après, trié du plus bas au plus haut.
+
+   Reçoit du contrôleur : stock_available, stock, rebakes_available, rebakes,
+   rebakes_samples, params. #}
+{% import "components/_icons.twig" as icons %}
+
+<div class="mt-3" id="stockRoot"
+     data-url="{{ ROOT }}/ajax/production/stock{{ sector ? '?sector=' ~ sector|url_encode : '' }}"
+     data-rebake-url="{{ ROOT }}/ajax/production/rebake">
+
+    {# ── À recuire ── #}
+    <section id="rebakeSection">
+        <div class="stk-head">
+            <h2 class="pr-cat-title mb-0">
+                {{ translations.rebake_title | default('À recuire') }}
+                <span class="pr-cat-count" id="rebakeCount">{{ rebakes|length }}</span>
+            </h2>
+        </div>
+
+        {% if not rebakes_available %}
+            <div class="card">
+                <div class="card-body pr-state">
+                    {{ icons.svg('trending-up', 34) }}
+                    <p>{{ translations.rebake_not_served | default("Le profil de ventes n'est pas encore servi par l'API.") }}</p>
+                </div>
+            </div>
+        {% else %}
+            {% if rebakes_samples is not null and rebakes_samples < params.history_weeks %}
+                {# Une moyenne sur deux mardis n'est pas une tendance. On le dit
+                   plutôt que de la présenter comme telle. #}
+                <p class="rbk-warn mb-2">
+                    {{ icons.svg('alert-triangle', 15) }}
+                    {{ (translations.rebake_samples_low | default('Moyenne sur %s journées seulement.'))|replace({'%s': rebakes_samples}) }}
+                </p>
+            {% endif %}
+
+            <div id="rebakeList">
+                {% for r in rebakes %}
+                    <article class="rbk-card" data-id="{{ r.idProduct }}">
+                        <div class="rbk-top">
+                            <span class="rbk-name">{{ r.name | default('—') }}</span>
+                            <span class="rbk-qty">
+                                {{ r.suggestedQuantity|number_format(0, ',', ' ') }}
+                                <small>
+                                    {% if r.isBatchKnown %}
+                                        {{ r.batchCount }}
+                                        {{ r.batchCount > 1
+                                            ? (translations.rebake_batch_many | default('fournées'))
+                                            : (translations.rebake_batch_one  | default('fournée')) }}
+                                    {% else %}
+                                        {{ r.unitName | default('') }}
+                                    {% endif %}
+                                </small>
+                            </span>
+                        </div>
+
+                        <div class="rbk-why">
+                            <span>{{ translations.rebake_stock | default('Stock') }} <b>{{ r.stock|number_format(0, ',', ' ') }}</b></span>
+                            <span>{{ translations.rebake_expected | default('Ventes prévues') }} <b>{{ r.expectedSales|number_format(1, ',', ' ') }}</b></span>
+                            {% if r.hasOrders %}
+                                <span>{{ translations.outlook_orders | default('Commandé') }} <b>{{ r.ordered|number_format(0, ',', ' ') }}</b></span>
+                            {% endif %}
+                            <span>{{ translations.rebake_projected | default('Projeté') }} <b>{{ r.projected|number_format(1, ',', ' ') }}</b></span>
+                            <span>{{ translations.rebake_window | default('Fenêtre') }} <b>{{ r.windowMinutes }} {{ translations.prod_unit_min | default('min') }}</b></span>
+                        </div>
+
+                        {% if not r.isBatchKnown %}
+                            <p class="rbk-warn">
+                                {{ icons.svg('alert-triangle', 15) }}
+                                {{ translations.rebake_batch_unknown | default("Pas de taille de fournée déclarée.") }}
+                            </p>
+                        {% endif %}
+
+                        <button type="button" class="rbk-btn"
+                                data-id="{{ r.idProduct }}"
+                                data-qty="{{ r.suggestedQuantity }}">
+                            {{ icons.svg('check', 18) }}
+                            {{ translations.rebake_validate | default('Valider la recuisson') }}
+                        </button>
+                    </article>
+                {% endfor %}
+            </div>
+
+            <div class="card {{ rebakes is empty ? '' : 'd-none' }}" id="rebakeEmpty">
+                <div class="card-body pr-state">
+                    {{ icons.svg('check-check', 34) }}
+                    <p>{{ translations.rebake_none | default('Aucune recuisson nécessaire pour l\'instant.') }}</p>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+
+    {# ── Stock ── #}
+    <section class="mt-4">
+        <div class="stk-head">
+            <h2 class="pr-cat-title mb-0">
+                {{ translations.stock_title | default('Stock live') }}
+                <span class="pr-cat-count">{{ outlook|length }}</span>
+            </h2>
+            {% if p1_label %}
+                <p class="stk-hint">
+                    {{ translations.outlook_hint | default('Ce qu\'il reste, face à ce qui va partir.') }}
+                </p>
+            {% endif %}
+        </div>
+
+        {% if not stock_available %}
+            <div class="card">
+                <div class="card-body pr-state">
+                    {{ icons.svg('package', 38) }}
+                    <p>{{ translations.stock_not_served | default("Le stock live n'est pas encore servi par l'API.") }}</p>
+                </div>
+            </div>
+        {% elseif outlook is empty %}
+            <div class="card">
+                <div class="card-body pr-state">
+                    {{ icons.svg('package', 38) }}
+                    <p>{{ translations.stock_empty | default('Aucun produit en stock.') }}</p>
+                </div>
+            </div>
+        {% else %}
+
+            {% if not outlook_available %}
+                <p class="rbk-warn mb-2">
+                    {{ icons.svg('alert-triangle', 15) }}
+                    {{ translations.outlook_no_forecast | default("Le profil de ventes n'est pas servi : seul le stock est affiché, sans projection.") }}
+                </p>
+            {% endif %}
+            {% if orders_available is defined and not orders_available %}
+                <p class="rbk-warn mb-2">
+                    {{ icons.svg('alert-triangle', 15) }}
+                    {{ translations.outlook_no_orders | default("Le carnet de commandes n'est pas servi : magasin, click & collect et livraison ne sont pas déduits du stock.") }}
+                </p>
+            {% endif %}
+
+            {# Trois questions, trois filtres. « Combien il en reste » ne se
+               décide pas ; « est-ce que ça tient » et « en ai-je trop fait »,
+               si. #}
+            <div class="cat-filters" data-target="#stockTable">
+                <button type="button" class="cat-chip is-on" data-flag="">
+                    {{ translations.filter_all | default('Tout') }}
+                    <span class="n">{{ outlook_counts.all }}</span>
+                </button>
+                <button type="button" class="cat-chip ck-out1" data-flag="out_p1">
+                    {{ (translations.outlook_out_p1 | default('Rupture fin %s'))|replace({'%s': p1_label|lower}) }}
+                    <span class="n">{{ outlook_counts.out_p1 }}</span>
+                </button>
+                {% if p2_label %}
+                    <button type="button" class="cat-chip ck-out2" data-flag="out_p2">
+                        {{ (translations.outlook_out_p2 | default('Rupture fin %s'))|replace({'%s': p2_label|lower}) }}
+                        <span class="n">{{ outlook_counts.out_p2 }}</span>
+                    </button>
+                {% endif %}
+                <button type="button" class="cat-chip ck-over" data-flag="over">
+                    {{ translations.outlook_over | default('Surproduction') }}
+                    <span class="n">{{ outlook_counts.over }}</span>
+                </button>
+            </div>
+
+            {# Seconde rangée : les catégories. Les deux filtres se combinent —
+               « ce qui ne tient pas » ET « en viennoiserie » est la question
+               qu'on pose vraiment quand on est au poste. Deux rangées plutôt
+               qu'une : mélangées, on ne verrait plus qu'un seul groupe est
+               exclusif et l'autre pas. #}
+            {% if outlook_categories|length > 1 %}
+                <div class="cat-filters cat-filters-2" data-target="#stockTable" data-kind="cat">
+                    <button type="button" class="cat-chip is-on" data-cat="">
+                        {{ translations.cat_all | default('Toutes') }}
+                    </button>
+                    {% for c in outlook_categories %}
+                        <button type="button" class="cat-chip" data-cat="{{ c }}">{{ c }}</button>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="stk-table-wrap">
+                <table class="stk-table" id="stockTable">
+                    <thead>
+                        <tr>
+                            <th>{{ translations.outlook_category | default('Catégorie') }}</th>
+                            <th>{{ translations.outlook_product | default('Produit') }}</th>
+                            <th class="num">{{ translations.rebake_stock | default('Stock') }}</th>
+                            <th class="num">{{ translations.outlook_sales | default('Ventes') }} {{ p1_label|lower }}</th>
+                            {# Les commandes ont leur colonne : elles sont
+                               soustraites comme les ventes prévues, mais on doit
+                               pouvoir dire d'où vient le manque — une moyenne se
+                               discute, un plateau promis non. #}
+                            <th class="num">{{ translations.outlook_orders | default('Commandé') }} {{ p1_label|lower }}</th>
+                            <th class="num">{{ translations.outlook_delta | default('Delta') }} {{ p1_label|lower }}</th>
+                            {% if p2_label %}
+                                <th class="num">{{ translations.outlook_sales | default('Ventes') }} {{ p2_label|lower }}</th>
+                                <th class="num">{{ translations.outlook_orders | default('Commandé') }} {{ p2_label|lower }}</th>
+                                <th class="num">{{ translations.outlook_delta | default('Delta') }} {{ p2_label|lower }}</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in outlook %}
+                            <tr data-flag="{{ r.flag }}" data-cat="{{ r.category }}">
+                                <td class="cat">{{ r.category }}</td>
+                                <td class="name">{{ r.name }}</td>
+                                <td class="num"><b>{{ r.stock|number_format(0, ',', ' ') }}</b></td>
+                                <td class="num soft">
+                                    {%- if r.expected_1 is not null -%}
+                                        {{ r.expected_1|number_format(0, ',', ' ') }}
+                                    {%- else -%}—{%- endif -%}
+                                </td>
+                                <td class="num soft">
+                                    {%- if r.orders_1 > 0 -%}
+                                        {{ r.orders_1|number_format(0, ',', ' ') }}
+                                    {%- else -%}—{%- endif -%}
+                                </td>
+                                <td class="num">
+                                    {%- if r.delta_1 is not null -%}
+                                        <span class="dlt {{ r.delta_1 < 0 ? 'is-neg' : '' }}">
+                                            {{- r.delta_1 > 0 ? '+' : '' }}{{ r.delta_1|round(0, 'floor')|number_format(0, ',', ' ') -}}
+                                        </span>
+                                    {%- else -%}—{%- endif -%}
+                                </td>
+                                {% if p2_label %}
+                                    <td class="num soft">
+                                        {%- if r.expected_2 is not null -%}
+                                            {{ r.expected_2|number_format(0, ',', ' ') }}
+                                        {%- else -%}—{%- endif -%}
+                                    </td>
+                                    <td class="num soft">
+                                        {%- if r.orders_2 > 0 -%}
+                                            {{ r.orders_2|number_format(0, ',', ' ') }}
+                                        {%- else -%}—{%- endif -%}
+                                    </td>
+                                    <td class="num">
+                                        {%- if r.delta_2 is not null -%}
+                                            <span class="dlt {{ r.delta_2 < 0 ? 'is-neg' : (r.flag == 'over' ? 'is-over' : '') }}">
+                                                {{- r.delta_2 > 0 ? '+' : '' }}{{ r.delta_2|round(0, 'floor')|number_format(0, ',', ' ') -}}
+                                            </span>
+                                        {%- else -%}—{%- endif -%}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="stk-empty-filter d-none" id="stockNoMatch">
+                {{ translations.outlook_none | default('Aucun produit dans ce filtre.') }}
+            </p>
+        {% endif %}
+    </section>
+</div>

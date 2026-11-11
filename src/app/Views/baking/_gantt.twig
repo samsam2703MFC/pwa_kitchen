@@ -1,0 +1,95 @@
+{# baking/_gantt.twig — plan de charge simplifié.
+
+   Une ligne par fournée. Les trois étapes se suivent bout à bout, puis la
+   pastille de mise en rayon : la longueur de la ligne dit combien de temps
+   sépare le début du travail de la vente. #}
+{% set span = window.to - window.from %}
+{% set span = span > 0 ? span : 60 %}
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h2 class="bk-h">
+            {{ translations.baking_overview | default("Ce qu'il reste de la journée") }}
+            {%- if active_stage != 'all' %} — {{ translations['stage_' ~ active_stage] | lower }}{% endif %}
+        </h2>
+
+        <div class="bk-g" id="bkGantt"
+             data-from="{{ window.from }}" data-to="{{ window.to }}" data-stage="{{ active_stage }}">
+
+            <div class="bk-ruler">
+                {% for h in window.hours %}<div>{{ h }}</div>{% endfor %}
+            </div>
+
+            <div id="bkRows">
+                {% for b in plan %}
+                    {% set pcs = { 'prep': b.prepStart, 'cook': b.cookStart, 'finish': b.finishStart } %}
+                    <div class="bk-row {{ b.isWaiting ? 'is-waiting' : '' }} {{ focus_batch == b.id ? 'is-focus' : '' }}"
+                         data-id="{{ b.id }}" data-oven="{{ b.ovenName | default('') }}">
+                        <div class="bk-rowname">
+                            <b>{{ b.name | default('—') }}</b>
+                            <span>
+                                {{- b.ovenName ? b.ovenName ~ ' · ' : '' }}
+                                {{- b.quantity|number_format(0, ',', ' ') }} {{ b.unitName | default('pc') -}}
+                            </span>
+                        </div>
+                        <div class="bk-track">
+                            {% for h in window.hours %}
+                                {% if not loop.first %}
+                                    <i class="tick" style="left:{{ (loop.index0 * 60) / span * 100 }}%"></i>
+                                {% endif %}
+                            {% endfor %}
+
+                            {# Chaque étape dit si elle est faite ou seulement
+                               prévue : 60 % d'opacité pour l'intention, plein
+                               pour le validé.
+
+                               La fenêtre commence à l'heure en cours : ce qui
+                               déborde à gauche est coupé plutôt que dessiné en
+                               négatif — une fournée entamée à 6 h se lit alors
+                               depuis le bord, ce qui est exactement ce qu'il en
+                               reste. #}
+                            {% for k, start in pcs %}
+                                {% set dur = k == 'prep' ? b.prepEnd - b.prepStart
+                                           : (k == 'cook' ? b.cookEnd - b.cookStart : b.finishEnd - b.finishStart) %}
+                                {% set segFrom = start < window.from ? window.from : start %}
+                                {% set segTo   = start + dur %}
+                                {% if dur > 0 and segTo > window.from %}
+                                    <div class="bk-seg s-{{ k }}
+                                                {{ b.isStageValidated(k) ? 'is-done' : 'is-planned' }}
+                                                {{ active_stage != 'all' and active_stage != k ? 'is-dim' : '' }}
+                                                {{ start < window.from ? 'is-clipped' : '' }}"
+                                         style="left:{{ (segFrom - window.from) / span * 100 }}%;width:{{ (segTo - segFrom) / span * 100 }}%"
+                                         title="{{ translations['stage_' ~ k] }} — {{ b.isStageValidated(k)
+                                                    ? translations.plan_validated | default('validé')
+                                                    : translations.plan_forecast | default('prévu') }}"></div>
+                                {% endif %}
+                            {% endfor %}
+
+                            <div class="bk-shelf {{ b.isFullyValidated ? 'is-done' : 'is-planned' }}"
+                                 style="left:{{ (b.shelfTime - window.from) / span * 100 }}%">
+                                {{ b.shelfClock }}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {# La barre du présent traverse toutes les lignes d'un seul trait. #}
+            <div class="bk-now" id="bkNow"
+                 style="left: calc(190px + (100% - 190px) * {{ (now - window.from) / span }})">
+                <b>{{ now_clock }}</b>
+            </div>
+        </div>
+
+        <div class="bk-legend">
+            <span><i class="bk-sw" style="background:#1F4F6B"></i>{{ translations.stage_prep | default('Préparation')|lower }}</span>
+            <span><i class="bk-sw" style="background:#8D1D2C"></i>{{ translations.stage_cook | default('Cuisson')|lower }}</span>
+            <span><i class="bk-sw" style="background:#C17A2A"></i>{{ translations.stage_finish | default('Finition')|lower }}</span>
+            <span><i class="bk-sw" style="background:var(--c-secondary,#F2C9A0);border-radius:999px"></i>{{ translations.baking_shelf_legend | default('mise en rayon') }}</span>
+            <span class="bk-legend-sep">
+                <i class="bk-sw bk-sw-planned"></i>{{ translations.plan_forecast | default('prévu') }}
+                <i class="bk-sw bk-sw-done"></i>{{ translations.plan_validated | default('validé') }}
+            </span>
+        </div>
+    </div>
+</div>

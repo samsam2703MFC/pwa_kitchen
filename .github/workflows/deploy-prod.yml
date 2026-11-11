@@ -1,0 +1,132 @@
+name: Deploy PROD (manuel)
+
+# Le transfert vers le serveur PUBLIC — volontaire, jamais automatique.
+# Décision du 27/08 : deploy.yml reste branché sur le serveur de TEST ;
+# ce workflow-ci part sur bouton (Actions → Deploy PROD → Run workflow)
+# vers le serveur qui sert réellement atelierby.tfbuddy.com.
+#
+# ─── Préalables (GitHub → Settings → Secrets and variables → Actions) ───
+#   Secrets à créer :
+#     SSH_HOST_PROD       IP/hôte du serveur public (celui du DNS atelierby)
+#     SSH_USER_PROD       utilisateur ssh
+#     SSH_PASSWORD_PROD   son mot de passe
+#   Variables optionnelles :
+#     APP_DIR / URL_PATH / SSH_PORT — mêmes défauts que deploy.yml.
+#
+# Le pipeline est celui de deploy.yml, avec en plus, toujours actifs :
+#   – le pont du vhost public (tfb/kitchen/public → APP_DIR/public) ;
+#   – la purge OPcache ;
+#   – le contrôle BLOQUANT : la page publique doit porter le commit poussé
+#     et la route /production/pilotage doit répondre — sinon le run échoue.
+
+on: workflow_dispatch
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuser de partir sans les secrets PROD
+        env:
+          H: ${{ secrets.SSH_HOST_PROD }}
+          U: ${{ secrets.SSH_USER_PROD }}
+          P: ${{ secrets.SSH_PASSWORD_PROD }}
+        run: |
+          missing=""
+          [ -n "$H" ] || missing="$missing SSH_HOST_PROD"
+          [ -n "$U" ] || missing="$missing SSH_USER_PROD"
+          [ -n "$P" ] || missing="$missing SSH_PASSWORD_PROD"
+          if [ -n "$missing" ]; then
+            echo "Secrets manquants :$missing"
+            echo "À créer dans Settings → Secrets and variables → Actions, puis relancer."
+            exit 1
+          fi
+          echo "Secrets PROD présents."
+
+      - name: Set up PHP + Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Install PHP dependencies
+        run: composer install --no-dev --prefer-dist --no-progress
+
+      - name: Install sshpass
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+
+      - name: Stamp the build
+        run: |
+          printf '%s %s' "$(git rev-parse --short HEAD)" "$(date -u +%Y-%m-%dT%H:%MZ)" > BUILD
+          echo "BUILD = $(cat BUILD)"
+
+      - name: Prepare remote dir + symlink
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD_PROD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          WEB='/var/www/html/${{ vars.URL_PATH || 'kitchen' }}'
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER_PROD }}@${{ secrets.SSH_HOST_PROD }}" \
+            "mkdir -p '$APP_DIR' && { [ -e '$WEB' ] || ln -s '$APP_DIR/public' '$WEB'; } && ls -ld '$WEB'"
+
+      - name: Deploy app → APP_DIR (rsync)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD_PROD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          sshpass -e rsync -rltDz --omit-dir-times \
+            --exclude '.git' --exclude '.github' --exclude '.idea' --exclude '.env' \
+            -e "ssh -p ${{ vars.SSH_PORT || '22' }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            ./ "${{ secrets.SSH_USER_PROD }}@${{ secrets.SSH_HOST_PROD }}:$APP_DIR/"
+
+      - name: Point the PUBLIC vhost docroot at the deployed app
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD_PROD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER_PROD }}@${{ secrets.SSH_HOST_PROD }}" \
+            "set -e; TFB=/var/www/html/tfb/${{ vars.URL_PATH || 'kitchen' }}; \
+             if [ -d \"\$TFB\" ] && [ ! -L \"\$TFB/public\" ]; then \
+               [ -e \"\$TFB/public\" ] && mv \"\$TFB/public\" \"\$TFB/public.bak-\$(date +%Y%m%d%H%M%S)\"; \
+               ln -s '$APP_DIR/public' \"\$TFB/public\"; \
+               echo 'pont vhost pose'; \
+             fi; \
+             ls -ld \"\$TFB/public\" 2>/dev/null || echo 'pas de docroot tfb sur ce serveur (vhost direct ?)'"
+
+      - name: Reset PHP OPcache
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD_PROD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          TOKEN="opcache-reset-${{ github.run_id }}.php"
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER_PROD }}@${{ secrets.SSH_HOST_PROD }}" \
+            "printf '<?php if (function_exists(\"opcache_reset\")) { var_export(opcache_reset()); } else { echo \"no-opcache\"; }' > '$APP_DIR/public/$TOKEN'; \
+             for base in 'http://localhost/${{ vars.URL_PATH || 'kitchen' }}' 'https://atelierby.tfbuddy.com/${{ vars.URL_PATH || 'kitchen' }}'; do \
+               echo \"reset via \$base/$TOKEN : \$(curl -sk -m 10 \"\$base/$TOKEN\" || echo injoignable)\"; \
+             done; \
+             rm -f '$APP_DIR/public/$TOKEN'"
+
+      - name: Verify PUBLIC URL serves this commit (bloquant)
+        run: |
+          BASE="https://atelierby.tfbuddy.com/${{ vars.URL_PATH || 'kitchen' }}"
+          SHORT='${{ github.sha }}'; SHORT=${SHORT:0:7}
+          ok=""
+          for i in 1 2 3 4 5; do
+            body=$(curl -s -m 20 "$BASE/auth?deploycheck=${{ github.run_id }}-$i")
+            stamp=$(printf '%s' "$body" | grep -o 'name="app-build" content="[^"]*"' | head -1)
+            echo "essai $i — public : ${stamp:-app-build absent} (attendu $SHORT)"
+            if printf '%s' "$body" | grep -q "content=\"$SHORT"; then ok=1; break; fi
+            sleep 6
+          done
+          [ -n "$ok" ] || { echo "ÉCHEC — le public ne sert pas ce commit"; exit 1; }
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$BASE/production/pilotage")
+          echo "route /production/pilotage → HTTP $code (302 attendu sans session)"
+          [ "$code" = "302" ] || [ "$code" = "200" ] || { echo "ÉCHEC — la route du pilotage ne répond pas ($code)"; exit 1; }
+          echo "OK — le public sert $SHORT, transfert PROD réussi"

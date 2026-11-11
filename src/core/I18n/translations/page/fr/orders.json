@@ -5,7 +5,7 @@
   "filter_date": "Date de retrait",
   "filter_client_name": "Nom du client",
   "filter_client_name_placeholder": "Saisir une partie du nom...",
-  "filter_pending_only": "En attente uniquement",
+  "filter_pending_only": "En attente",
   "filter_search": "Rechercher",
   "filter_clear": "Effacer",
   "filter_all_orders": "Tous les statuts",

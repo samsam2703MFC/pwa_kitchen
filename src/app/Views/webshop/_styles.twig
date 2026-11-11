@@ -1,0 +1,113 @@
+<style>
+    /* ── Mode comptoir ──
+       Même grammaire que le fil de production : une ligne par chose à faire, le
+       geste toujours au même endroit et à la même taille, la couleur lisible à
+       trois mètres. Un comptoir se tient debout, souvent avec les mains prises. */
+
+    .ws-tabs { display: flex; gap: 6px; margin-top: 14px; }
+    .ws-tab {
+        flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+        min-height: 52px; padding: 6px 10px; border-radius: 14px;
+        background: var(--c-bg-2, #F4EFE8); color: var(--c-muted, #7a7168);
+        text-decoration: none; text-align: center;
+    }
+    .ws-tab b { font-size: .92rem; font-weight: 700; }
+    .ws-tab.is-active { background: var(--c-primary, #8D1D2C); color: #fff; }
+    .ws-tab-n {
+        min-width: 24px; padding: 1px 7px; border-radius: 999px;
+        background: rgba(255,255,255,.25); font-size: .74rem; font-weight: 800;
+    }
+    .ws-tab:not(.is-active) .ws-tab-n { background: var(--c-primary, #8D1D2C); color: #fff; }
+
+    .ws-list { margin-top: 12px; }
+
+    /* Une commande, une ligne. */
+    .ws-row, .ws-srow {
+        display: grid; align-items: center; gap: 14px;
+        grid-template-columns: minmax(150px, 1.6fr) minmax(110px, .9fr) auto;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-left: 5px solid var(--c-line-2, rgba(36,26,22,.15));
+        border-radius: var(--r-lg, 18px); padding: 12px 16px; margin-bottom: 8px;
+    }
+    .ws-srow { grid-template-columns: 1fr auto; }
+
+    /* La couleur dit l'état sans qu'on lise : rouge = à faire, vert = prête,
+       éteint = partie. */
+    .ws-row.b-todo  { border-left-color: #8D1D2C; }
+    .ws-row.b-ready { border-left-color: #2D7A3E; }
+    .ws-row.b-done  { border-left-color: var(--c-line-2, rgba(36,26,22,.15)); opacity: .55; }
+
+    .ws-who { min-width: 0; }
+    .ws-who b {
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; overflow-wrap: anywhere;
+        font-size: 1.02rem; font-weight: 800; line-height: 1.15;
+    }
+    .ws-who small { display: block; margin-top: 2px; font-size: .76rem; color: var(--c-muted, #7a7168); }
+
+    .ws-when { text-align: right; line-height: 1.15; }
+    .ws-when b { display: block; font-size: .95rem; font-weight: 800; }
+    .ws-when small { display: block; font-size: .78rem; color: var(--c-muted, #7a7168); }
+
+    .ws-go-cell { display: flex; }
+    .ws-act {
+        min-height: 56px; min-width: 150px; padding: 0 20px;
+        border: 0; border-radius: 14px; color: #fff;
+        font-size: .95rem; font-weight: 700; line-height: 1.15;
+        background: var(--c-primary, #8D1D2C);
+        -webkit-tap-highlight-color: transparent;
+    }
+    .b-todo  .ws-act { background: #8D1D2C; }
+    .b-ready .ws-act { background: #2D7A3E; }
+    .ws-act:active { transform: scale(.995); }
+    .ws-act[disabled] { opacity: .55; }
+    .ws-done { font-size: .8rem; font-weight: 700; color: var(--c-muted, #7a7168); align-self: center; }
+
+    .ws-qty { text-align: right; line-height: 1.1; min-width: 84px; }
+    .ws-qty b { display: block; font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .ws-qty small { display: block; font-size: .7rem; text-transform: uppercase;
+                    letter-spacing: .05em; color: var(--c-muted, #7a7168); font-weight: 700; }
+    .ws-srow.is-out { border-left-color: #8D1D2C; background: #FDF6F7; }
+    .ws-srow.is-out .ws-qty b { color: #8D1D2C; }
+    .ws-qty b.is-unknown { color: var(--c-muted, #7a7168); }
+
+    .ws-out-band {
+        margin: 12px 0 0; padding: 10px 14px; border-radius: 12px;
+        background: #FBEAEC; color: #8D1D2C; font-weight: 700; font-size: .88rem;
+    }
+
+    .ws-kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 14px; }
+    .ws-kpi {
+        background: var(--c-surface, #fff); border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px); padding: 16px 18px;
+    }
+    .ws-kpi-lbl { display: block; font-size: .74rem; font-weight: 800; letter-spacing: .04em;
+                  text-transform: uppercase; color: var(--c-muted, #7a7168); }
+    .ws-kpi-val { display: block; margin-top: 6px; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+    .ws-kpi-d { display: block; margin-top: 3px; font-size: .76rem; color: var(--c-muted, #7a7168); }
+
+    .ws-state { text-align: center; padding: 30px 22px; }
+    .ws-state h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 8px; }
+    .ws-state p { color: var(--c-muted, #7a7168); font-size: .9rem; margin-bottom: 4px; }
+    .ws-go {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 48px; margin-top: 18px; padding: 0 20px;
+        border-radius: 999px; border: 0; text-decoration: none;
+        background: var(--c-primary, #8D1D2C); color: #fff; font-weight: 700;
+    }
+
+    .ws-net {
+        margin: 12px 0 0; padding: 10px 14px; border-radius: 12px;
+        background: #FDF3E6; color: var(--c-ambre, #C17A2A);
+        font-size: .85rem; font-weight: 700;
+    }
+
+    /* Sous 780 px la ligne se replie : le nom en haut, le geste pleine largeur
+       en bas — un pouce n'a pas à viser. */
+    @media (max-width: 780px) {
+        .ws-row { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 12px 14px; }
+        .ws-go-cell { grid-column: 1 / -1; }
+        .ws-act { width: 100%; min-width: 0; }
+    }
+</style>

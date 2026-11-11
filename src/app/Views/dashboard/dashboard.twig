@@ -1,169 +1,453 @@
 {% extends "layouts/base.twig" %}
+{% import "components/_icons.twig" as icons %}
 {% block title %}{{ translations.kitchen_dashboard }}{% endblock %}
+
+{% block head %}
+<style>
+    /* ── Tableau de bord ──────────────────────────────────────────────
+       Trois défauts corrigés ici.
+
+       Le badge « en construction » était en position-absolute au coin de
+       la carte : il retombait sur le titre. Il vit maintenant dans le flux,
+       sur sa propre ligne, et ne peut plus rien recouvrir.
+
+       Les pastilles d'icônes utilisaient les pastels Mazer (menthe, jaune,
+       bleu) — étrangers à la charte, et le glyphe s'y voyait à peine. Elles
+       reprennent les accents terreux du design system, avec un dégradé léger
+       comme sur le tableau de bord du consultant.
+
+       Les paddings étaient hérités au hasard des utilitaires Bootstrap.
+       Ils sont ici explicites et réguliers.
+       ────────────────────────────────────────────────────────────────── */
+
+    /* Une tuile par ligne. Empilées, elles se lisent dans l'ordre où le travail
+       se fait et gardent la même largeur de frappe sur tous les écrans ; en
+       quatre colonnes, les descriptions se cassaient en trois lignes étroites. */
+    .dash-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+
+    /* ── La prochaine tâche sur la carte Checklists ── */
+    .dash-cl-next { margin-top: 6px; display: flex; align-items: baseline; gap: 8px; font-size: .88rem; min-width: 0; }
+    .dash-cl-next .hh { font-weight: 700; color: var(--c-encre, #1F4F6B); font-variant-numeric: tabular-nums; flex: none; }
+    .dash-cl-next .nm { font-weight: 600; color: var(--c-ink, #241f1c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Le retard en rubis — la couleur des choses qui ne se rattrapent pas. */
+    .dash-cl-next.is-late .hh   { color: var(--c-primary, #8D1D2C); }
+    .dash-cl-next.is-late .late { color: var(--c-primary, #8D1D2C); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; flex: none; }
+    /* L'avancement en points, comme les cartes de checklist : plein vert pour
+       ce qui est fait, rubis pour la tache en cours, creux pour le reste. Barre
+       fine seulement au-dela de douze taches (rare). */
+    .dash-cl-dots { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 34px; overflow: hidden; }
+    .dash-cl-dot { width: 11px; height: 11px; flex: none; border-radius: 50%; border: 2px solid #d8cfc4; }
+    .dash-cl-dot.on { background: var(--c-vert, #2D7A3E); border-color: var(--c-vert, #2D7A3E); }
+    .dash-cl-dot.next { background: var(--c-primary, #8D1D2C); border-color: var(--c-primary, #8D1D2C); }
+    .dash-cl-bar { margin-top: 8px; height: 6px; border-radius: 99px; background: var(--c-bg, #EAE4DC); overflow: hidden; }
+    .dash-cl-bar i { display: block; height: 100%; background: var(--c-vert, #2D7A3E); }
+    .dash-cl-bar i.late { background: var(--c-primary, #8D1D2C); }
+    .dash-cl-leg { margin-top: 4px; font-size: .74rem; color: var(--c-muted, #7a7168); }
+
+    .dash-action {
+        display: flex; align-items: flex-start; gap: 14px;
+        padding: 16px; height: 100%;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        box-shadow: var(--sh-2);
+        text-decoration: none;
+        transition: transform .16s var(--ease), box-shadow .2s var(--ease);
+    }
+    @media (hover: hover) {
+        a.dash-action:hover { transform: translateY(-3px); box-shadow: var(--sh-3); }
+        a.dash-action:hover .dash-action-ic { transform: scale(1.06) rotate(-3deg); }
+    }
+    a.dash-action:active { transform: scale(.985); }
+    .dash-action.is-disabled { opacity: .6; pointer-events: none; }
+
+    .dash-action-top { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .dash-action-body { flex: 1; min-width: 0; }
+    /* Le badge « en construction » rejoint le titre : en pleine largeur, la
+       place est là, et il reste hors du flux du texte. */
+    .dash-action-titleline { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+
+    .dash-action-ic {
+        width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    }
+    .dash-action-ic svg { width: 22px; height: 22px; display: block; }
+    .dash-action-title { font-size: .95rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.25; margin: 0; }
+    .dash-action-sub { font-size: .78rem; color: var(--c-muted, #7a7168); line-height: 1.45; margin: 3px 0 0; }
+
+    /* Accents terreux, un par action */
+    .ic-ruby  { background: linear-gradient(145deg, rgba(141,29,44,.17), rgba(141,29,44,.05)); color: #8D1D2C; }
+    .ic-encre { background: linear-gradient(145deg, rgba(31,79,107,.17), rgba(31,79,107,.05)); color: #1F4F6B; }
+    .ic-ambre { background: linear-gradient(145deg, rgba(193,122,42,.20), rgba(193,122,42,.06)); color: #C17A2A; }
+    .ic-brun  { background: linear-gradient(145deg, rgba(138,74,36,.18), rgba(138,74,36,.05)); color: #8a4a24; }
+    .ic-vert  { background: linear-gradient(145deg, rgba(45,122,62,.18), rgba(45,122,62,.05)); color: #2D7A3E; }
+    .ic-gris  { background: rgba(36,26,22,.06); color: #7a7168; }
+
+    /* Badge « en construction » — dans le flux, jamais par-dessus le texte */
+    .dash-wip {
+        display: inline-flex; align-items: center; gap: 5px; align-self: flex-start;
+        font-size: .64rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+        color: #8a5a12; background: rgba(193,122,42,.16);
+        border-radius: 999px; padding: 3px 9px;
+    }
+    .dash-wip svg { width: 12px; height: 12px; }
+
+    /* ── Statistiques ── */
+    .dash-note {
+        display: flex; align-items: center; gap: 7px;
+        font-size: .78rem; color: var(--c-muted, #7a7168);
+        margin: 22px 2px 10px;
+    }
+    .dash-note svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+    .dash-stats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+    @media (max-width: 767px) { .dash-stats { grid-template-columns: 1fr; } }
+    .dash-stat {
+        display: flex; align-items: center; justify-content: space-between; gap: 14px;
+        padding: 16px 18px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        box-shadow: var(--sh-2);
+    }
+    .dash-stat.is-disabled { opacity: .65; }
+    .dash-stat-lbl { font-size: .78rem; color: var(--c-muted, #7a7168); }
+    .dash-stat-val { font-family: var(--font-display); font-size: 1.9rem; line-height: 1.05; color: var(--c-ink, #241f1c); margin-top: 4px; }
+    .dash-stat-personal { font-size: .75rem; color: var(--c-muted, #7a7168); margin-top: 5px; }
+    .dash-stat-ic {
+        width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .dash-stat-ic svg { width: 20px; height: 20px; display: block; }
+
+    /* ── Raccourci base de connaissances ── */
+    .dash-kb {
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 14px;
+        padding: 16px 18px; margin-top: 12px;
+        background: var(--c-surface, #fff);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        box-shadow: var(--sh-2);
+    }
+    .dash-kb-id { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .dash-kb-txt { min-width: 0; }
+    .dash-kb-title { font-size: .92rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.25; }
+    .dash-kb-sub { font-size: .78rem; color: var(--c-muted, #7a7168); line-height: 1.4; margin-top: 2px; }
+    .dash-kb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+{% endblock %}
+
 {% block page_heading %}
     <div class="page-heading">
         <h3>{{ translations.kitchen_dashboard }}</h3>
         <p class="text-subtitle text-muted">{{ translations.kitchen_dashboard_subtitle }}</p>
     </div>
 {% endblock %}
+
 {% block content %}
-    {# alerty globalne (wg Twojego wzorca) #}
-    {% include "page_components/alerts.twig" %}
-    <div class="row">
-        {# QUICK ACTIONS #}
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">{{ translations.quick_actions }}</h4>
+    {# alerts.twig est déjà inclus par le layout : le doublon d'ici affichait
+       chaque message deux fois. #}
+
+    {# ── Actions rapides ── #}
+    <div class="dash-grid">
+
+        {# Production — en construction. Le badge partage la ligne de l'icône :
+           sur sa propre ligne il décalait le titre vers le bas et cette carte
+           ne s'alignait plus avec les trois autres. #}
+        <div class="dash-action is-disabled">
+            <div class="dash-action-top">
+                <span class="dash-action-ic ic-gris">{{ icons.svg('list-checks', 22) }}</span>
+            </div>
+            <div class="dash-action-body">
+                <div class="dash-action-titleline">
+                    <p class="dash-action-title text-muted">{{ translations.todays_production }}</p>
+                    <span class="dash-wip">
+                        {{ icons.svg('clock', 12) }}{{ translations.under_construction|default('W budowie') }}
+                    </span>
                 </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        {# === PRODUKCJA – W TRAKCIE BUDOWY === #}
-                        <div class="col-12 col-md-3">
-                            <div class="card border shadow-sm h-100 text-decoration-none position-relative"
-                                 style="opacity:.65; cursor:not-allowed;">
-                                <span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2"
-                                      style="font-size:.7rem; z-index:1;">
-                                    <i class="bi bi-tools me-1"></i>{{ translations.under_construction|default('W budowie') }}
-                                </span>
-                                <div class="card-body d-flex gap-3 align-items-start">
-                                    <div class="avatar avatar-lg">
-                                        <span class="avatar-content bg-light-secondary">
-                                            <i class="bi bi-list-check text-muted"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-1 text-muted">{{ translations.todays_production }}</h5>
-                                        <div class="text-muted small">{{ translations.todays_production_subtitle }}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {# === KARTY PRODUKCYJNE – podpięte pod /knowledge/products === #}
-                        <div class="col-12 col-md-3">
-                            <a href="{{ ROOT }}/knowledge/products" class="card border shadow-sm h-100 text-decoration-none">
-                                <div class="card-body d-flex gap-3 align-items-start">
-                                    <div class="avatar avatar-lg">
-                                        <span class="avatar-content bg-light-success">
-                                            <i class="bi bi-journal-text"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-1 text-dark">{{ translations.production_cards }}</h5>
-                                        <div class="text-muted small">{{ translations.production_cards_subtitle }}</div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        {# === CHECKLISTY – działa === #}
-                        <div class="col-12 col-md-3">
-                            <a href="{{ ROOT }}/checklists" class="card border shadow-sm h-100 text-decoration-none">
-                                <div class="card-body d-flex gap-3 align-items-start">
-                                    <div class="avatar avatar-lg">
-                                        <span class="avatar-content bg-light-warning">
-                                            <i class="bi bi-clipboard-check"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-1 text-dark">{{ translations.checklists }}</h5>
-                                        <div class="text-muted small">{{ translations.checklists_subtitle }}</div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        {# === ZAMÓWIENIA – działa === #}
-                        <div class="col-12 col-md-3">
-                            <a href="{{ ROOT }}/orders" class="card border shadow-sm h-100 text-decoration-none">
-                                <div class="card-body d-flex gap-3 align-items-start">
-                                    <div class="avatar avatar-lg">
-                                        <span class="avatar-content bg-light-info">
-                                            <i class="bi bi-truck"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-1 text-dark">{{ translations.my_orders }}</h5>
-                                        <div class="text-muted small">{{ translations.my_orders_subtitle }}</div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                <p class="dash-action-sub">{{ translations.todays_production_subtitle }}</p>
             </div>
         </div>
-        {# STATS – dane z checklist na dzień dzisiejszy #}
-        <div class="col-12">
-            <div class="row g-3">
-                <div class="col-12">
-                    <p class="text-muted small mb-1">
-                        <i class="bi bi-info-circle me-1"></i>
-                        {{ translations.stats_from_checklists|default('Statystyki oparte o checklisty z dnia dzisiejszego') }}
-                    </p>
-                </div>
-                <div class="col-12 col-md-4">
-                    <div class="card h-100">
-                        <div class="card-body d-flex align-items-center justify-content-between">
-                            <div>
-                                <div class="text-muted small">{{ translations.tasks_todo }}</div>
-                                <div class="fs-3 fw-bold">{{ stats.tasks_todo|default(0) }}</div>
-                            </div>
-                            <i class="bi bi-circle fs-2 text-muted"></i>
-                        </div>
-                    </div>
-                </div>
-                {# tasks_in_progress – W TRAKCIE BUDOWY (brak rozróżnienia statusów w API) #}
-                <div class="col-12 col-md-4">
-                    <div class="card h-100 border-warning" style="opacity:.7;">
-                        <div class="card-body d-flex align-items-center justify-content-between">
-                            <div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="text-muted small">{{ translations.tasks_in_progress }}</span>
-                                    <span class="badge bg-warning text-dark" style="font-size:.65rem;">
-                                        <i class="bi bi-tools"></i> {{ translations.under_construction|default('W budowie') }}
-                                    </span>
-                                </div>
-                                <div class="fs-3 fw-bold text-muted">–</div>
-                            </div>
-                            <i class="bi bi-arrow-repeat fs-2 text-muted"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-12 col-md-4">
-                    <div class="card h-100">
-                        <div class="card-body d-flex align-items-center justify-content-between">
-                            <div>
-                                <div class="text-muted small">{{ translations.tasks_completed }}</div>
-                                <div class="fs-3 fw-bold">{{ stats.tasks_completed|default(0) }}</div>
-                            </div>
-                            <i class="bi bi-check-circle fs-2 text-success"></i>
-                        </div>
-                    </div>
-                </div>
+
+        {# Fiches de production #}
+        <a href="{{ ROOT }}/knowledge/products" class="dash-action">
+            <div class="dash-action-top">
+                <span class="dash-action-ic ic-encre">{{ icons.svg('notebook', 22) }}</span>
             </div>
+            <div class="dash-action-body">
+                <p class="dash-action-title">{{ translations.production_cards }}</p>
+                <p class="dash-action-sub">{{ translations.production_cards_subtitle }}</p>
+            </div>
+        </a>
+
+        {# ── Checklists ──
+           Quand une tâche attend, la carte remplace son sous-titre — qui ne
+           dit jamais rien de neuf — par la prochaine tâche : son heure, son
+           nom, et l'avancement du jour. L'heure passe en RUBIS quand elle est
+           dépassée : un retard sur une tâche d'hygiène ne se rattrape pas en
+           silence. Sans donnée servie, le sous-titre revient — une carte de
+           menu n'a pas à porter un bandeau d'erreur. #}
+        <a href="{{ ROOT }}/checklists" class="dash-action" data-shift-required-link>
+            <div class="dash-action-top">
+                <span class="dash-action-ic ic-ambre">{{ icons.svg('clipboard-check', 22) }}</span>
+            </div>
+            <div class="dash-action-body">
+                <p class="dash-action-title">{{ translations.checklists }}</p>
+                {% if cl_next %}
+                    <div class="dash-cl-next {{ cl_next.late ? 'is-late' : '' }}">
+                        {% if cl_next.time %}<span class="hh">{{ cl_next.time }}</span>{% endif %}
+                        <span class="nm">{{ cl_next.name }}</span>
+                        {% if cl_next.late %}
+                            <span class="late">{{ translations.dash_cl_late | default('en retard') }}</span>
+                        {% endif %}
+                    </div>
+                    {% set cl_total = cl_done + cl_left %}
+                    {% if cl_total > 0 %}
+                        {% if cl_total <= 12 %}
+                            <div class="dash-cl-dots" aria-hidden="true">
+                                {% for i in 1..cl_total %}
+                                    {% if i <= cl_done %}<span class="dash-cl-dot on"></span>
+                                    {% elseif cl_next.late and i == cl_done + 1 %}<span class="dash-cl-dot next"></span>
+                                    {% else %}<span class="dash-cl-dot"></span>{% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="dash-cl-bar" aria-hidden="true">
+                                <i class="{{ cl_next.late ? 'late' : '' }}" style="width:{{ (cl_done / cl_total * 100)|round }}%"></i>
+                            </div>
+                        {% endif %}
+                        <div class="dash-cl-leg">
+                            {{ cl_done }} {{ translations.dash_cl_done | default('faites') }} ·
+                            {{ cl_left }} {{ translations.dash_cl_left | default("restantes aujourd'hui") }}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="dash-action-sub">{{ translations.checklists_subtitle }}</p>
+                {% endif %}
+            </div>
+        </a>
+
+        {# Commandes #}
+        <a href="{{ ROOT }}/orders" class="dash-action" data-shift-required-link>
+            <div class="dash-action-top">
+                <span class="dash-action-ic ic-brun">{{ icons.svg('receipt', 22) }}</span>
+            </div>
+            <div class="dash-action-body">
+                <p class="dash-action-title">{{ translations.my_orders }}</p>
+                <p class="dash-action-sub">{{ translations.my_orders_subtitle }}</p>
+            </div>
+        </a>
+    </div>
+
+    {# ── Statistiques du jour ── #}
+    <p class="dash-note">
+        {{ icons.svg('circle-alert', 15) }}
+        {{ translations.stats_from_checklists|default('Statystyki oparte o checklisty z dnia dzisiejszego') }}
+    </p>
+
+    <div class="dash-stats">
+        <div class="dash-stat">
+            <div>
+                <div class="dash-stat-lbl">{{ translations.tasks_todo }}</div>
+                <div class="dash-stat-val">{{ stats.tasks_todo|default(0) }}</div>
+                {% if employee_stats is not null %}
+                    <div class="dash-stat-personal">{{ translations.tasks_for_you|default('Dla Ciebie') }}: {{ employee_stats.tasks_todo }}</div>
+                {% endif %}
+            </div>
+            <span class="dash-stat-ic ic-ruby">{{ icons.svg('list-checks', 20) }}</span>
         </div>
-        {# BAZA WIEDZY – skrót #}
-        <div class="col-12 mt-2">
-            <div class="card border-0 bg-light">
-                <div class="card-body py-3">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-book fs-4 text-primary"></i>
-                            <div>
-                                <div class="fw-semibold">{{ translations.knowledge|default('Baza wiedzy') }}</div>
-                                <div class="text-muted small">{{ translations.knowledge_overview_subtitle|default('Karty techniczne produktów i przepisy') }}</div>
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <a href="{{ ROOT }}/knowledge/products" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-box-seam me-1"></i>{{ translations.products|default('Produkty') }}
-                            </a>
-                            <a href="{{ ROOT }}/knowledge" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-grid me-1"></i>{{ translations.knowledge|default('Przegląd') }}
-                            </a>
-                        </div>
-                    </div>
-                </div>
+
+        {# En cours — l'API ne distingue pas encore ce statut #}
+        <div class="dash-stat is-disabled">
+            <div>
+                <div class="dash-stat-lbl">{{ translations.tasks_in_progress }}</div>
+                <span class="dash-wip mt-1">
+                    {{ icons.svg('clock', 12) }}{{ translations.under_construction|default('W budowie') }}
+                </span>
+                <div class="dash-stat-val text-muted">–</div>
             </div>
+            <span class="dash-stat-ic ic-gris">{{ icons.svg('refresh-cw', 20) }}</span>
+        </div>
+
+        <div class="dash-stat">
+            <div>
+                <div class="dash-stat-lbl">{{ translations.tasks_completed }}</div>
+                <div class="dash-stat-val">{{ stats.tasks_completed|default(0) }}</div>
+                {% if employee_stats is not null %}
+                    <div class="dash-stat-personal">{{ translations.tasks_for_you|default('Dla Ciebie') }}: {{ employee_stats.tasks_completed }}</div>
+                {% endif %}
+            </div>
+            <span class="dash-stat-ic ic-vert">{{ icons.svg('check-circle', 20) }}</span>
         </div>
     </div>
+
+    {# ── Base de connaissances ── #}
+    <div class="dash-kb">
+        <div class="dash-kb-id">
+            <span class="dash-action-ic ic-ruby">{{ icons.svg('notebook', 22) }}</span>
+            <div class="dash-kb-txt">
+                <div class="dash-kb-title">{{ translations.knowledge|default('Baza wiedzy') }}</div>
+                <div class="dash-kb-sub">{{ translations.knowledge_overview_subtitle|default("Fiches techniques produits et recettes") }}</div>
+            </div>
+        </div>
+        <div class="dash-kb-actions">
+            <a href="{{ ROOT }}/knowledge/products" class="btn btn-sm btn-outline-secondary">
+                {{ icons.svg('package', 15) }} {{ translations.products|default('Produkty') }}
+            </a>
+            <a href="{{ ROOT }}/knowledge" class="btn btn-sm btn-outline-primary">
+                {{ icons.svg('layers', 15) }} {{ translations.view_all|default('Tout voir') }}
+            </a>
+        </div>
+    </div>
+
+    <div class="modal fade" id="dashboardShiftEntryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ translations.tablet_who_title | default("Qui utilise la tablette ?") }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translations.close | default('Fermer') }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="dashboardGuestSwitch" checked>
+                    <label class="form-check-label" for="dashboardGuestSwitch">{{ translations.tablet_anonymous | default("Continuer sans m'identifier") }}</label>
+                </div>
+                <div id="dashboardEmployeeLogin" class="d-none">
+                    <p class="text-muted small">{{ translations.tablet_pick_self | default("Choisissez-vous dans le planning, puis saisissez votre code.") }}</p>
+                    <div class="tablet-worker-grid mb-3" id="dashboardEntryEmployees">
+                        {% for employee in entry_employees %}
+                            <button type="button" class="tablet-worker-badge" data-employee-id="{{ employee.id }}">
+                                <span class="tablet-worker-initials">{{ employee.initials ?: '—' }}</span>
+                                <span class="tablet-worker-txt">
+                                    <span class="tablet-worker-name">{{ employee.name }}</span>
+                                    {% if employee.role %}<span class="tablet-worker-role">{{ employee.role }}</span>{% endif %}
+                                </span>
+                            </button>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" id="dashboardEmployeeId">
+                    <input type="hidden" id="dashboardEmployeePin">
+                    <div id="dashboardPinGroup" class="d-none">
+                        <label class="form-label">{{ translations.tablet_pin_label | default("Code de la personne choisie") }}</label>
+                        <div class="tablet-pin-boxes" id="dashboardPinBoxes">
+                            {% for i in 1..4 %}
+                                <input type="password" class="tablet-pin-box dashboard-pin-box" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="PIN {{ i }}">
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div id="dashboardEntryAlert" class="alert mt-3 d-none"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ translations.cancel | default('Annuler') }}</button>
+                <button type="button" class="btn btn-success" id="dashboardEntryContinue">{{ translations.continue_ | default('Continuer') }}</button>
+            </div>
+        </div></div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const modalElement = document.getElementById('dashboardShiftEntryModal');
+    const modal = modalElement ? new bootstrap.Modal(modalElement) : null;
+    const guestSwitch = document.getElementById('dashboardGuestSwitch');
+    const employeeLogin = document.getElementById('dashboardEmployeeLogin');
+    const employees = document.getElementById('dashboardEntryEmployees');
+    const employeeId = document.getElementById('dashboardEmployeeId');
+    const pin = document.getElementById('dashboardEmployeePin');
+    const pinGroup = document.getElementById('dashboardPinGroup');
+    const pinBoxes = Array.from(document.querySelectorAll('.dashboard-pin-box'));
+    const alert = document.getElementById('dashboardEntryAlert');
+    const continueButton = document.getElementById('dashboardEntryContinue');
+    const hasActiveShift = {{ has_active_shift ? 'true' : 'false' }};
+    let destination = null;
+
+    document.querySelectorAll('[data-shift-required-link]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            if (hasActiveShift) return;
+            event.preventDefault();
+            destination = link.href;
+            modal.show();
+        });
+    });
+    function syncPin() {
+        pin.value = pinBoxes.map((box) => box.value).join('');
+        pinBoxes.forEach((box) => box.classList.toggle('is-filled', box.value !== ''));
+    }
+    guestSwitch?.addEventListener('change', () => {
+        employeeLogin.classList.toggle('d-none', guestSwitch.checked);
+        alert.classList.add('d-none');
+    });
+    employees?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-employee-id]');
+        if (!button) return;
+        employees.querySelectorAll('[data-employee-id]').forEach((item) => item.classList.remove('is-active'));
+        button.classList.add('is-active');
+        employeeId.value = button.dataset.employeeId;
+        pinBoxes.forEach((box) => box.value = '');
+        pinGroup.classList.remove('d-none');
+        syncPin();
+        pinBoxes[0]?.focus();
+    });
+    pinBoxes.forEach((box, index) => {
+        box.addEventListener('input', () => {
+            box.value = box.value.replace(/\D/g, '').slice(0, 1);
+            syncPin();
+            if (box.value && pinBoxes[index + 1]) pinBoxes[index + 1].focus();
+        });
+        box.addEventListener('keydown', (event) => {
+            if (event.key === 'Backspace' && !box.value && pinBoxes[index - 1]) {
+                pinBoxes[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+        box.addEventListener('paste', (event) => {
+            const digits = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 4);
+            if (!digits) return;
+            event.preventDefault();
+            pinBoxes.forEach((item, itemIndex) => item.value = digits[itemIndex] || '');
+            syncPin();
+            pinBoxes[Math.min(digits.length, 3)]?.focus();
+        });
+    });
+    modalElement?.addEventListener('show.bs.modal', () => {
+        employeeId.value = '';
+        guestSwitch.checked = true;
+        employeeLogin.classList.add('d-none');
+        pinBoxes.forEach((box) => box.value = '');
+        employees?.querySelectorAll('[data-employee-id]').forEach((item) => item.classList.remove('is-active'));
+        pinGroup.classList.add('d-none');
+        alert.classList.add('d-none');
+        syncPin();
+    });
+    continueButton?.addEventListener('click', async () => {
+        if (guestSwitch.checked) {
+            window.location.assign(destination || '{{ ROOT }}/dashboard');
+            return;
+        }
+        if (!employeeId.value || pin.value.length !== 4) {
+            alert.textContent = {{ (translations.tablet_pick_first | default('Choisissez une personne et saisissez son code.')) | json_encode | raw }};
+            alert.classList.remove('d-none');
+            return;
+        }
+        continueButton.disabled = true;
+        try {
+            const response = await fetch('{{ ROOT }}/ajax/checklists/shift', {
+                method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({employee_id: employeeId.value, pin: pin.value.trim()}),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || {{ (translations.tablet_login_error | default("La personne n'a pas pu être identifiée.")) | json_encode | raw }});
+            window.location.assign(destination || '{{ ROOT }}/dashboard');
+        } catch (error) {
+            alert.textContent = error.message;
+            alert.classList.remove('d-none');
+            continueButton.disabled = false;
+        }
+    });
+})();
+</script>
 {% endblock %}

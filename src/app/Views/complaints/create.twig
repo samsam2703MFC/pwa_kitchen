@@ -1,16 +1,156 @@
 {% extends "layouts/base.twig" %}
+{% import "components/_icons.twig" as icons %}
 {% block title %}{{ translations.new_complaint }}{% endblock %}
+
+{% block head %}
+<style>
+    /* ── Pièces jointes ───────────────────────────────────────────────
+       Prendre une photo est le geste principal de cet écran : on déclare
+       un problème constaté en production, l'appareil est dans la main.
+       Le déclencheur était pourtant une icône seule accolée au champ
+       fichier — sans libellé, avec une cible d'environ 38 px de haut, et
+       son intention cachée dans un title que le tactile n'affiche jamais.
+
+       C'est maintenant un vrai bouton : pleine largeur, 54 px de haut,
+       libellé explicite. Le champ fichier reste en dessous, en retrait,
+       pour joindre un document déjà enregistré.
+       ────────────────────────────────────────────────────────────────── */
+
+    .att-slot {
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        background: var(--c-surface, #fff);
+        padding: 14px;
+        height: 100%;
+    }
+    .att-slot-lbl {
+        font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+        color: var(--c-muted, #7a7168); margin-bottom: 10px;
+    }
+
+    .att-camera {
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        width: 100%; min-height: 54px; padding: 0 18px;
+        border: 0; border-radius: var(--r-md, 13px);
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        font-family: inherit; font-size: .95rem; font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 8px 18px -10px rgba(141,29,44,.6);
+        transition: background .15s ease, transform .1s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .att-camera:hover { background: var(--c-primary-hover, #731722); color: #fff; }
+    .att-camera:active { transform: scale(.985); }
+    .att-camera i { font-size: 1.35rem; line-height: 1; }
+
+    /* Le champ fichier est l'option secondaire : présent, mais discret. */
+    .att-file-sep {
+        display: flex; align-items: center; gap: 10px;
+        margin: 12px 0 8px; font-size: .72rem; color: var(--c-muted, #7a7168);
+    }
+    .att-file-sep::before, .att-file-sep::after {
+        content: ''; flex: 1; height: 1px; background: var(--c-line, rgba(36,26,22,.09));
+    }
+
+    .att-preview { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .att-preview img {
+        width: 72px; height: 72px; object-fit: cover;
+        border-radius: var(--r-sm, 9px); border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        flex-shrink: 0;
+    }
+    /* Retirer une photo : 44 px, comme toute cible tactile de l'app. */
+    .att-remove {
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        min-height: 44px; padding: 0 16px;
+        border: 1px solid rgba(141,29,44,.28); border-radius: var(--r-sm, 9px);
+        background: #fff; color: var(--c-primary, #8D1D2C);
+        font-family: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
+    }
+    .att-remove:active { background: rgba(141,29,44,.06); }
+
+    /* Déclencheur de la modale : le geste conclusif mérite la même surface. */
+    #capturePhotoBtn { min-height: 54px; font-size: 1rem; }
+
+    /* ── Étapes ───────────────────────────────────────────────────────
+       Le formulaire se dévoile étape par étape, mais rien ne le disait :
+       quatre titres gris identiques, séparés d'un filet, avec un chiffre
+       cerclé en 12 px. On ne savait ni où on en était, ni combien il
+       restait. Chaque étape est maintenant une carte, numérotée pour de
+       bon, avec son intitulé et sa raison d'être.
+       ────────────────────────────────────────────────────────────────── */
+    .cp-step {
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        background: var(--c-surface, #fff);
+        box-shadow: var(--sh-2);
+        margin-bottom: 14px;
+        overflow: hidden;
+    }
+    .cp-step-head {
+        display: flex; align-items: flex-start; gap: 12px;
+        padding: 15px 18px 13px;
+        border-bottom: 1px solid var(--c-line, rgba(36,26,22,.09));
+    }
+    .cp-step-num {
+        width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        font-family: var(--font-display); font-size: .9rem; line-height: 1;
+    }
+    .cp-step.is-wip .cp-step-num { background: rgba(36,26,22,.18); color: #fff; }
+    .cp-step-titles { min-width: 0; flex: 1; }
+    .cp-step-title { font-size: .98rem; font-weight: 700; color: var(--c-ink, #241f1c); line-height: 1.25; }
+    .cp-step-sub { font-size: .78rem; color: var(--c-muted, #7a7168); margin-top: 2px; line-height: 1.4; }
+    .cp-step-body { padding: 16px 18px; }
+
+    /* Marqueur « à développer » — le bloc est visible pour situer le
+       parcours à venir, mais rien n'y est saisissable. */
+    .cp-wip-tag {
+        display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+        font-size: .64rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+        color: #8a5a12; background: rgba(193,122,42,.16);
+        border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+    }
+    .cp-step.is-wip { opacity: .72; }
+    .cp-step.is-wip .cp-step-body { pointer-events: none; }
+
+    /* Scan du code QR — la voie rapide vers le produit, donc la plus visible. */
+    .cp-scan {
+        display: flex; align-items: center; justify-content: center; gap: 11px;
+        width: 100%; min-height: 58px; padding: 0 18px;
+        border: 1px dashed rgba(141,29,44,.4); border-radius: var(--r-md, 13px);
+        background: rgba(141,29,44,.05); color: var(--c-primary, #8D1D2C);
+        font-family: inherit; font-size: 1rem; font-weight: 600;
+    }
+    .cp-scan i { font-size: 1.5rem; line-height: 1; }
+    .cp-scan-hint { font-size: .78rem; color: var(--c-muted, #7a7168); text-align: center; margin-top: 8px; }
+
+    /* Barre d'action — la soumission ne doit pas se perdre en bas de page. */
+    .cp-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+    .cp-submit {
+        flex: 1 1 220px; min-height: 54px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+        border: 0; border-radius: var(--r-md, 13px);
+        background: var(--c-primary, #8D1D2C); color: #fff;
+        font-family: inherit; font-size: 1rem; font-weight: 600; cursor: pointer;
+        box-shadow: 0 8px 18px -10px rgba(141,29,44,.6);
+    }
+    .cp-submit:hover { background: var(--c-primary-hover, #731722); color: #fff; }
+    .cp-submit:active { transform: scale(.99); }
+    .cp-cancel {
+        flex: 0 1 auto; min-height: 54px; padding: 0 20px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14)); border-radius: var(--r-md, 13px);
+        background: #fff; color: var(--c-muted, #7a7168);
+        font-size: .95rem; font-weight: 600; text-decoration: none;
+    }
+    .cp-cancel:hover { color: var(--c-ink, #241f1c); background: var(--c-bg-2, #F4EFE8); }
+</style>
+{% endblock %}
 {% block page_heading %}
     <div class="page-heading">
         <h3>{{ translations.new_complaint }}</h3>
         <p class="text-subtitle text-muted">{{ translations.complaints_subtitle }}</p>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ ROOT }}">{{ translations.home }}</a></li>
-                <li class="breadcrumb-item"><a href="{{ ROOT }}/complaints">{{ translations.complaints }}</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ translations.new_complaint }}</li>
-            </ol>
-        </nav>
     </div>
 {% endblock %}
 {% block content %}
@@ -37,24 +177,46 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                 </div>
             </div>
         {% else %}
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title mb-0">
-                        <i class="bi bi-clipboard2-x me-2"></i>{{ translations.report_complaint }}
-                    </h4>
-                </div>
-                <div class="card-content">
-                    <div class="card-body">
-                        <form method="POST" enctype="multipart/form-data" id="complaintForm">
-                            {# Krok 1: Wybór zamówienia #}
-                            <div class="row mb-4">
-                                <div class="col-12">
-                                    <h6 class="text-muted fw-semibold mb-3 border-bottom pb-2">
-                                        <i class="bi bi-1-circle me-1"></i>
-                                        {{ translations.delivered_order }}
-                                    </h6>
+            {# Chaque étape est déjà une carte : la carte englobante d'avant
+               les emboîtait les unes dans les autres, deux bordures et deux
+               ombres pour une seule idée. Le formulaire porte directement les
+               étapes. #}
+            <form method="POST" enctype="multipart/form-data" id="complaintForm">
+                            {# ── Scan du code QR — à développer ──
+                               Placé avant le choix de la commande : à terme,
+                               scanner l'étiquette identifiera le produit
+                               directement, sans dérouler deux listes. Le bloc
+                               est visible pour situer ce parcours, mais rien
+                               n'y est saisissable tant qu'il n'existe pas. #}
+                            <div class="cp-step is-wip">
+                                <div class="cp-step-head">
+                                    <span class="cp-step-num">{{ icons.svg('qr-code', 16) }}</span>
+                                    <div class="cp-step-titles">
+                                        <div class="cp-step-title">{{ translations.scan_qr }}</div>
+                                        <div class="cp-step-sub">{{ translations.scan_qr_hint }}</div>
+                                    </div>
+                                    <span class="cp-wip-tag">
+                                        <i class="bi bi-tools"></i>{{ translations.to_be_developed }}
+                                    </span>
                                 </div>
-                                <div class="col-12 col-md-5">
+                                <div class="cp-step-body">
+                                    <button type="button" class="cp-scan" disabled>
+                                        {{ icons.svg('qr-code', 26) }}
+                                        <span>{{ translations.scan_qr }}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {# Étape 1 : commande livrée #}
+                            <div class="cp-step">
+                                <div class="cp-step-head">
+                                    <span class="cp-step-num">1</span>
+                                    <div class="cp-step-titles">
+                                        <div class="cp-step-title">{{ translations.delivered_order }}</div>
+                                        <div class="cp-step-sub">{{ translations.select_order }}</div>
+                                    </div>
+                                </div>
+                                <div class="cp-step-body">
                                     <label class="form-label" for="order_select">{{ translations.delivered_order }}</label>
                                     <select class="form-select" id="order_select" required>
                                         <option value="">{{ translations.select_order }}</option>
@@ -67,99 +229,143 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                                     <input type="hidden" name="id_order" id="id_order">
                                 </div>
                             </div>
-                            {# Krok 2: Wybór produktu — widoczne po wyborze zamówienia #}
-                            <div class="row mb-4" id="productSection" style="display:none;">
-                                <div class="col-12">
-                                    <h6 class="text-muted fw-semibold mb-3 border-bottom pb-2">
-                                        <i class="bi bi-2-circle me-1"></i>
-                                        {{ translations.product_name }}
-                                    </h6>
+
+                            {# Étape 2 : produit et quantité #}
+                            <div class="cp-step" id="productSection" style="display:none;">
+                                <div class="cp-step-head">
+                                    <span class="cp-step-num">2</span>
+                                    <div class="cp-step-titles">
+                                        <div class="cp-step-title">{{ translations.product_name }}</div>
+                                        <div class="cp-step-sub">{{ translations.select_material }}</div>
+                                    </div>
                                 </div>
-                                <div class="col-12 col-md-5">
-                                    <label class="form-label" for="material_select">{{ translations.product_name }}</label>
-                                    <select class="form-select" id="material_select">
-                                        <option value="">{{ translations.select_material }}</option>
-                                    </select>
-                                    <input type="hidden" name="id_material"   id="id_material">
-                                    <input type="hidden" name="supplier_sku"  id="supplier_sku">
-                                    <input type="hidden" name="id_unit"       id="id_unit">
-                                </div>
-                                <div class="col-12 col-md-4" id="qtySection" style="display:none;">
-                                    <label class="form-label" for="product_quantity">
-                                        {{ translations.complaint_quantity }}
-                                        <span class="text-muted" id="qtyMaxLabel"></span>
-                                    </label>
-                                    <input type="number" class="form-control" id="product_quantity"
-                                           name="product_quantity" value="1" min="1" step="0.01">
+                                <div class="cp-step-body">
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-7">
+                                            <label class="form-label" for="material_select">{{ translations.product_name }}</label>
+                                            <select class="form-select" id="material_select">
+                                                <option value="">{{ translations.select_material }}</option>
+                                            </select>
+                                            <input type="hidden" name="id_material"   id="id_material">
+                                            <input type="hidden" name="supplier_sku"  id="supplier_sku">
+                                            <input type="hidden" name="id_unit"       id="id_unit">
+                                        </div>
+                                        <div class="col-12 col-md-5" id="qtySection" style="display:none;">
+                                            <label class="form-label" for="product_quantity">
+                                                {{ translations.complaint_quantity }}
+                                                <span class="text-muted" id="qtyMaxLabel"></span>
+                                            </label>
+                                            <input type="number" class="form-control" id="product_quantity"
+                                                   name="product_quantity" value="1" min="1" step="0.01">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            {# Krok 3: Powód i opis — widoczne po wyborze produktu #}
-                            <div class="row mb-4" id="reasonSection" style="display:none;">
-                                <div class="col-12">
-                                    <h6 class="text-muted fw-semibold mb-3 border-bottom pb-2">
-                                        <i class="bi bi-3-circle me-1"></i>
-                                        {{ translations.complaint_reason }}
-                                    </h6>
+
+                            {# ── Livraison et péremption — à développer ──
+                               Deux informations que le magasin a sous les yeux
+                               au moment de constater le défaut, et qui manquent
+                               aujourd'hui au fournisseur pour instruire le
+                               dossier. Les champs sont désactivés : désactivés,
+                               ils ne sont pas soumis, donc rien ne part vers
+                               une API qui ne les attend pas encore. #}
+                            <div class="cp-step is-wip" id="lotSection" style="display:none;">
+                                <div class="cp-step-head">
+                                    <span class="cp-step-num">{{ icons.svg('package', 16) }}</span>
+                                    <div class="cp-step-titles">
+                                        <div class="cp-step-title">
+                                            {{ translations.delivery }} · {{ translations.expiry_date }}
+                                        </div>
+                                        <div class="cp-step-sub">{{ translations.optional }}</div>
+                                    </div>
+                                    <span class="cp-wip-tag">
+                                        <i class="bi bi-tools"></i>{{ translations.to_be_developed }}
+                                    </span>
                                 </div>
-                                <div class="col-12 col-md-5">
-                                    <label class="form-label" for="complaint_reason_code">{{ translations.complaint_reason }}</label>
-                                    <select class="form-select" id="complaint_reason_code" name="complaint_reason_code">
-                                        {% for reason in complaint_reasons %}
-                                            <option value="{{ reason.code ?? reason.getCode() }}">
-                                                {{ reason.name ?? reason.getName() }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-12 col-md-7">
-                                    <label class="form-label" for="description">{{ translations.description }}</label>
-                                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                                <div class="cp-step-body">
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label" for="delivery_ref">{{ translations.delivery }}</label>
+                                            <input type="text" class="form-control" id="delivery_ref" disabled>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label" for="expiry_date">{{ translations.expiry_date }}</label>
+                                            <input type="date" class="form-control" id="expiry_date" disabled>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            {# Krok 4: Załączniki — widoczne po wyborze produktu #}
-                            <div class="row mb-4" id="attachmentSection" style="display:none;">
-                                <div class="col-12">
-                                    <h6 class="text-muted fw-semibold mb-3 border-bottom pb-2">
-                                        <i class="bi bi-4-circle me-1"></i>
-                                        {{ translations.attachments }}
-                                        <small class="text-muted fw-normal">({{ translations.attachment }} 1-2)</small>
-                                    </h6>
-                                </div>
-                                {# Załącznik 1 #}
-                                <div class="col-12 col-md-6 mb-3">
-                                    <label class="form-label" for="attachments_1">{{ translations.attachment }} 1</label>
-                                    <div class="input-group">
-                                        <input class="form-control" type="file" id="attachments_1"
-                                               name="attachments[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
-                                        <button type="button" class="btn btn-outline-secondary camera-btn"
-                                                data-slot="1" title="{{ translations.take_photo ?? 'Zrób zdjęcie' }}">
-                                            <i class="bi bi-camera"></i>
-                                        </button>
-                                    </div>
-                                    <div id="cameraPreview_1" class="mt-2" style="display:none;">
-                                        <img id="capturedImg_1" class="img-thumbnail" style="max-height:120px;" alt="">
-                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2 remove-photo-btn" data-slot="1">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+
+                            {# Étape 3 : motif et description #}
+                            <div class="cp-step" id="reasonSection" style="display:none;">
+                                <div class="cp-step-head">
+                                    <span class="cp-step-num">3</span>
+                                    <div class="cp-step-titles">
+                                        <div class="cp-step-title">{{ translations.complaint_reason }}</div>
+                                        <div class="cp-step-sub">{{ translations.description }}</div>
                                     </div>
                                 </div>
-                                {# Załącznik 2 #}
-                                <div class="col-12 col-md-6 mb-3">
-                                    <label class="form-label" for="attachments_2">{{ translations.attachment }} 2</label>
-                                    <div class="input-group">
-                                        <input class="form-control" type="file" id="attachments_2"
-                                               name="attachments[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
-                                        <button type="button" class="btn btn-outline-secondary camera-btn"
-                                                data-slot="2" title="{{ translations.take_photo ?? 'Zrób zdjęcie' }}">
-                                            <i class="bi bi-camera"></i>
-                                        </button>
+                                <div class="cp-step-body">
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-5">
+                                            <label class="form-label" for="complaint_reason_code">{{ translations.complaint_reason }}</label>
+                                            <select class="form-select" id="complaint_reason_code" name="complaint_reason_code">
+                                                {% for reason in complaint_reasons %}
+                                                    <option value="{{ reason.code ?? reason.getCode() }}">
+                                                        {{ reason.name ?? reason.getName() }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-7">
+                                            <label class="form-label" for="description">{{ translations.description }}</label>
+                                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                                        </div>
                                     </div>
-                                    <div id="cameraPreview_2" class="mt-2" style="display:none;">
-                                        <img id="capturedImg_2" class="img-thumbnail" style="max-height:120px;" alt="">
-                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2 remove-photo-btn" data-slot="2">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                </div>
+                            </div>
+
+                            {# Étape 4 : pièces jointes #}
+                            <div class="cp-step" id="attachmentSection" style="display:none;">
+                                <div class="cp-step-head">
+                                    <span class="cp-step-num">4</span>
+                                    <div class="cp-step-titles">
+                                        <div class="cp-step-title">{{ translations.attachments }}</div>
+                                        <div class="cp-step-sub">{{ translations.attachment }} 1-2 · {{ translations.optional }}</div>
                                     </div>
+                                </div>
+                                <div class="cp-step-body">
+                                <div class="row">
+                                {% for slot in [1, 2] %}
+                                    <div class="col-12 col-md-6 mb-3">
+                                        <div class="att-slot">
+                                            <div class="att-slot-lbl">{{ translations.attachment }} {{ slot }}</div>
+
+                                            <button type="button" class="att-camera camera-btn" data-slot="{{ slot }}">
+                                                <i class="bi bi-camera"></i>
+                                                <span>{{ translations.take_photo ?? 'Prendre une photo' }}</span>
+                                            </button>
+
+                                            <div class="att-file-sep">{{ translations.or ?? 'ou' }}</div>
+
+                                            <label class="visually-hidden" for="attachments_{{ slot }}">
+                                                {{ translations.attachment }} {{ slot }}
+                                            </label>
+                                            <input class="form-control form-control-sm" type="file"
+                                                   id="attachments_{{ slot }}" name="attachments[]"
+                                                   accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+
+                                            <div id="cameraPreview_{{ slot }}" class="att-preview" style="display:none;">
+                                                <img id="capturedImg_{{ slot }}" alt="">
+                                                <button type="button" class="att-remove remove-photo-btn" data-slot="{{ slot }}">
+                                                    <i class="bi bi-trash"></i>
+                                                    <span>{{ translations.remove ?? 'Retirer' }}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                </div>
                                 </div>
                             </div>
 
@@ -169,7 +375,7 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                                     <div class="modal-content">
                                         <div class="modal-header">
                                             <h5 class="modal-title" id="cameraModalLabel">
-                                                <i class="bi bi-camera me-2"></i>{{ translations.take_photo ?? 'Zrób zdjęcie' }}
+                                                <i class="bi bi-camera me-2"></i>{{ translations.take_photo | default("Prendre la photo") }}
                                             </h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
@@ -186,30 +392,30 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                                         </div>
                                         <div class="modal-footer justify-content-center">
                                             <button type="button" class="btn btn-outline-secondary" id="switchCameraBtn" style="display:none;">
-                                                <i class="bi bi-arrow-repeat me-1"></i>{{ translations.switch_camera ?? 'Przełącz kamerę' }}
+                                                <i class="bi bi-arrow-repeat me-1"></i>{{ translations.switch_camera | default("Changer de caméra") }}
                                             </button>
                                             <button type="button" class="btn btn-primary px-5" id="capturePhotoBtn">
-                                                <i class="bi bi-circle-fill me-1"></i>{{ translations.capture ?? 'Zrób zdjęcie' }}
+                                                <i class="bi bi-circle-fill me-1"></i>{{ translations.capture | default("Déclencher") }}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            {# Przyciski — widoczne po wyborze produktu #}
-                            <div class="row" id="submitSection" style="display:none;">
-                                <div class="col-12 d-flex gap-2">
-                                    <button type="submit" class="btn btn-primary" id="submit_complaint">
-                                        <i class="bi bi-send me-1"></i>{{ translations.submit_complaint }}
+                            {# Actions — visibles une fois le produit choisi.
+                               Le bouton d'envoi conclut le parcours : il prend
+                               la largeur et la même hauteur que les autres
+                               gestes de la page. #}
+                            <div id="submitSection" style="display:none;">
+                                <div class="cp-actions">
+                                    <button type="submit" class="cp-submit" id="submit_complaint">
+                                        <i class="bi bi-send"></i>{{ translations.submit_complaint }}
                                     </button>
-                                    <a href="{{ ROOT }}/complaints" class="btn btn-secondary ms-auto">
-                                        <i class="bi bi-arrow-left me-1"></i>{{ translations.back_to_complaints }}
+                                    <a href="{{ ROOT }}/complaints" class="cp-cancel">
+                                        <i class="bi bi-arrow-left"></i>{{ translations.back_to_complaints }}
                                     </a>
                                 </div>
                             </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+            </form>
         {% endif %}
     </div>
 </div>
@@ -230,11 +436,15 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
     const reasonSection     = document.getElementById('reasonSection');
     const attachmentSection = document.getElementById('attachmentSection');
     const submitSection     = document.getElementById('submitSection');
+    const lotSection        = document.getElementById('lotSection');
     function showProductSections() {
         productSection.style.display    = '';
         reasonSection.style.display     = '';
         attachmentSection.style.display = '';
         submitSection.style.display     = '';
+        // Bloc livraison / péremption : encore à développer, mais il suit le
+        // même dévoilement que les autres pour que le parcours reste lisible.
+        if (lotSection) lotSection.style.display = '';
     }
     function hideProductDetail() {
         qtySection.style.display = 'none';
@@ -353,7 +563,7 @@ const deliveredOrders = {{ delivered_orders|json_encode|raw }};
                 if (deviceSelect) deviceSelect.value = deviceIndex;
             } catch (err) {
                 cameraError.style.display = '';
-                cameraError.textContent = 'Brak dostępu do kamery: ' + err.message;
+                cameraError.textContent = {{ (translations.camera_denied | default("Caméra inaccessible : ")) | json_encode | raw }} + err.message;
             }
         }
 

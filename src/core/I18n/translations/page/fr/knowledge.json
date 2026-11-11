@@ -1,5 +1,5 @@
 {
-  "knowledge": "Connaissances",
+  "knowledge": "Base de connaissances",
   "knowledge_overview": "Base de connaissances",
   "knowledge_overview_subtitle": "Parcourez les ressources de connaissances de l'entreprise - produits et sous-recettes.",
   "knowledge_resources": "Ressources de connaissances",
@@ -63,5 +63,9 @@
   "photo_presentation": "Présentation",
   "photo_display": "Exposition",
   "no_photo": "Pas de photo",
-  "no_media": "Pas de photos ni de matériaux d'emballage disponibles"
+  "no_media": "Pas de photos ni de matériaux d'emballage disponibles",
+  "prep_oven": "Four",
+  "prep_trays": "plaques",
+  "prep_batch_max": "%s à la fois",
+  "prep_unreadable": "%s étape(s) servie(s) sans instruction lisible."
 }

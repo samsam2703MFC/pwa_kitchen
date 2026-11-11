@@ -1,0 +1,18 @@
+{
+  "batch": {
+    "id": 9901,
+    "id_product": 6700106,
+    "quantity": 48,
+    "source": "REBAKE",
+    "created_at": "2026-08-01 10:04:22",
+    "id_employee": 12,
+    "employee_name": "Nathan C."
+  },
+  "stock": {
+    "id_product": 6700106,
+    "name": "Croissant pur beurre",
+    "category_name": "Viennoiserie",
+    "quantity": 58,
+    "unit_name": "pc"
+  }
+}

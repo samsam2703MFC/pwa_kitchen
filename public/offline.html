@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hors ligne — L'Atelier Cuisine</title>
+    <style>
+        /* Aucune ressource externe : cette page doit s'afficher précisément
+           quand plus rien ne se charge. */
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #F4EFE8;
+            color: #241f1c;
+            font: 400 1rem/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+            padding: 2rem 1.5rem;
+            box-sizing: border-box;
+        }
+        .wrap { max-width: 440px; text-align: center; }
+        .mark {
+            font-size: 4.5rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #8D1D2C;
+            margin-bottom: 1rem;
+        }
+        h1 { font-size: 1.45rem; margin: 0 0 .6rem; }
+        p { color: #7a7168; margin: 0 0 1.6rem; }
+        button {
+            font: inherit;
+            font-weight: 700;
+            color: #8D1D2C;
+            background: transparent;
+            border: 2px solid #8D1D2C;
+            border-radius: 10px;
+            padding: 0 1.5rem;
+            min-height: 48px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="mark" aria-hidden="true">⚡</div>
+        <h1>Pas de réseau</h1>
+        <!-- « réseau », jamais « aucune donnée » : la différence décide si on
+             réessaie ou si on appelle quelqu'un. -->
+        <p>
+            La tablette n'arrive pas à joindre le serveur. Ce n'est pas une absence
+            de commandes ni de production : rien n'est à jour tant que la connexion
+            n'est pas revenue.
+        </p>
+        <button onclick="location.reload()">Réessayer</button>
+    </div>
+</body>
+</html>

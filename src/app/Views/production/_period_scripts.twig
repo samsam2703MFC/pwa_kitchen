@@ -1,0 +1,162 @@
+{# production/_period_scripts.twig — la mise en rayon, et le filtre par catégorie.
+
+   Un seul geste sur cet écran : porter en rayon ce qui est prêt. Le reste des
+   tuiles est de la lecture. #}
+<script>
+(function () {
+    var board = document.getElementById('prBoard');
+    if (!board) return;
+
+    var ROOT = {{ ROOT | json_encode | raw }};
+    var MSG  = {
+        err:       {{ (translations.shelf_error    | default("La mise en rayon n'a pas pu être enregistrée.")) | json_encode | raw }},
+        ok:        {{ (translations.shelf_success  | default('Mis en rayon : les produits sont en vente.')) | json_encode | raw }},
+        launchErr: {{ (translations.board_launch_error   | default("La fournée n'a pas pu être programmée.")) | json_encode | raw }},
+        launchOk:  {{ (translations.board_launch_success | default('Fournée programmée : elle est passée en préparation.')) | json_encode | raw }}
+    };
+
+    var alertEl = document.getElementById('prShelfAlert');
+    function fail(msg) {
+        if (!alertEl) { showSnack(false, msg); return; }
+        alertEl.className = 'alert alert-danger mt-3';
+        alertEl.textContent = msg;
+        alertEl.classList.remove('d-none');
+    }
+
+    // ── Filtre par catégorie ──
+    // Les badges masquent, ils ne réordonnent pas : le classement par tension
+    // est le sujet de l'écran, il ne doit pas bouger sous un filtre. Une
+    // section vidée par le filtre disparaît avec ses tuiles.
+    document.addEventListener('click', function (e) {
+        var chip = e.target.closest('.cat-filters .cat-chip');
+        if (!chip) return;
+
+        var bar = chip.closest('.cat-filters');
+        if ((bar.dataset.target || '') !== '#prBoard') return;
+
+        bar.querySelectorAll('.cat-chip').forEach(function (c) { c.classList.toggle('is-on', c === chip); });
+        var want = chip.dataset.cat || '';
+
+        board.querySelectorAll('.pr-bucket').forEach(function (sec) {
+            var shown = 0;
+            sec.querySelectorAll('.pr-tile').forEach(function (t) {
+                var ok = !want || t.dataset.cat === want;
+                t.hidden = !ok;
+                if (ok) shown++;
+            });
+            sec.hidden = shown === 0;
+            var n = sec.querySelector('.pr-cat-count');
+            if (n) n.textContent = shown;
+        });
+    });
+
+    // ── Pas de fournée sur les deux saisies ──
+    // Porter en rayon et lancer une fournée montent tous deux par fournée, mais
+    // seul le portage a un plafond : on ne porte pas plus que ce qui est sorti
+    // du four, alors qu'on peut décider d'en produire autant qu'on veut.
+    document.addEventListener('click', function (e) {
+        var step = e.target.closest('#prBoard .mep-step');
+        if (!step) return;
+
+        var tile  = step.closest('.pr-tile');
+        var input = step.closest('.mep-ctl').parentNode.querySelector('.mep-qty');
+        if (!input) return;
+
+        var by  = Math.max(1, parseFloat(tile.dataset.batch) || 1) * (parseInt(step.dataset.step, 10) || 1);
+        var val = Math.max(0, (parseFloat(input.value) || 0) + by);
+
+        if (input.classList.contains('pr-shelf-qty')) {
+            val = Math.min(Math.max(0, parseFloat(tile.dataset.remaining) || 0), val);
+        }
+        input.value = String(val);
+        paintEffect(input);
+    });
+
+    // Le bouton dit ce qu'il va faire au stock, et le chiffre suit la saisie :
+    // « En rayon » ne se comprend qu'une fois qu'on sait que c'est ce geste-là
+    // qui met le produit en vente.
+    function paintEffect(input) {
+        var out = input.closest('.pr-shelf').querySelector('.pr-shelf-fx-n');
+        if (out) out.textContent = String(Math.max(0, parseFloat(input.value) || 0));
+    }
+
+    document.addEventListener('input', function (e) {
+        var input = e.target.closest('#prBoard .pr-shelf-qty');
+        if (!input) return;
+        var max = Math.max(0, parseFloat(input.closest('.pr-tile').dataset.remaining) || 0);
+        if ((parseFloat(input.value) || 0) > max) input.value = String(max);
+        paintEffect(input);
+    });
+
+    // ── Programmer une fournée ──
+    // Constater un manque ne le comble pas. Ce POST crée la fournée au plan de
+    // cuisson ; au rechargement, le produit a quitté « rien en cours » pour
+    // « préparation ».
+    document.addEventListener('click', function (e) {
+        var go = e.target.closest('.pr-launch-go');
+        if (!go) return;
+
+        var tile = go.closest('.pr-tile');
+        var qty  = parseFloat(tile.querySelector('.pr-launch-qty').value) || 0;
+        if (qty <= 0) return;
+
+        if (alertEl) alertEl.classList.add('d-none');
+        go.disabled = true;
+
+        fetch(ROOT + '/ajax/baking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id_product: parseInt(tile.dataset.productId, 10), quantity: qty })
+        })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (res) {
+            if (!res || !res.success) { fail(MSG.launchErr); go.disabled = false; return; }
+            showSnack(true, MSG.launchOk);
+            // On enchaîne sur le plan de production, la fournée mise en avant :
+            // c'est là que le travail continue, et rester sur la liste
+            // obligerait à aller la chercher. Le serveur a choisi le four et
+            // les horaires, on ne les devine pas.
+            var id = res.inserted_id;
+            window.location = ROOT + '/baking' + (id > 0 ? '?focus=' + id : '');
+        })
+        .catch(function () { fail(MSG.launchErr); go.disabled = false; });
+    });
+
+    // ── Porter en rayon ──
+    document.addEventListener('click', function (e) {
+        var go = e.target.closest('.pr-shelf-go');
+        if (!go) return;
+
+        var tile = go.closest('.pr-tile');
+        var qty  = parseFloat(tile.querySelector('.pr-shelf-qty').value) || 0;
+        if (qty <= 0) return;
+
+        if (alertEl) alertEl.classList.add('d-none');
+        go.disabled = true;
+
+        var body = {
+            id_product: parseInt(tile.dataset.productId, 10),
+            quantity:   qty
+        };
+        if (tile.dataset.lineId) body.id_mep_line = parseInt(tile.dataset.lineId, 10);
+
+        fetch(ROOT + '/ajax/production/shelf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(body)
+        })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (res) {
+            if (!res || !res.success) { fail(MSG.err); go.disabled = false; return; }
+            showSnack(true, MSG.ok);
+            // Le serveur recalcule le reste à porter et le stock : on relit
+            // plutôt que de faire notre propre soustraction, deux tablettes
+            // pouvant porter le même plateau à quelques secondes d'écart.
+            window.location.reload();
+        })
+        .catch(function () { fail(MSG.err); go.disabled = false; });
+    });
+})();
+</script>

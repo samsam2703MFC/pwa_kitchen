@@ -1,0 +1,144 @@
+{# baking/_fil.twig — le fil de production. Une ligne, trois états, un geste.
+
+   Mode service : on n'est plus en train de consulter, on exécute. Chaque
+   fournée tient sur une ligne — où elle en est, quand elle sort, quoi faire —
+   et le geste est toujours au même endroit, de la même taille.
+
+   Trois codes redondants disent la même chose : la pastille (✓ franchi, chiffre
+   plein en cours, gris à venir), la couleur (bleu préparation, rouge four,
+   ambre finition) et le verbe du bouton. C'est voulu : à trois mètres du four,
+   on lit la couleur ; à un mètre, on lit le mot.
+
+   Le bouton porte exactement les mêmes attributs que les cartes qu'il
+   remplace : il ouvre la même feuille de validation, et sur la dernière étape
+   celle-ci enchaîne sur la mise en magasin — le seul geste qui crédite le stock
+   vendable. Voir baking/_scripts.twig et docs/ENDPOINTS_PRODUCTION.md. #}
+{% set labels = {
+    'prep':   translations.stage_prep   | default('Préparation'),
+    'cook':   translations.stage_cook   | default('Cuisson'),
+    'finish': translations.stage_finish | default('Finition')
+} %}
+
+{% set running = batches|filter(b => not b.isWaiting) %}
+{% set later   = batches|filter(b => b.isWaiting) %}
+
+<div class="fil" id="bkFil">
+    {% for b in running %}
+        {% set k = b.stage %}
+        {# La dernière étape ne fait pas que terminer la fournée : elle ouvre la
+           mise en magasin. On l'annonce avant le tap, pas après. #}
+        {% set is_last = b.nextStatus == 'DONE' %}
+
+        <article class="f-row k-{{ k }} {{ focus_batch == b.id ? 'is-focus' : '' }}"
+                 data-id="{{ b.id }}" data-oven="{{ b.ovenName | default('') }}">
+
+            <div class="f-id">
+                <b>{{ b.name | default('—') }}</b>
+                <small>
+                    {{- b.quantity|number_format(0, ',', ' ') }} {{ b.unitName | default('pc') }}
+                    {{- b.ovenName ? ' · ' ~ b.ovenName : '' -}}
+                </small>
+            </div>
+
+            <div class="f-fil">
+                {% for s in ['prep', 'cook', 'finish'] %}
+                    {% set passed = (s == 'prep' and k != 'prep')
+                                 or (s == 'cook' and k == 'finish') %}
+                    {% set sub = s == 'prep' ? b.prepStartClock
+                               : (s == 'cook'
+                                    ? b.cookStartClock ~ (b.temperature ? ' · ' ~ b.temperature ~ '°' : '')
+                                    : b.finishStartClock) %}
+                    <span class="f-st {{ passed ? 'is-done' : (k == s ? 'is-on' : '') }}">
+                        <i>{{ passed ? '✓' : loop.index }}</i>
+                        <em>{{ labels[s] }}</em>
+                        <u>{{ sub }}</u>
+                    </span>
+                    {% if not loop.last %}<span class="f-link" aria-hidden="true"></span>{% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="f-eta">
+                <b>{{ b.shelfClock }}</b>
+                <small>{{ translations.baking_shelf | default('rayon') }}</small>
+            </div>
+
+            {% set action = k == 'cook'   ? translations.baking_btn_out       | default('Sortir du four')
+                          : k == 'finish' ? (b.finishLabel
+                                                ? b.finishLabel ~ ' ' ~ (translations.baking_btn_done | default('terminé'))
+                                                : translations.baking_btn_finish_done | default('Finition terminée'))
+                          : b.isReadyToBake ? translations.baking_btn_bake     | default('Enfourner')
+                                            : translations.baking_btn_prep_done| default('Préparation terminée') %}
+            <div class="f-go">
+                <button type="button" class="bk-act f-btn"
+                        data-id="{{ b.id }}"
+                        data-next="{{ b.nextStatus }}"
+                        data-verb="{{ action }}"
+                        data-name="{{ b.name | default('—') }}"
+                        data-minutes="{{ b.plannedMinutes }}"
+                        data-stage="{{ k }}"
+                        data-product="{{ b.idProduct }}"
+                        data-qty="{{ b.quantity|number_format(0, '.', '') }}"
+                        data-unit="{{ b.unitName | default('pc') }}"
+                        data-meta="{{ b.quantity|number_format(0, ',', ' ') }} {{ b.unitName | default('pc') }}
+                                   {{- b.ovenName ? ' · ' ~ b.ovenName : '' }} · {{ b.stageEndClock }}">
+                    {{ action }}
+                </button>
+                {% if is_last %}
+                    <span class="f-then">{{ translations.fil_then_shelf | default('puis en magasin') }}</span>
+                {% endif %}
+            </div>
+        </article>
+    {% endfor %}
+
+    {% if running is empty %}
+        <div class="card">
+            <div class="card-body pr-state">
+                <p>{{ translations.baking_empty | default('Aucune fournée en cours.') }}</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{# Ce qui n'a pas commencé n'appelle aucun geste : replié, comme sur les
+   cartes. Une fournée de 10 h affichée à 7 h n'allonge que la liste qu'on
+   parcourt en cherchant celle qui sort du four. #}
+{% if later is not empty %}
+    <details class="bk-later">
+        <summary>
+            {{ translations.baking_later | default('À venir') }}
+            <span class="pr-cat-count">{{ later|length }}</span>
+        </summary>
+        <div class="fil">
+            {% for b in later %}
+                <article class="f-row k-wait" data-id="{{ b.id }}" data-oven="{{ b.ovenName | default('') }}">
+                    <div class="f-id">
+                        <b>{{ b.name | default('—') }}</b>
+                        <small>
+                            {{- b.quantity|number_format(0, ',', ' ') }} {{ b.unitName | default('pc') }}
+                            {{- b.ovenName ? ' · ' ~ b.ovenName : '' -}}
+                        </small>
+                    </div>
+                    <div class="f-fil">
+                        {% for s in ['prep', 'cook', 'finish'] %}
+                            <span class="f-st">
+                                <i>{{ loop.index }}</i>
+                                <em>{{ labels[s] }}</em>
+                                <u>{{ s == 'prep' ? b.prepStartClock : (s == 'cook' ? b.cookStartClock : b.finishStartClock) }}</u>
+                            </span>
+                            {% if not loop.last %}<span class="f-link" aria-hidden="true"></span>{% endif %}
+                        {% endfor %}
+                    </div>
+                    <div class="f-eta">
+                        <b>{{ b.shelfClock }}</b>
+                        <small>{{ translations.baking_shelf | default('rayon') }}</small>
+                    </div>
+                    <div class="f-go">
+                        <span class="f-wait">
+                            {{ translations.baking_starts_at | default('Commence à') }} {{ b.prepStartClock }}
+                        </span>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    </details>
+{% endif %}

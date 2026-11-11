@@ -4,45 +4,124 @@
 
 {% block title %}
     {{ isEditMode
-        ? translations.edit_client_order | default('Edycja zamówienia')
-        : translations.new_client_order | default('Nowe zamówienie')
+        ? translations.edit_client_order | default("Modification de la commande")
+        : translations.new_client_order | default("Nouvelle commande")
     }}
+{% endblock %}
+
+{# ── Les bibliothèques de CET écran ──
+   Choices.js habille les deux sélecteurs (client, produit) ; window.api, fourni
+   par modules.js, porte les appels d'écriture, et s'appuie sur SweetAlert pour
+   annoncer un échec. Les trois étaient chargées sur les vingt-deux écrans de
+   l'application ; elles ne servent qu'ici et sur le détail d'une commande. #}
+{% block vendor_head %}
+    <link rel="stylesheet" href="{{ ROOT }}/assets/vendors/choices.js/choices.min.css">
+    <style>
+        /* Une sélection multiple ne doit pas être plafonnée en hauteur : on
+           choisit parfois quinze produits. */
+        .choices__list--multiple { max-height: none; }
+    </style>
+{% endblock %}
+
+{% block vendor_scripts %}
+    <script src="{{ ROOT }}/assets/vendors/sweetalert2/sweetalert2.all.min.js"></script>
+    <script src="{{ ROOT }}/assets/vendors/choices.js/choices.min.js"></script>
+    <script type="module" src="{{ ROOT }}/assets/js/modules.js"></script>
 {% endblock %}
 
 {% block head %}
 <style>
+    /* Cet écran datait d'avant le design system : dégradé bleu nuit en tête de
+       carte, badges indigo, bouton vert Bootstrap. Rien de tout cela n'existe
+       dans la palette de la marque. Tout passe en tokens. */
     .action-card {
-        border: 0;
-        border-radius: 18px;
-        box-shadow: 0 1rem 2rem rgba(15, 23, 42, .08);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px);
+        box-shadow: var(--sh-2);
     }
+    /* Bandeau crème plutôt que pleine couleur : deux cartes côte à côte,
+       chacune coiffée de bordeaux, feraient deux blocs qui se disputent
+       l'attention. Le liseré suffit à marquer la tête. */
     .action-card .card-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
-        color: #fff;
+        background: var(--c-bg-2, #F4EFE8);
+        color: var(--c-ink, #241f1c);
         border: 0;
-        border-radius: 18px 18px 0 0;
+        border-bottom: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-lg, 18px) var(--r-lg, 18px) 0 0;
+        padding: 15px 18px;
     }
+    .ac-head { display: flex; align-items: flex-start; gap: 12px; }
+    /* L'icône vivait dans le flux du texte et chevauchait le sous-titre dès
+       qu'il passait à la ligne. Elle a maintenant sa pastille, hors flux. */
+    .ac-ic {
+        width: 38px; height: 38px; flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: var(--r-md, 13px);
+        background: var(--c-primary-soft, #f4dfe2);
+        color: var(--c-primary, #8D1D2C);
+        font-size: 1.05rem;
+    }
+    .ac-txt { flex: 1; min-width: 0; }
+    .ac-title { font-size: .98rem; font-weight: 700; line-height: 1.25; }
+    .ac-sub { font-size: .78rem; color: var(--c-muted, #7a7168); line-height: 1.45; margin-top: 2px; }
+
     .soft-panel {
-        border: 1px solid rgba(15, 23, 42, .08);
-        border-radius: 16px;
-        background: #fff;
-        box-shadow: 0 .75rem 1.5rem rgba(15, 23, 42, .04);
+        border: 1px solid var(--c-line, rgba(36,26,22,.09));
+        border-radius: var(--r-md, 13px);
+        background: var(--c-surface, #fff);
+        box-shadow: var(--sh-1, 0 1px 2px rgba(0,0,0,.04));
     }
     .client-badge {
         border-radius: 999px;
-        padding: .35rem .75rem;
-        background: #eef2ff;
-        color: #3730a3;
+        padding: .4rem .8rem;
+        background: var(--c-primary-soft, #f4dfe2);
+        color: var(--c-primary, #8D1D2C);
         font-weight: 700;
         font-size: .82rem;
         display: inline-flex;
         align-items: center;
-        gap: .35rem;
+        gap: .4rem;
         max-width: 100%;
     }
     .search-hint {
         font-size: .78rem;
-        color: #6c757d;
+        color: var(--c-muted, #7a7168);
+    }
+
+    /* ── Tableau des produits ── */
+    #productsTable thead th {
+        background: var(--c-bg-2, #F4EFE8);
+        color: var(--c-muted, #7a7168);
+        font-size: .66rem;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        border-color: var(--c-line, rgba(36,26,22,.09));
+    }
+    #productsTable td { border-color: var(--c-line, rgba(36,26,22,.09)); }
+
+    /* Ajouter une ligne est un geste d'atelier : vert franc de la palette,
+       pas le vert Bootstrap. */
+    .btn-add-row {
+        background: var(--c-vert, #2D7A3E); color: #fff; border: 0;
+        border-radius: var(--r-md, 13px); min-height: 44px; font-weight: 700;
+    }
+    .btn-add-row:hover { background: #256633; color: #fff; }
+
+    /* La croix de suppression était un cadre vide avec un « × » minuscule :
+       ni lisible, ni visable au doigt. */
+    .btn-row-remove {
+        width: 100%; min-height: 44px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--c-line-2, rgba(36,26,22,.14));
+        border-radius: var(--r-md, 13px);
+        background: var(--c-surface, #fff);
+        color: var(--c-primary, #8D1D2C);
+        font-size: 1.05rem; line-height: 1; cursor: pointer;
+    }
+    .btn-row-remove:hover {
+        background: var(--c-primary-soft, #f4dfe2);
+        border-color: var(--c-primary, #8D1D2C);
     }
     .products-panel {
         overflow: visible;
@@ -70,28 +149,16 @@
     <div class="page-heading">
         <h3>
             {{ isEditMode
-                ? translations.edit_client_order | default('Edycja zamówienia')
-                : translations.new_client_order | default('Nowe zamówienie')
+                ? translations.edit_client_order | default("Modification de la commande")
+                : translations.new_client_order | default("Nouvelle commande")
             }}
         </h3>
         <p class="text-subtitle text-muted">
             {{ isEditMode
-                ? translations.edit_client_order_subtitle | default('Zmień dane zamówienia i zapisz poprawki.')
-                : translations.client_order_subtitle | default('Dodaj klienta i od razu złoż zamówienie na tablecie kuchennym.')
+                ? translations.edit_client_order_subtitle | default("Modifiez les données de la commande et enregistrez les changements.")
+                : translations.client_order_subtitle | default("Ajoutez un client et passez immédiatement une commande depuis l'écran cuisine.")
             }}
         </p>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ ROOT }}">{{ translations.home | default('Home') }}</a></li>
-                <li class="breadcrumb-item"><a href="{{ ROOT }}/orders">{{ translations.orders | default('Zamówienia') }}</a></li>
-                <li class="breadcrumb-item active" aria-current="page">
-                    {{ isEditMode
-                        ? translations.edit_client_order | default('Edycja zamówienia')
-                        : translations.new_client_order | default('Nowe zamówienie')
-                    }}
-                </li>
-            </ol>
-        </nav>
     </div>
 {% endblock %}
 
@@ -100,11 +167,11 @@
     <div class="col-12 col-xl-4">
         <div class="card action-card h-100">
             <div class="card-header">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-person-plus-fill fs-4"></i>
-                    <div>
-                        <div class="fw-bold">{{ translations.quick_add_client | default('Szybkie dodanie klienta') }}</div>
-                        <div class="small opacity-75">{{ translations.quick_add_client_hint | default('Wpisz telefon i e-mail. Pozostałe pola zostaną zapisane jako puste wartości.') }}</div>
+                <div class="ac-head">
+                    <span class="ac-ic"><i class="bi bi-person-plus"></i></span>
+                    <div class="ac-txt">
+                        <div class="ac-title">{{ translations.quick_add_client | default('Szybkie dodanie klienta') }}</div>
+                        <div class="ac-sub">{{ translations.quick_add_client_hint | default("Saisissez le téléphone et l'e-mail facultatif. Les autres champs seront enregistrés vides.") }}</div>
                     </div>
                 </div>
             </div>
@@ -139,21 +206,21 @@
     <div class="col-12 col-xl-8">
         <div class="card action-card">
             <div class="card-header">
-                    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-bag-plus fs-4"></i>
-                            <div>
-                                <div class="fw-bold">{{ translations.order_details | default('Szczegóły zamówienia') }}</div>
-                                <div class="small opacity-75">
-                                    {{ isEditMode
-                                        ? translations.order_edit_details_subtitle | default('Zmień klienta, termin, komentarz lub pozycje zamówienia.')
-                                        : translations.order_details_subtitle | default('Wybierz klienta, ustaw termin i dodaj pozycje.')
-                                    }}
-                                </div>
+                <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+                    <div class="ac-head">
+                        <span class="ac-ic"><i class="bi bi-bag"></i></span>
+                        <div class="ac-txt">
+                            <div class="ac-title">{{ translations.order_details | default("Détails de la commande") }}</div>
+                            <div class="ac-sub">
+                                {{ isEditMode
+                                    ? translations.order_edit_details_subtitle | default("Modifiez le client, la date, le commentaire ou les articles de la commande.")
+                                    : translations.order_details_subtitle | default('Wybierz klienta, ustaw termin i dodaj pozycje.')
+                                }}
                             </div>
                         </div>
-                        <a href="{{ ROOT }}/orders" class="btn btn-light btn-sm">
-                            <i class="bi bi-arrow-left me-1"></i>{{ translations.back_to_orders | default('Wróć do zamówień') }}
+                    </div>
+                    <a href="{{ ROOT }}/orders" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>{{ translations.back_to_orders | default("Retour aux commandes") }}
                     </a>
                 </div>
             </div>
@@ -172,21 +239,21 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold" for="orderComment">{{ translations.comment | default('Komentarz') }}</label>
-                            <textarea class="form-control" name="comment" rows="2" id="orderComment" placeholder="{{ translations.comment_placeholder | default('Opcjonalny komentarz do zamówienia') }}"></textarea>
+                            <textarea class="form-control" name="comment" rows="2" id="orderComment" placeholder="{{ translations.comment_placeholder | default("Commentaire facultatif sur la commande") }}"></textarea>
                         </div>
                     </div>
 
                     <div class="soft-panel p-3 mb-3 products-panel">
                         <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
                             <div class="fw-bold">{{ translations.products | default('Produkty') }}</div>
-                            <div class="text-muted small">{{ translations.order_value | default('Wartość zamówienia') }}: <span id="orderTotal">0.00</span> {{ constant('APP_CURRENCY_SYMBOL') }}</div>
+                            <div class="text-muted small">{{ translations.order_value | default("Valeur de la commande") }}: <span id="orderTotal">0.00</span> {{ constant('APP_CURRENCY_SYMBOL') }}</div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-bordered align-middle mb-0" id="productsTable">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width: 36%">{{ translations.product | default('Produkt') }}</th>
-                                        <th style="width: 16%">{{ translations.quantity | default('Ilość') }}</th>
+                                        <th style="width: 16%">{{ translations.quantity | default("Quantité") }}</th>
                                         <th style="width: 16%">{{ translations.unit_price_short | default('Cena jedn.') }}</th>
                                         <th style="width: 16%">{{ translations.total_price_short | default('Razem') }}</th>
                                         <th style="width: 16%"></th>
@@ -208,7 +275,7 @@
                                         </td>
                                         <td></td>
                                         <td>
-                                            <button type="button" class="btn btn-success w-100" id="addProductBtn">
+                                            <button type="button" class="btn btn-add-row w-100" id="addProductBtn">
                                                 <i class="bi bi-plus-lg me-1"></i>{{ translations.add | default('Dodaj') }}
                                             </button>
                                         </td>
@@ -226,7 +293,7 @@
                             <i class="bi bi-send me-1"></i>
                             {{ isEditMode
                                 ? translations.save_changes | default('Zapisz zmiany')
-                                : translations.submit_order | default('Zapisz zamówienie')
+                                : translations.submit_order | default("Enregistrer la commande")
                             }}
                         </button>
                     </div>
@@ -479,7 +546,7 @@
             <td><input type="number" class="form-control product-quantity" value="${quantity}" readonly></td>
             <td><input type="number" class="form-control product-price" value="${unitPrice.toFixed(2)}" readonly></td>
             <td><input type="number" class="form-control product-total" value="${(unitPrice * quantity).toFixed(2)}" readonly></td>
-            <td><button type="button" class="btn btn-outline-danger btn-sm w-100 remove-row"><i class="bi bi-x"></i></button></td>
+            <td><button type="button" class="btn-row-remove remove-row" aria-label="{{ translations.remove | default('Retirer') }}"><i class="bi bi-trash"></i></button></td>
         `;
 
         row.querySelector('.remove-row').addEventListener('click', () => {
@@ -595,13 +662,13 @@
         });
 
         if (!response.ok || response.status !== 'success') {
-            showMessage(clientFormMessage, 'danger', response.description || response.message || '{{ translations.client_add_error | default("Nie udało się dodać klienta.") }}');
+            showMessage(clientFormMessage, 'danger', response.description || response.message || '{{ translations.client_add_error | default("Impossible d'ajouter le client.") }}');
             return;
         }
 
         const insertedId = response.inserted_id ?? response.data?.inserted_id ?? response.data?.insertedId;
         if (insertedId === null || insertedId === undefined) {
-            showMessage(clientFormMessage, 'warning', '{{ translations.client_add_warning | default("Klient został zapisany, ale nie udało się pobrać jego ID.") }}');
+            showMessage(clientFormMessage, 'warning', '{{ translations.client_add_warning | default("Le client a été enregistré, mais son identifiant n'a pas pu être récupéré.") }}');
             return;
         }
 
@@ -620,7 +687,7 @@
         document.getElementById('clientEmail').value = '';
         initClientChoices(String(insertedId));
 
-        showMessage(clientFormMessage, 'success', '{{ translations.client_add_success | default("Klient został dodany i wybrany do zamówienia.") }}');
+        showMessage(clientFormMessage, 'success', '{{ translations.client_add_success | default("Le client a été ajouté et sélectionné pour la commande.") }}');
     });
 
     orderForm.addEventListener('submit', async function (e) {
@@ -677,7 +744,7 @@
         });
 
         if (!response.ok || response.status !== 'success') {
-            showMessage(orderFormMessage, 'danger', response.description || response.message || '{{ translations.order_add_error | default("Nie udało się zapisać zamówienia.") }}');
+            showMessage(orderFormMessage, 'danger', response.description || response.message || '{{ translations.order_add_error | default("Impossible d'enregistrer la commande.") }}');
             return;
         }
 

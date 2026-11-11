@@ -20,10 +20,14 @@
   "tasks_todo": "Te doen taken",
   "tasks_in_progress": "Bezig",
   "tasks_completed": "Vandaag voltooid",
+  "tasks_for_you": "Voor jou",
   "last_update": "Laatste update",
   "not_available": "Geen gegevens",
   "production": "Productie",
-  "knowledge": "Kennis",
+  "knowledge": "Kennisbank",
   "cards": "Kaarten",
-  "orders": "Bestellingen"
+  "orders": "Bestellingen",
+  "dash_cl_done": "gedaan",
+  "dash_cl_left": "vandaag te doen",
+  "dash_cl_late": "te laat"
 }

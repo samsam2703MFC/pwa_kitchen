@@ -5,7 +5,11 @@
             <div class="d-flex justify-content-center">
                 <div class="logo">
                     <a href="{{ ROOT }}/dashboard" class="d-flex align-items-center gap-2 text-decoration-none">
-                        <img src="{{ ROOT }}/assets/images/logo/logo.png" alt="Logo" style="height:40px;">
+                        {# assets/images/logo/logo.png n'existe pas dans le dépôt : le logo
+                           était une image cassée sur toutes les pages. On pointe sur le
+                           logo de marque réellement livré. #}
+                        <img src="{{ ROOT }}/assets/images/atelier_logo.jpg" alt="L'Atelier By"
+                             style="max-height:78px; max-width:190px; width:auto; height:auto;">
                     </a>
                 </div>
             </div>

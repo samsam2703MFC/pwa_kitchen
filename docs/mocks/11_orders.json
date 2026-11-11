@@ -1,0 +1,53 @@
+{
+  "date": "2026-08-01",
+  "items": [
+    {
+      "id_order": 9100,
+      "id_product": 6700120,
+      "name": "Baguette tradition",
+      "category_name": "Boulangerie",
+      "quantity": 24,
+      "channel": "shop",
+      "due_time": "09:15",
+      "period": null,
+      "reference": "CMD-1042",
+      "unit_name": "pc"
+    },
+    {
+      "id_order": 9101,
+      "id_product": 6700300,
+      "name": "Sandwich jambon-beurre",
+      "category_name": "Sandwichs",
+      "quantity": 15,
+      "channel": "click",
+      "due_time": "11:30",
+      "period": null,
+      "reference": "WEB-8817",
+      "unit_name": "pc"
+    },
+    {
+      "id_order": 9103,
+      "id_product": 6700330,
+      "name": "Plateau apéritif 20 pièces",
+      "category_name": "Traiteur chaud",
+      "quantity": 4,
+      "channel": "delivery",
+      "due_time": "16:00",
+      "period": null,
+      "reference": "LIV-2291",
+      "unit_name": "pc"
+    },
+    {
+      "id_order": 9106,
+      "id_product": 6700320,
+      "name": "Quiche lorraine",
+      "category_name": "Traiteur chaud",
+      "quantity": 6,
+      "channel": "shop",
+      "due_time": null,
+      "period": "noon",
+      "reference": "CMD-1053",
+      "unit_name": "pc"
+    }
+  ]
+}

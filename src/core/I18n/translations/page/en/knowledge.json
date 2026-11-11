@@ -1,5 +1,5 @@
 {
-  "knowledge": "Knowledge",
+  "knowledge": "Knowledge base",
   "knowledge_overview": "Knowledge Base",
   "knowledge_overview_subtitle": "Browse company knowledge resources - products and subrecipes.",
   "knowledge_resources": "Knowledge Resources",
@@ -63,5 +63,9 @@
   "no_photo": "No photo",
   "no_media": "No photos or packaging materials available",
   "go_to_subrecipes": "Go to subrecipes",
-  "go_to_products": "Go to products"
+  "go_to_products": "Go to products",
+  "prep_oven": "Oven",
+  "prep_trays": "trays",
+  "prep_batch_max": "%s at a time",
+  "prep_unreadable": "%s step(s) returned without a readable instruction."
 }

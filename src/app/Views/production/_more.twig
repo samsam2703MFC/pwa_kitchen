@@ -1,0 +1,59 @@
+{# production/_more.twig — les chiffres, en bas et repliés.
+
+   Stock, minimums et MEP de demain étaient trois destinations de même rang que
+   le travail du jour. Ce n'en sont pas : on les consulte, on n'y agit
+   presque jamais. Les mettre en tête d'écran obligeait à choisir entre quatre
+   portes avant de voir la première quantité.
+
+   Ils descendent donc au pied de « Ce qui manque », en trois lignes qui disent
+   ce qu'on y trouvera. Chaque ligne porte son compte : c'est souvent la seule
+   chose qu'on venait chercher, et on n'a plus à ouvrir pour l'apprendre.
+
+   Reçoit : stock_ref_count, min_below_count, mep_next_count (chacun peut être
+   null = source non servie ; on n'écrit alors aucun nombre plutôt qu'un zéro
+   qui voudrait dire « rien »). #}
+{% import "components/_icons.twig" as icons %}
+
+{% set rows = [
+    {
+        icon:  'package',
+        label: translations.stock_title | default('Stock live'),
+        hint:  translations.stock_sub_hint | default('Face aux ventes prévues'),
+        href:  ROOT ~ '/production?view=stock' ~ sector_qs,
+        n:     stock_ref_count,
+        unit:  translations.more_refs | default('références')
+    },
+    {
+        icon:  'store',
+        label: translations.min_title | default('Minimum en magasin'),
+        hint:  translations.min_sub_hint | default('Le plancher de vitrine'),
+        href:  ROOT ~ '/production?view=minimums' ~ sector_qs,
+        n:     min_below_count,
+        unit:  translations.more_below | default('sous le seuil')
+    },
+    {
+        icon:  'square-pen',
+        label: translations.more_mep | default('MEP de demain'),
+        hint:  translations.more_mep_hint | default("Ce qu'on prépare ce soir"),
+        href:  ROOT ~ '/production?view=mep&mep=afternoon' ~ sector_qs,
+        n:     mep_next_count,
+        unit:  translations.more_lines | default('lignes')
+    }
+] %}
+
+<section class="pr-more" aria-label="{{ translations.more_title | default('Consulter') }}">
+    <p class="pr-cat-title">{{ translations.more_title | default('Consulter') }}</p>
+    {% for r in rows %}
+        <a class="pr-more-row" href="{{ r.href }}">
+            <span class="pr-more-ic">{{ icons.svg(r.icon, 17) }}</span>
+            <span class="pr-more-txt">
+                <b>{{ r.label }}</b>
+                <small>{{ r.hint }}</small>
+            </span>
+            {% if r.n is not null %}
+                <span class="pr-more-n">{{ r.n|number_format(0, ',', ' ') }} {{ r.unit }}</span>
+            {% endif %}
+            {{ icons.svg('chevron-right', 17) }}
+        </a>
+    {% endfor %}
+</section>

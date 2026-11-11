@@ -1,0 +1,448 @@
+name: Deploy to server (SSH / rsync)
+
+# Déploie la PWA Kitchen (app PHP) sur le serveur du client par SSH (rsync),
+# avec les MÊMES secrets que pwa_consultant / WebShop / back_office_ws_franchisee.
+# Les runners GitHub joignent le serveur sur le port 22 ; le sandbox Claude non,
+# d'où ce workflow plutôt qu'un déploiement depuis la session de chat.
+#
+# L'app a son front controller dans public/ (public/index.php). L'URL
+#   https://<host>/kitchen
+# doit donc pointer sur le dossier public/ de l'app, tandis que config/ src/
+# vendor/ vivent un niveau au-dessus, hors du dossier servi par le web.
+#
+# Le segment d'URL n'est PAS libre ici : public/.htaccess fixe
+# « RewriteBase /kitchen/ » et config/app.php construit ROOT = …/kitchen.
+# Changer URL_PATH sans toucher ces deux fichiers casserait le routage et
+# toutes les URL d'assets.
+#
+# Disposition créée sur le serveur :
+#   APP_DIR   = /var/www/app/pwa_kitchen   (app complète : config src vendor public …)
+#   WEB_ROOT  = /var/www/html              (docroot Apache)
+#   symlink   /var/www/html/kitchen -> /var/www/app/pwa_kitchen/public
+#
+# ─── Réglage unique (GitHub → Settings → Secrets and variables → Actions) ─────
+#   Secrets (mêmes noms que pwa_consultant) :
+#     SSH_HOST       IP/hôte du serveur, ex. 185.180.206.46
+#     SSH_USER       utilisateur ssh (un utilisateur de déploiement dédié est préférable)
+#     SSH_PASSWORD   son mot de passe
+#   Variables de dépôt optionnelles (remplacent les défauts ci-dessous) :
+#     SSH_PORT       port ssh          (défaut 22)
+#     APP_DIR        dossier de l'app  (défaut /var/www/app/pwa_kitchen)
+#     WEB_ROOT       docroot Apache    (défaut /var/www/html)
+#     URL_PATH       segment d'URL     (défaut kitchen — voir l'avertissement plus haut)
+#
+#   Prérequis Apache pour que le symlink + .htaccess fonctionnent :
+#     • Options +FollowSymLinks (ou +SymLinksIfOwnerMatch) sur le docroot
+#     • AllowOverride All   (pour que « RewriteBase /kitchen/ » s'applique)
+#     • mod_rewrite activé
+#
+#   Notes :
+#   • Contrairement au consultant, vendor/ n'est PAS committé ici (.gitignore) :
+#     le workflow lance donc composer install avant le rsync.
+#   • rsync tourne SANS --delete : les autres fichiers d'APP_DIR ne sont jamais
+#     effacés. .env est exclu explicitement — il porte les secrets du serveur et
+#     n'est pas dans Git.
+#   • public/.htaccess, lui, EST suivi par Git et sera donc écrasé. S'il portait
+#     des directives ajoutées à la main sur le serveur (SetEnv JWT_SECRET…, la
+#     couche dotenv étant commentée dans public/index.php), elles seraient
+#     perdues : l'étape « Back up server .htaccess » en garde une copie
+#     horodatée à côté et l'affiche dans le log avant l'écrasement.
+#   • SÉCURITÉ : préférer un utilisateur de déploiement non-root + clé SSH au mot
+#     de passe root (remplacer les lignes sshpass par un ssh-agent, retirer
+#     SSH_PASSWORD).
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    # La branche de refonte UX est listée à titre TEMPORAIRE, pour pouvoir
+    # publier le nouveau design sur /kitchen avant sa fusion dans master.
+    # À retirer une fois la branche fusionnée.
+    branches: [master, claude/ux-pwa-consultant-t02npa]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP + Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: curl, mbstring
+          tools: composer:v2
+
+      # vendor/ est gitignoré dans ce dépôt : sans cette étape, public/index.php
+      # échouerait sur son require de vendor/autoload.php.
+      - name: Install PHP dependencies (vendor/ is not committed)
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Prepare remote dir + symlink (validates SSH login)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          WEB_ROOT='${{ vars.WEB_ROOT || '/var/www/html' }}'
+          URL_PATH='${{ vars.URL_PATH || 'kitchen' }}'
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -e; \
+             mkdir -p '$APP_DIR'; \
+             mkdir -p '$WEB_ROOT'; \
+             ln -sfn '$APP_DIR/public' '$WEB_ROOT/$URL_PATH'; \
+             command -v rsync >/dev/null || { echo 'rsync missing on server — apt-get install -y rsync'; exit 1; }"
+
+      # Le .htaccess du dépôt va écraser celui du serveur. S'il portait des
+      # SetEnv ajoutés à la main, on veut pouvoir les retrouver : copie datée
+      # sur place + affichage intégral dans le log.
+      - name: Back up server .htaccess before it is overwritten
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "f='$APP_DIR/public/.htaccess'; \
+             if [ -f \"\$f\" ]; then \
+               cp -p \"\$f\" \"\$f.bak-\$(date +%Y%m%d%H%M%S)\"; \
+               echo '── .htaccess actuellement sur le serveur ──'; cat \"\$f\"; \
+               echo '── fin ──'; \
+             else \
+               echo 'Aucun .htaccess sur le serveur (premier déploiement).'; \
+             fi"
+
+      # La version part avec le code : sans elle, rien dans la page ne dit
+      # quel commit est servi, et un cache de navigateur devient indiscernable
+      # d'un déploiement qui n'a pas eu lieu.
+      - name: Stamp the build
+        run: |
+          printf '%s %s' "$(git rev-parse --short HEAD)" "$(date -u +%Y-%m-%dT%H:%MZ)" > BUILD
+          echo "BUILD = $(cat BUILD)"
+
+      - name: Deploy app → APP_DIR (rsync)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          sshpass -e rsync -rltDz --omit-dir-times \
+            --exclude '.git' --exclude '.github' --exclude '.idea' --exclude '.env' \
+            -e "ssh -p ${{ vars.SSH_PORT || '22' }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$APP_DIR/"
+
+      # ── Serveur d'API bouchon (optionnel) ────────────────────────────────
+      # Activé par la variable de dépôt USE_MOCK_API = true.
+      #
+      # Les endpoints de Production et Cuisson n'existent pas encore côté
+      # back-office : sans cela, ces deux écrans n'affichent que leur état
+      # « pas encore servi par l'API ». Le bouchon les sert avec des données de
+      # démonstration et RELAIE tout le reste vers l'API réelle — sinon on
+      # verrait les nouveaux modules au prix du tableau de bord, des
+      # checklists, des commandes et de la base de connaissances.
+      #
+      # Il écoute sur 127.0.0.1 : joignable par l'app PHP sur la même machine,
+      # jamais depuis Internet. C'est ce qui rend acceptable un service qui
+      # n'authentifie rien — mais cela reste réservé à ce serveur de test.
+      #
+      # Pour revenir à l'API réelle : passer USE_MOCK_API à false (ou la
+      # supprimer) et relancer le workflow. Le .htaccess du dépôt reprend la
+      # main et le processus est arrêté.
+      # Le vhost public (atelierby.tfbuddy.com) ne sert PAS /var/www/html :
+      # son DocumentRoot est /var/www/html/tfb, où une vieille copie de
+      # kitchen (datée de mars) répondait à la place de l'app déployée —
+      # d'où des déploiements « verts » invisibles du public. On remplace
+      # cette copie par un symlink vers l'app déployée, en la sauvegardant
+      # une seule fois (mv en .bak horodaté).
+      #
+      # DÉSACTIVÉ par défaut : ce workflow cible le serveur de TEST (décision
+      # du 27/08) — le pont vers le vhost public n'a de sens que sur le
+      # serveur qui sert le domaine. Pour l'activer (déploiement public),
+      # définir la variable de dépôt VERIFY_PUBLIC_URL (ex.
+      # https://atelierby.tfbuddy.com/kitchen) — voir deploy-prod.yml.
+      - name: Point the PUBLIC vhost docroot at the deployed app
+        if: vars.VERIFY_PUBLIC_URL != ''
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -e; TFB=/var/www/html/tfb/kitchen; \
+             if [ -d \"\$TFB\" ] && [ ! -L \"\$TFB\" ] && [ ! -L \"\$TFB/public\" ]; then \
+               mv \"\$TFB\" \"\$TFB.bak-\$(date +%Y%m%d%H%M%S)\" || sudo -n mv \"\$TFB\" \"\$TFB.bak-\$(date +%Y%m%d%H%M%S)\"; \
+               echo 'ancienne copie sauvegardée en .bak'; \
+             fi; \
+             if [ -L \"\$TFB\" ]; then rm \"\$TFB\"; fi; \
+             mkdir -p \"\$TFB\"; \
+             ln -sfn '$APP_DIR/public' \"\$TFB/public\"; \
+             echo 'pont en place :'; \
+             ls -ld \"\$TFB\" \"\$TFB/public\""
+
+      # Le PHP du serveur garde les .php compilés en mémoire (OPcache avec
+      # revalidation lente ou coupée) : les fichiers changent sur le disque,
+      # la page servie reste l'ancienne — les assets, eux, suivent. D'où des
+      # déploiements « verts » qui ne changent rien à l'écran. On dépose donc
+      # un reset one-shot, on l'appelle par les DEUX chemins (localhost et le
+      # domaine public), puis on l'efface.
+      - name: Reset PHP OPcache (localhost + domaine public)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          TOKEN="opcache-reset-${{ github.run_id }}.php"
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s << REMOTE
+          set -e
+          printf '<?php if (function_exists("opcache_reset")) { var_export(opcache_reset()); } else { echo "no-opcache"; }' \
+            > "$APP_DIR/public/$TOKEN"
+          for base in "http://localhost/${{ vars.URL_PATH || 'kitchen' }}" \
+                      "https://atelierby.tfbuddy.com/${{ vars.URL_PATH || 'kitchen' }}"; do
+            echo "reset via \$base/$TOKEN : \$(curl -sk -m 10 "\$base/$TOKEN" || echo injoignable)"
+          done
+          rm -f "$APP_DIR/public/$TOKEN"
+          # Le vhost public tourne avec opcache.validate_timestamps=0 : le
+          # reset par URL ne suffit pas quand l'ancien bytecode répond encore
+          # (il rend son propre 404 avant d'exécuter quoi que ce soit). Seul
+          # un reload du service PHP purge vraiment. L'utilisateur de
+          # déploiement écrit déjà dans /var/www : on tente le reload en
+          # direct d'abord, sudo -n en repli, et on IMPRIME le résultat.
+          echo "== services php présents =="
+          systemctl list-units 'php*' --no-legend 2>/dev/null || true
+          # Les pools FPM sont détectés (php8.3-fpm aujourd'hui, un autre
+          # demain) : un reload FPM re-fork les ouvriers et vide leur opcache,
+          # ce que le reload d'Apache seul ne fait pas.
+          FPMS=\$(systemctl list-units 'php*fpm*' --no-legend 2>/dev/null | awk '{print \$1}')
+          for svc in \$FPMS apache2; do
+            if systemctl reload "\$svc" 2>&1; then echo "reload \$svc : OK"; \
+            elif sudo -n systemctl reload "\$svc" 2>&1; then echo "sudo reload \$svc : OK"; \
+            else echo "reload \$svc : refusé"; fi
+          done
+          REMOTE
+
+      - name: Mock API — start or stop, then point .htaccess at it
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          APP_DIR='${{ vars.APP_DIR || '/var/www/app/pwa_kitchen' }}'
+          PORT='${{ vars.MOCK_API_PORT || '8791' }}'
+          REAL='${{ vars.REAL_API_BASE || 'https://atelierby.tfbuddy.com/api/v1' }}'
+          # Trois déclencheurs, du plus visible au moins visible :
+          #   1. le fichier tools/mock-api/ENABLED, versionné — on voit dans le
+          #      diff qui l'a activé et quand, et on le désactive par un commit ;
+          #   2. la variable de dépôt USE_MOCK_API ;
+          #   3. le secret du même nom (mauvais onglet, mais fréquent).
+          # Le fichier existe parce qu'un réglage qu'on ne peut pas relire ne se
+          # diagnostique pas : la valeur d'un secret est invisible, y compris
+          # pour qui débogue le workflow.
+          USE_RAW='${{ vars.USE_MOCK_API || secrets.USE_MOCK_API || 'false' }}'
+          if [ -f tools/mock-api/ENABLED ]; then USE_RAW='true'; fi
+          # Garde-fou : jamais sur la branche de production, quel que soit le
+          # déclencheur. Un fichier marqueur fusionné par erreur ne doit pas
+          # brancher le vrai site sur un serveur de démonstration.
+          if [ '${{ github.ref_name }}' = 'master' ]; then USE_RAW='false'; fi
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "APP_DIR='$APP_DIR' PORT='$PORT' REAL='$REAL' USE_RAW='$USE_RAW' bash -s" << 'REMOTE'
+          set -e
+          HT="$APP_DIR/public/.htaccess"
+
+          # « True », « TRUE », « 1 », « yes », un espace en trop : tout cela
+          # veut dire oui. Seule la valeur normalisée est affichée — si le
+          # réglage vient d'un secret, sa valeur brute ne doit pas fuir au log.
+          USE=$(printf '%s' "$USE_RAW" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+          case "$USE" in true|1|yes|on) USE=true ;; *) USE=false ;; esac
+          echo "USE_MOCK_API (normalisé) = $USE  [longueur brute : ${#USE_RAW}]"
+
+          # Toujours repartir d'un processus propre : le rsync vient de
+          # remplacer le code du bouchon, l'ancien tournerait sur l'ancien.
+          pkill -f "tools/mock-api/index.php" 2>/dev/null || true
+          sleep 1
+
+          # Le port peut être occupé par un tout autre service du serveur —
+          # c'est arrivé avec 8090. Le détecter ici donne un message utile,
+          # au lieu d'un 404 mystérieux quelques lignes plus bas.
+          if command -v ss >/dev/null 2>&1; then
+            if ss -ltn 2>/dev/null | grep -qE "127\\.0\\.0\\.1:$PORT|\\*:$PORT"; then
+              echo "  le port $PORT est déjà occupé par un autre service"
+              echo "  définir la variable de dépôt MOCK_API_PORT sur un port libre"
+              exit 1
+            fi
+          fi
+
+          if [ "$USE" != "true" ]; then
+            # On ne se contente plus de « conserver le .htaccess du dépôt ».
+            # public/.htaccess est suivi par Git et le rsync l'écrase : le jour
+            # ou quelqu'un commente SetEnv KITCHEN_API_BASE, l'app entière part
+            # sur « http://<hote>/api/v1 », plus un appel n'aboutit et la
+            # tablette ne peut plus se connecter. C'est arrive le 26/08/2026.
+            # La ligne est donc REECRITE ici depuis REAL_API_BASE, decommentee
+            # au besoin : la source de verite est la variable de depot, pas un
+            # fichier que n'importe quel commit peut neutraliser.
+            echo "USE_MOCK_API != true — on pointe le .htaccess sur l'API réelle."
+            if grep -qE '^[[:space:]]*#?[[:space:]]*SetEnv[[:space:]]+KITCHEN_API_BASE' "$HT"; then
+              # Delimiteur « | » et pas « # » : le motif contient lui-meme un
+              # « # » (la ligne peut etre commentee), qui refermerait le motif
+              # au mauvais endroit. C'est ce qui a fait echouer le run 95.
+              sed -i -E "s|^[[:space:]]*#?[[:space:]]*SetEnv[[:space:]]+KITCHEN_API_BASE.*|SetEnv KITCHEN_API_BASE $REAL|" "$HT"
+            else
+              sed -i "1i SetEnv KITCHEN_API_BASE $REAL" "$HT"
+            fi
+            grep -n 'KITCHEN_API_BASE' "$HT" || true
+
+            # Et on VERIFIE que ca marche, plutot que de l'esperer : le
+            # selecteur de magasin du login est le premier appel d'API de
+            # l'application, et le seul qui ne demande pas de jeton.
+            opts=$(curl -s -m 10 "http://localhost/kitchen/" | grep -c '<option' || echo 0)
+            echo "  <option> dans le sélecteur de magasin : $opts"
+            if [ "$opts" -lt 2 ]; then
+              echo "  ÉCHEC — le sélecteur ne contient que son libellé : l'API n'est pas jointe."
+              echo "  API visée : $REAL"
+              exit 1
+            fi
+            echo "  OK — le login voit les magasins."
+            exit 0
+          fi
+
+          command -v php >/dev/null || { echo "php CLI absent du serveur — bouchon impossible"; exit 1; }
+
+          cd "$APP_DIR"
+          # PHP_CLI_SERVER_WORKERS : le serveur intégré traite une requête à la
+          # fois. Comme le bouchon relaie lui-même vers l'API réelle, un seul
+          # ouvrier ferait la queue derrière chaque appel relayé.
+          PHP_CLI_SERVER_WORKERS=4 MOCK_API_PASSTHROUGH="$REAL" \
+            setsid nohup php -S 127.0.0.1:"$PORT" tools/mock-api/index.php \
+            > "$APP_DIR/mock-api.log" 2>&1 < /dev/null &
+          sleep 2
+
+          # Vérifier AVANT de basculer le .htaccess : un bouchon muet couplé à
+          # un .htaccess déjà basculé casserait le site entier.
+          code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:$PORT/public/shops" || echo 000)
+          echo "  bouchon /public/shops → HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "  le bouchon ne répond pas — .htaccess laissé sur l'API réelle"
+            echo "  (un 404 ici signale souvent qu'un AUTRE service occupe le port $PORT)"
+            tail -20 "$APP_DIR/mock-api.log" || true
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "http://127.0.0.1:$PORT/shops/1/baking" || echo 000)
+          echo "  bouchon /shops/1/baking → HTTP $code"
+
+          sed -i "s#^SetEnv KITCHEN_API_BASE .*#SetEnv KITCHEN_API_BASE http://127.0.0.1:$PORT#" "$HT"
+          grep -n 'KITCHEN_API_BASE' "$HT"
+          echo "  OK — l'app pointe sur le bouchon, qui relaie le reste vers $REAL"
+          echo "  NOTE : le processus ne survit pas à un redémarrage du serveur ;"
+          echo "         relancer ce workflow le remet en route."
+          REMOTE
+
+      - name: Verify served page + theme assets on the server
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s << 'REMOTE'
+          BASE="http://localhost/${{ vars.URL_PATH || 'kitchen' }}"
+          echo "== page de l'app : $BASE/ =="
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/")
+          echo "  HTTP $code  $BASE/"
+          echo "== feuille de style du design system + polices =="
+          for f in assets/css/atelier-theme.css assets/fonts/GC_Vank.ttf assets/fonts/Gotham_Book.otf; do
+            out=$(curl -s -o /dev/null -w "%{http_code} %{size_download}" "$BASE/$f")
+            echo "  $out  $f"
+          done
+          # Un 200 ne prouve pas que la page rend : PHP renvoie 200 avec des
+          # warnings en haut de page si une variable d'env manque (JWT_SECRET…),
+          # et config/app.php a DEBUG=true. On regarde donc le contenu.
+          echo "== contenu servi =="
+          body=$(curl -s "$BASE/")
+          # La preuve que la page servie vient bien de CE déploiement : elle
+          # porte le commit qu'on vient de pousser. Un 200 ne le disait pas.
+          # BUILD porte le sha COURT : comparer au long ne matchait jamais.
+          SHORT='${{ github.sha }}'; SHORT=${SHORT:0:7}
+          if printf '%s' "$body" | grep -q "name=\"app-build\" content=\"$SHORT"; then
+            echo "  OK — page servie au commit courant ($SHORT)"
+          else
+            stamp=$(printf '%s' "$body" | grep -o 'name="app-build" content="[^"]*"' | head -1)
+            echo "  ATTENTION — version servie : ${stamp:-absente} (attendu $SHORT)"
+          fi
+          echo "  octets : $(printf '%s' "$body" | wc -c)"
+          if printf '%s' "$body" | grep -qi 'atelier-theme.css'; then
+            echo "  OK — la page référence bien la feuille du design system"
+          else
+            echo "  ATTENTION — atelier-theme.css absent du HTML servi"
+          fi
+          if printf '%s' "$body" | grep -qiE 'Warning:|Fatal error|Notice:|Undefined (array key|variable)'; then
+            echo "  ATTENTION — erreurs PHP dans la page :"
+            printf '%s' "$body" | grep -iE 'Warning:|Fatal error|Notice:|Undefined (array key|variable)' | head -5
+          else
+            echo "  OK — aucune erreur PHP visible dans la page"
+          fi
+          # Le sélecteur de magasin est peuplé par l'API (/public/shops). Un
+          # seul <option> = le placeholder seul = l'API n'a rien renvoyé.
+          opts=$(printf '%s' "$body" | grep -o '<option' | wc -l)
+          echo "  <option> dans le formulaire : $opts"
+          if [ "$opts" -gt 1 ]; then
+            echo "  OK — le sélecteur de magasin est peuplé par l'API"
+          else
+            echo "  ATTENTION — sélecteur vide : vérifier KITCHEN_API_BASE (SetEnv/mod_env)"
+            echo "  et la réponse de l'API :"
+            curl -s -o /dev/null -w "    HTTP %{http_code}  %{size_download} o  %{url_effective}\n" \
+              "https://atelierby.tfbuddy.com/api/v1/public/shops" || true
+          fi
+          echo "  ── 400 premiers octets ──"
+          printf '%s' "$body" | head -c 400
+          echo
+          echo "  ── fin ──"
+          # La route du module de pilotage doit exister dans la table de
+          # routage servie : 302 (redirection auth) = présente ; 404 = vieux
+          # code encore servi. C'est LE témoin « online » côté test.
+          pcode=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/production/pilotage")
+          echo "  route /production/pilotage → HTTP $pcode (302 attendu sans session)"
+          if [ "$pcode" != "302" ] && [ "$pcode" != "200" ]; then
+            echo "  ÉCHEC — la route du pilotage ne répond pas sur le serveur"
+            exit 1
+          fi
+          case "$code" in
+            200|301|302) echo "OK — l'app est servie sur $BASE/";;
+            403) echo "ATTENTION : 403 — vérifier Options +FollowSymLinks et AllowOverride All sur le docroot";;
+            404) echo "ATTENTION : 404 — le symlink ou l'Alias ne résout pas ; vérifier que $BASE pointe sur APP_DIR/public";;
+            500) echo "ATTENTION : 500 — souvent des variables d'env manquantes (JWT_SECRET…) ; voir le .htaccess sauvegardé plus haut";;
+            *)   echo "ATTENTION : statut inattendu $code — vérifier la conf Apache + mod_rewrite";;
+          esac
+          REMOTE
+
+      # Le contrôle qui compte : ce que voit un CLIENT, depuis l'extérieur.
+      # Un déploiement dont la page publique ne porte pas le commit poussé
+      # est un échec, quel que soit ce que dit localhost.
+      # Ne tourne que quand VERIFY_PUBLIC_URL est définie : sur le serveur de
+      # test, le domaine public n'est pas servi par cette machine et ce
+      # contrôle échouerait toujours. La preuve « test » reste le contrôle
+      # localhost ci-dessus (commit servi + sélecteur peuplé + route pilotage).
+      - name: Verify PUBLIC URL serves this commit (bloquant)
+        if: vars.VERIFY_PUBLIC_URL != ''
+        run: |
+          BASE="${{ vars.VERIFY_PUBLIC_URL }}"
+          SHORT='${{ github.sha }}'; SHORT=${SHORT:0:7}
+          # Les caches (realpath, opcache re-forké) mettent quelques secondes
+          # à converger après le reload : on laisse jusqu'à 5 essais.
+          ok=""
+          for i in 1 2 3 4 5; do
+            body=$(curl -s -m 20 "$BASE/auth?deploycheck=${{ github.run_id }}-$i")
+            stamp=$(printf '%s' "$body" | grep -o 'name="app-build" content="[^"]*"' | head -1)
+            echo "essai $i — public : ${stamp:-app-build absent} (attendu $SHORT)"
+            if printf '%s' "$body" | grep -q "content=\"$SHORT"; then ok=1; break; fi
+            sleep 6
+          done
+          [ -n "$ok" ] || { echo "ÉCHEC — le public ne sert pas ce commit (OPcache ? vhost ?)"; exit 1; }
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$BASE/production/pilotage")
+          echo "route /production/pilotage → HTTP $code (302 attendu sans session)"
+          [ "$code" = "302" ] || [ "$code" = "200" ] || { echo "ÉCHEC — la route du pilotage ne répond pas ($code)"; exit 1; }
+          echo "OK — le public sert $SHORT et la route pilotage existe"

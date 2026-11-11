@@ -5,7 +5,7 @@
   "filter_date": "Pickup date",
   "filter_client_name": "Client name",
   "filter_client_name_placeholder": "Type part of name...",
-  "filter_pending_only": "Pending only",
+  "filter_pending_only": "Pending",
   "filter_search": "Search",
   "filter_clear": "Clear",
   "filter_all_orders": "All statuses",

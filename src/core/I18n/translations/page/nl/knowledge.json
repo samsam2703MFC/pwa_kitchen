@@ -1,5 +1,5 @@
 {
-  "knowledge": "Kennis",
+  "knowledge": "Kennisbank",
   "knowledge_overview": "Kennisbank",
   "knowledge_overview_subtitle": "Blader door de kennisresources van het bedrijf - producten en subrecepten.",
   "knowledge_resources": "Kennisresources",
@@ -63,5 +63,9 @@
   "photo_presentation": "Presentatie",
   "photo_display": "Expositie",
   "no_photo": "Geen foto",
-  "no_media": "Geen foto's of verpakkingsmateriaal beschikbaar"
+  "no_media": "Geen foto's of verpakkingsmateriaal beschikbaar",
+  "prep_oven": "Oven",
+  "prep_trays": "platen",
+  "prep_batch_max": "%s tegelijk",
+  "prep_unreadable": "%s stap(pen) ontvangen zonder leesbare instructie."
 }

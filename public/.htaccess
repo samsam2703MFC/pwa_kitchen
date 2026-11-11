@@ -1,6 +1,43 @@
 RewriteEngine On
 RewriteBase /kitchen/
 
+# Base de l'API métier, hébergée sur un autre hôte que ce front.
+# Sans elle, config/app.php retombe sur « http://<hôte courant>/api/v1 », qui
+# n'existe pas sur le serveur de test : le sélecteur de magasin du login reste
+# alors vide. Nécessite AllowOverride autorisant SetEnv (mod_env).
+SetEnv KITCHEN_API_BASE https://atelierby.tfbuddy.com/api/v1
+# NE PAS COMMENTER cette ligne. Sans elle, API_BASE_URL retombe sur
+# « http://<hôte courant>/api/v1 » (config/app.php:19-26), qui n'existe sur
+# aucun de nos serveurs : plus un seul appel n'aboutit, le sélecteur de magasin
+# du login reste vide, et la tablette ne peut plus entrer. Le déploiement
+# réécrit désormais cette ligne à partir de la variable de dépôt
+# REAL_API_BASE — la commenter ici ne suffit donc plus à la désactiver, c'est
+# volontaire.
+
+# ── Application installable ───────────────────────────────────────────────
+# Le manifeste doit arriver avec son propre type : servi en text/plain ou en
+# octet-stream, le navigateur l'ignore et l'application ne s'installe pas.
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
+# Le service worker ne doit jamais être servi depuis le cache HTTP : c'est lui
+# qui décide quand tout le reste est renouvelé. Son URL porte déjà un numéro de
+# version (?v=APP_BUILD), mais un proxy intermédiaire pourrait l'ignorer.
+<IfModule mod_headers.c>
+    <Files "sw.js">
+        Header set Cache-Control "no-cache, must-revalidate"
+        Header set Service-Worker-Allowed "/kitchen/"
+    </Files>
+</IfModule>
+
+# AVERTISSEMENT — le service worker et l'installation sur l'écran d'accueil
+# exigent un contexte sécurisé : HTTPS, ou localhost. Servi en http:// sur une
+# adresse IP, le navigateur enregistre le manifeste mais refuse le worker, et
+# n'offre pas « Ajouter à l'écran d'accueil ». Le code est en place et
+# s'activera de lui-même le jour où le site passe en HTTPS ; rien à changer
+# alors, ni ici ni dans les gabarits.
+
 # Nie przepisywuj istniejących plików i katalogów
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

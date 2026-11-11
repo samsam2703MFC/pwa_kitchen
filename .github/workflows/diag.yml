@@ -1,0 +1,84 @@
+name: Diagnostic serveur (lecture seule)
+
+# Répond à UNE question : qui sert atelierby.tfbuddy.com/kitchen ?
+# Le déploiement réussit sur le serveur SSH (localhost y sert le bon commit),
+# mais le domaine public sert une vieille copie. Ce diagnostic imprime, sans
+# rien modifier : les IP du serveur SSH, les vhosts Apache et leurs docroots,
+# et ce que le serveur voit quand il appelle le domaine public.
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/diag.yml']
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+      - name: Inspect server (read-only)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh -p ${{ vars.SSH_PORT || '22' }} \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s << 'REMOTE'
+          echo "== IP de ce serveur =="
+          hostname -I 2>/dev/null || ip -4 addr show scope global | grep inet
+          echo
+          echo "== atelierby.tfbuddy.com vu du serveur =="
+          getent hosts atelierby.tfbuddy.com || true
+          echo
+          echo "== vhosts Apache =="
+          (apache2ctl -S 2>/dev/null || httpd -S 2>/dev/null || sudo -n apache2ctl -S 2>/dev/null) | head -40
+          echo
+          echo "== conf qui mentionne atelierby =="
+          grep -rl "atelierby" /etc/apache2/sites-enabled/ 2>/dev/null || echo "(rien dans sites-enabled ou pas lisible)"
+          grep -rhE "ServerName|ServerAlias|DocumentRoot" /etc/apache2/sites-enabled/*.conf 2>/dev/null | head -20
+          echo
+          echo "== candidats kitchen sur le disque =="
+          ls -ld /var/www/html/kitchen /var/www/app/pwa_kitchen 2>/dev/null
+          for d in /var/www/*/kitchen /var/www/*/*/kitchen /home/*/www/kitchen /home/*/public_html/kitchen; do
+            [ -e "$d" ] && ls -ld "$d"
+          done 2>/dev/null
+          echo
+          echo "== BUILD des copies trouvées =="
+          for f in /var/www/app/pwa_kitchen/BUILD /var/www/*/pwa_kitchen/BUILD /var/www/*/kitchen/../BUILD; do
+            [ -f "$f" ] && echo "$f : $(cat "$f")"
+          done 2>/dev/null
+          echo
+          echo "== base API configuree sur le serveur (.htaccess) =="
+          grep -n "KITCHEN_API_BASE\|USE_MOCK" /var/www/app/pwa_kitchen/public/.htaccess || echo "(pas de SetEnv ?)"
+          echo "== processus mock encore vivant ? =="
+          pgrep -af "mock-api" || echo "aucun processus mock"
+          echo
+          echo "== reproduction : /kitchen/dashboard en local =="
+          for u in dashboard production/pilotage auth; do
+            echo "-- GET /kitchen/$u --"
+            curl -sk -m 15 -o /tmp/body -w "HTTP %{http_code} · %{size_download} o\n" "http://localhost/kitchen/$u"
+            head -c 400 /tmp/body; echo; echo "---"
+          done
+          echo
+          echo "== erreurs PHP recentes (apache error log) =="
+          for f in /var/log/apache2/error.log /var/log/apache2/*error*.log; do
+            [ -f "$f" ] || continue
+            echo "-- $f --"
+            (tail -n 800 "$f" 2>/dev/null || sudo -n tail -n 800 "$f") | grep -F "[kitchen]" | tail -15
+            echo "-- brut (hors warnings) --"
+            (tail -n 300 "$f" 2>/dev/null || sudo -n tail -n 300 "$f") | grep -vE "PHP Warning" | tail -25
+          done
+          echo
+          echo "== le domaine public, appelé du serveur =="
+          curl -sk -m 10 -o /tmp/pub.html -w "HTTP %{http_code} · %{size_download} o\n" "https://atelierby.tfbuddy.com/kitchen/auth"
+          grep -o 'name="app-build" content="[^"]*"' /tmp/pub.html | head -1 || echo "(pas de stamp)"
+          echo
+          echo "== conf du vhost atelierby (SSL) =="
+          cat /etc/apache2/sites-enabled/atelierby.tfbuddy.com-le-ssl.conf 2>&1 | head -80
+          echo "== conf du vhost atelierby (80) =="
+          cat /etc/apache2/sites-enabled/atelierby.tfbuddy.com.conf 2>&1 | head -40
+          echo "== tous les Alias/Proxy de la conf Apache =="
+          grep -rniE "alias .*/kitchen|proxypass.*kitchen" /etc/apache2/ 2>/dev/null | head -10
+          echo "== handler PHP du serveur =="
+          apache2ctl -M 2>/dev/null | grep -iE "php|proxy|fcgi" || true
+          REMOTE

@@ -1,0 +1,154 @@
+{# components/app_nav.twig
+   Feuille de navigation qui descend du haut, ouverte par le hamburger de la
+   topbar. Reprend le principe de components/bottom_nav.twig du consultant,
+   avec les sections du kitchen.
+
+   Paramètre : active_nav — clé de la section courante (déduite du chemin par
+   le layout, donc aucune vue n'a à la passer). #}
+{% import "components/_icons.twig" as icons %}
+
+{# Une seule entrée pour la production : besoins, planning, MEP et stock sont
+   quatre questions du même module, pas quatre modules. #}
+{% set items = items ?? [
+    {
+        key:   'dashboard',
+        label: translations.kitchen_dashboard ?? 'Tableau de bord',
+        icon:  'home',
+        href:  ROOT ~ '/dashboard'
+    },
+    {
+        key:   'production',
+        label: translations.production ?? 'Production',
+        icon:  'list-checks',
+        href:  ROOT ~ '/production'
+    },
+    {
+        key:   'checklists',
+        label: translations.checklists ?? 'Checklists',
+        icon:  'clipboard-check',
+        href:  ROOT ~ '/checklists'
+    },
+    {
+        key:   'orders',
+        label: translations.orders ?? 'Commandes',
+        icon:  'receipt',
+        href:  ROOT ~ '/orders'
+    },
+    {
+        key:   'knowledge',
+        label: translations.knowledge ?? 'Base de connaissances',
+        icon:  'notebook',
+        href:  ROOT ~ '/knowledge'
+    },
+    {
+        key:   'complaints',
+        label: translations.complaints ?? 'Réclamations',
+        icon:  'circle-alert',
+        href:  ROOT ~ '/complaints'
+    },
+    {
+        key:   'webshop',
+        label: translations.webshop ?? 'WebShop',
+        icon:  'store',
+        href:  ROOT ~ '/webshop'
+    }
+] %}
+
+{# Le mode de la tablette filtre le menu — voir core/Support/DeviceMode. Une
+   tablette de comptoir n'a pas à faire défiler les écrans du fournil pour
+   trouver le sien. Le filtre s'applique aux clés, pas aux libellés : ajouter
+   une section ne demande que de la déclarer dans DeviceModeService. #}
+{% set items = items|filter(it => it.key in (nav_keys | default([]))) %}
+
+<div class="app-nav-backdrop" id="appNavBackdrop" aria-hidden="true"></div>
+
+<div class="app-nav-sheet"
+     id="appNavSheet"
+     role="dialog"
+     aria-modal="true"
+     aria-label="{{ translations.menu ?? 'Menu' }}">
+
+    <div class="app-nav-sheet-header">
+        <p class="app-nav-sheet-title">{{ translations.menu ?? 'Menu' }}</p>
+        <button class="app-nav-sheet-close" id="appNavClose" aria-label="{{ translations.close ?? 'Fermer' }}">
+            {{ icons.svg('x', 20) }}
+        </button>
+    </div>
+
+    <div class="app-nav-grid">
+        {% for it in items %}
+            {% set is_active = (active_nav ?? '') == it.key %}
+            {# « wip » et « disabled » portent le même badge mais pas le même
+               comportement : une section en chantier dont l'écran existe déjà
+               reste cliquable — elle explique elle-même ce qui lui manque. #}
+            {% set is_disabled = it.disabled ?? false %}
+            {% set is_wip = it.wip ?? false %}
+            <a href="{{ it.href }}"
+               class="app-nav-card {{ is_active ? 'is-active' : '' }} {{ is_disabled ? 'is-disabled' : '' }}"
+               {{ is_disabled ? 'aria-disabled="true" tabindex="-1"' : '' }}
+               aria-current="{{ is_active ? 'page' : 'false' }}">
+                <span class="app-nav-card-icon" aria-hidden="true">{{ icons.svg(it.icon, 20) }}</span>
+                <span class="app-nav-card-label">{{ it.label }}</span>
+                {% if is_disabled or is_wip %}
+                    <span class="app-nav-card-tag badge bg-warning text-dark">
+                        {{ translations.under_construction ?? 'En construction' }}
+                    </span>
+                {% endif %}
+            </a>
+        {% endfor %}
+    </div>
+
+    {# Profil — ligne pleine en bas du menu, comme chez le consultant #}
+    {% set _dn = (user.displayName ?? 'Kitchen')|trim %}
+    {% set _parts = _dn|split(' ') %}
+    {% set _initials = (_parts[0]|first ~ (_parts[1] is defined ? _parts[1]|first : ''))|upper %}
+    <a href="{{ ROOT }}/me" class="app-nav-profile {{ (active_nav ?? '') == 'me' ? 'is-active' : '' }}">
+        <span class="app-nav-profile-avatar" aria-hidden="true">{{ _initials }}</span>
+        <span class="app-nav-profile-txt">
+            <span class="app-nav-profile-name">{{ _dn }}</span>
+            <span class="app-nav-profile-sub">{{ user.role ?? (translations.my_profile ?? 'Mon profil') }}</span>
+        </span>
+        <span class="app-nav-profile-chev">{{ icons.svg('chevron-right', 16) }}</span>
+    </a>
+
+    <a href="{{ ROOT }}/logout" class="app-nav-logout">
+        {{ icons.svg('log-out', 17) }}
+        <span>{{ translations.logout ?? 'Déconnexion' }}</span>
+    </a>
+
+    <div class="app-nav-sheet-handle"></div>
+</div>
+
+<script>
+(function () {
+    var btn      = document.getElementById('appHamburger');
+    var sheet    = document.getElementById('appNavSheet');
+    var backdrop = document.getElementById('appNavBackdrop');
+    var closeBtn = document.getElementById('appNavClose');
+    if (!btn || !sheet || !backdrop) return;
+
+    function openMenu() {
+        sheet.classList.add('is-open');
+        backdrop.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+        if (closeBtn) closeBtn.focus();
+    }
+    function closeMenu() {
+        sheet.classList.remove('is-open');
+        backdrop.classList.remove('is-open');
+        btn.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+    }
+    function toggleMenu() {
+        if (sheet.classList.contains('is-open')) { closeMenu(); } else { openMenu(); }
+    }
+
+    btn.addEventListener('click', toggleMenu);
+    backdrop.addEventListener('click', closeMenu);
+    if (closeBtn) closeBtn.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && sheet.classList.contains('is-open')) closeMenu();
+    });
+})();
+</script>

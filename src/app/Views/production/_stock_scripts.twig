@@ -1,0 +1,173 @@
+{# production/_stock_scripts.twig — rafraîchissement du stock et validation
+   des recuissons.
+
+   Le stock bouge à chaque vente sans que personne ne touche la tablette : il
+   se relit tout seul. Dix secondes, comme le compteur de commandes — assez
+   court pour un service, assez long pour ne pas marteler l'API. L'onglet en
+   arrière-plan ne sonde pas.
+
+   Après une recuisson validée, on relit immédiatement : le serveur a appliqué
+   le lot, et la projection doit repartir du stock réel, pas de notre addition.
+   C'est ce qui évite de reproposer ce qu'on vient d'enfourner. #}
+<script>
+(function () {
+    var root = document.getElementById('stockRoot');
+    if (!root) return;
+
+    var URL_STOCK  = root.dataset.url;
+    var URL_REBAKE = root.dataset.rebakeUrl;
+
+    var T = {
+        out:      {{ (translations.stock_out         | default('Rupture'))   | json_encode | raw }},
+        batchOne: {{ (translations.rebake_batch_one  | default('fournée'))   | json_encode | raw }},
+        batchMany:{{ (translations.rebake_batch_many | default('fournées'))  | json_encode | raw }},
+        stock:    {{ (translations.rebake_stock      | default('Stock'))     | json_encode | raw }},
+        expected: {{ (translations.rebake_expected| default('Ventes prévues'))   | json_encode | raw }},
+        projected:{{ (translations.rebake_projected|default('Projeté'))          | json_encode | raw }},
+        window:   {{ (translations.rebake_window  | default('Fenêtre'))          | json_encode | raw }},
+        min:      {{ (translations.prod_unit_min  | default('min'))              | json_encode | raw }},
+        validate: {{ (translations.rebake_validate| default('Valider la recuisson')) | json_encode | raw }},
+        noBatch:  {{ (translations.rebake_batch_unknown | default('Pas de taille de fournée déclarée.')) | json_encode | raw }},
+        errRebake:{{ (translations.rebake_error   | default("La recuisson n'a pas pu être enregistrée.")) | json_encode | raw }},
+        okRebake: {{ (translations.rebake_success | default('Recuisson validée.')) | json_encode | raw }}
+    };
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function num(v, d) {
+        return Number(v || 0).toFixed(d || 0).replace('.', ',');
+    }
+
+    // Le tableau de perspective se calcule côté serveur — deltas, seuils de
+    // rupture, surproduction. Le réécrire ici reviendrait à maintenir deux
+    // fois la même arithmétique, et deux vérités finiraient par diverger. On
+    // relit la page quand les quantités bougent, et seulement alors.
+    var stockSig = null;
+    function paintStock(items) {
+        var sig = items.map(function (s) { return s.id_product + ':' + s.quantity; }).join(',');
+        if (stockSig === null) { stockSig = sig; return; }
+        if (sig !== stockSig) { window.location.reload(); }
+    }
+
+    // ── Filtres du tableau ──
+    // Deux rangées, deux questions qui se croisent : « qu'est-ce qui ne tient
+    // pas » et « dans quelle catégorie ». On est rarement à tous les postes à
+    // la fois, et les deux filtres se combinent donc au lieu de s'annuler.
+    var wantFlag = '';
+    var wantCat  = '';
+
+    function applyFilters() {
+        var table = document.getElementById('stockTable');
+        var none  = document.getElementById('stockNoMatch');
+        if (!table) return;
+
+        var shown = 0;
+        table.querySelectorAll('tbody tr').forEach(function (tr) {
+            var ok = (!wantFlag || tr.dataset.flag === wantFlag)
+                  && (!wantCat  || tr.dataset.cat  === wantCat);
+            tr.hidden = !ok;
+            if (ok) shown++;
+        });
+
+        table.hidden = shown === 0;
+        if (none) none.classList.toggle('d-none', shown > 0);
+    }
+
+    document.addEventListener('click', function (e) {
+        var chip = e.target.closest('.cat-filters[data-target="#stockTable"] .cat-chip');
+        if (!chip) return;
+
+        chip.parentNode.querySelectorAll('.cat-chip').forEach(function (c) {
+            c.classList.toggle('is-on', c === chip);
+        });
+
+        if (chip.parentNode.dataset.kind === 'cat') {
+            wantCat = chip.dataset.cat || '';
+        } else {
+            wantFlag = chip.dataset.flag || '';
+        }
+        applyFilters();
+    });
+
+    function paintRebakes(items) {
+        var list  = document.getElementById('rebakeList');
+        var empty = document.getElementById('rebakeEmpty');
+        var count = document.getElementById('rebakeCount');
+        if (!list) return;
+
+        if (count) count.textContent = items.length;
+        if (empty) empty.classList.toggle('d-none', items.length > 0);
+
+        list.innerHTML = items.map(function (r) {
+            return '<article class="rbk-card" data-id="' + r.id_product + '">' +
+                '<div class="rbk-top"><span class="rbk-name">' + esc(r.name || '—') + '</span>' +
+                '<span class="rbk-qty">' + num(r.suggested_quantity) + '<small>' +
+                    (r.batch_known
+                        ? r.batch_count + ' ' + esc(r.batch_count > 1 ? T.batchMany : T.batchOne)
+                        : esc(r.unit_name || '')) +
+                '</small></span></div>' +
+                '<div class="rbk-why">' +
+                    '<span>' + esc(T.stock)     + ' <b>' + num(r.stock) + '</b></span>' +
+                    '<span>' + esc(T.expected)  + ' <b>' + num(r.expected_sales, 1) + '</b></span>' +
+                    '<span>' + esc(T.projected) + ' <b>' + num(r.projected, 1) + '</b></span>' +
+                    '<span>' + esc(T.window)    + ' <b>' + r.window_minutes + ' ' + esc(T.min) + '</b></span>' +
+                '</div>' +
+                (r.batch_known ? '' : '<p class="rbk-warn">' + esc(T.noBatch) + '</p>') +
+                '<button type="button" class="rbk-btn" data-id="' + r.id_product +
+                    '" data-qty="' + r.suggested_quantity + '">' + esc(T.validate) + '</button>' +
+                '</article>';
+        }).join('');
+    }
+
+    function refresh() {
+        if (document.hidden) return;
+        return fetch(URL_STOCK, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d) return;
+                if (d.stock_available) paintStock(d.stock || []);
+                if (d.rebakes_available) paintRebakes(d.rebakes || []);
+            })
+            .catch(function () { /* réseau de magasin : on retentera dans 10 s */ });
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.rbk-btn');
+        if (!btn) return;
+
+        btn.disabled = true;
+
+        fetch(URL_REBAKE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                id_product: parseInt(btn.dataset.id, 10),
+                quantity:   parseFloat(btn.dataset.qty)
+            })
+        })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (res) {
+            if (!res || !res.success) {
+                showSnack(false, T.errRebake);
+                btn.disabled = false;
+                return;
+            }
+            showSnack(true, T.okRebake);
+            // Le stock fait foi : on le relit au lieu d'ajouter la quantité
+            // nous-mêmes. Une vente a pu tomber entre-temps.
+            refresh();
+        })
+        .catch(function () {
+            showSnack(false, T.errRebake);
+            btn.disabled = false;
+        });
+    });
+
+    setInterval(refresh, 10000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+})();
+</script>

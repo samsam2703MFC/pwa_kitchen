@@ -28,6 +28,15 @@ class OrderModel
     private ?string $poHash;
     private ?float $totalValue;
 
+    /**
+     * Mode de remise : 'collect' (Click & Collect) ou 'delivery' (livraison).
+     * null tant que l'API ne le renvoie pas — voir getFulfilmentMode().
+     */
+    private ?string $fulfilmentMode;
+
+    /** Canal de prise de commande : 'web', 'shop', … ; null si non fourni. */
+    private ?string $channel;
+
     /** @var OrderProductModel[] */
     private array $products = [];
 
@@ -58,6 +67,8 @@ class OrderModel
         $this->idPaymentType = isset($data['id_payment_type']) ? (int)$data['id_payment_type'] : null;
         $this->poHash = $data['po_hash'] ?? null;
         $this->totalValue = isset($data['total_value']) ? (float)$data['total_value'] : null;
+        $this->fulfilmentMode = self::readFulfilmentMode($data);
+        $this->channel = self::readChannel($data);
         $this->clientData = $data['client'] ?? null;
 
         foreach ($data['products'] ?? [] as $product) {
@@ -91,6 +102,73 @@ class OrderModel
     public function getNonCollectionComment(): ?string { return $this->nonCollectionComment; }
     public function getIdPaymentType(): ?int { return $this->idPaymentType; }
     public function getPoHash(): ?string { return $this->poHash; }
+
+    // ── Mode de remise et canal ───────────────────────────────────────────────
+
+    /**
+     * Normalise le mode de remise à partir des noms de champs plausibles.
+     *
+     * L'API ne renvoie aujourd'hui aucun de ces champs : la méthode retourne
+     * donc null, et l'écran des commandes le signale au lieu de filtrer sur du
+     * vide. On accepte plusieurs graphies pour que le jour où le back-end le
+     * livre — sous l'un ou l'autre de ces noms — rien n'ait à changer ici.
+     */
+    private static function readFulfilmentMode(array $data): ?string
+    {
+        foreach (['fulfilment_mode', 'fulfillment_mode', 'delivery_type', 'delivery_mode', 'order_type'] as $key) {
+            $raw = $data[$key] ?? null;
+            if ($raw === null || $raw === '') {
+                continue;
+            }
+            $v = strtolower((string)$raw);
+            if (str_contains($v, 'deliv') || str_contains($v, 'livr') || $v === 'dostawa') {
+                return self::MODE_DELIVERY;
+            }
+            if (str_contains($v, 'collect') || str_contains($v, 'pickup') || str_contains($v, 'pick_up') || $v === 'odbior') {
+                return self::MODE_COLLECT;
+            }
+        }
+
+        // Certains back-ends expriment la même chose par un booléen.
+        foreach (['is_delivery', 'delivery'] as $key) {
+            if (array_key_exists($key, $data) && $data[$key] !== null && $data[$key] !== '') {
+                return filter_var($data[$key], FILTER_VALIDATE_BOOLEAN)
+                    ? self::MODE_DELIVERY
+                    : self::MODE_COLLECT;
+            }
+        }
+
+        return null;
+    }
+
+    private static function readChannel(array $data): ?string
+    {
+        foreach (['channel', 'source', 'origin', 'order_source'] as $key) {
+            $raw = $data[$key] ?? null;
+            if ($raw !== null && $raw !== '') {
+                return strtolower((string)$raw);
+            }
+        }
+        return null;
+    }
+
+    public const MODE_COLLECT  = 'collect';
+    public const MODE_DELIVERY = 'delivery';
+
+    /** 'collect', 'delivery', ou null si l'API ne fournit pas l'information. */
+    public function getFulfilmentMode(): ?string { return $this->fulfilmentMode; }
+
+    public function isDelivery(): bool { return $this->fulfilmentMode === self::MODE_DELIVERY; }
+    public function isClickAndCollect(): bool { return $this->fulfilmentMode === self::MODE_COLLECT; }
+
+    public function getChannel(): ?string { return $this->channel; }
+
+    /** Commande passée sur le web (par opposition au comptoir). */
+    public function isWebOrder(): bool
+    {
+        return $this->channel !== null
+            && (str_contains($this->channel, 'web') || str_contains($this->channel, 'online'));
+    }
 
     /** @return OrderProductModel[] */
     public function getProducts(): array { return $this->products; }

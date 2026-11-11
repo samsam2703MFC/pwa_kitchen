@@ -35,6 +35,12 @@ return function (RouteCollector $r) {
         'method'     => 'ajaxDelete',
     ]);
 
+    // Compteur des commandes en attente — sondé par le front toutes les 10 s.
+    $r->addRoute('GET', '/ajax/orders/pending-count', [
+        'controller' => \App\Kitchen\app\Http\Controllers\Order\OrderController::class,
+        'method'     => 'pendingCount',
+    ]);
+
     // Szczegóły zamówienia
     $r->addRoute('GET', '/orders/{id:\d+}', [
         'controller' => \App\Kitchen\app\Http\Controllers\Order\OrderController::class,

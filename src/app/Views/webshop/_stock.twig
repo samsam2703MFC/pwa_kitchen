@@ -1,0 +1,53 @@
+{# webshop/_stock.twig — le stock du jour, à plat.
+
+   L'API le sert en catégories imbriquées, ce qui convient à un back-office qui
+   les replie. Au comptoir on cherche UN produit : une liste plate, avec la
+   catégorie en petit, se parcourt plus vite qu'un arbre à ouvrir.
+
+   Les ruptures remontent en tête : c'est la seule information qui appelle un
+   geste — prévenir la cuisine, retirer le produit de la vente. #}
+{% if stock is null %}
+    <div class="card mt-3"><div class="card-body ws-state">
+        <p>{{ translations.ws_not_served_stock | default("Le stock n'est pas encore servi par le webshop.") }}</p>
+    </div></div>
+
+{% elseif stock is empty %}
+    <div class="card mt-3"><div class="card-body ws-state">
+        <p>{{ translations.ws_no_stock | default('Aucun produit dans le catalogue du jour.') }}</p>
+    </div></div>
+
+{% else %}
+    {% if out_count %}
+        <p class="ws-out-band">
+            {{ out_count }}
+            {{ out_count > 1
+                ? (translations.ws_out_n | default('produits en rupture'))
+                : (translations.ws_out_1 | default('produit en rupture')) }}
+        </p>
+    {% endif %}
+
+    <div class="ws-list">
+        {% for p in stock|sort((a, b) => (b.out ? 1 : 0) - (a.out ? 1 : 0)) %}
+            <article class="ws-srow {{ p.out ? 'is-out' : '' }}">
+                <div class="ws-who">
+                    <b>{{ p.name }}</b>
+                    <small>{{ p.cat }}</small>
+                </div>
+                <div class="ws-qty">
+                    {% if p.qty is null %}
+                        {# Zéro est une décision, « pas de donnée » une ignorance.
+                           Les confondre ferait annoncer une rupture sur un
+                           produit dont on ne sait rien. #}
+                        <b class="is-unknown">—</b>
+                        <small>{{ translations.ws_qty_unknown | default('non servi') }}</small>
+                    {% else %}
+                        <b>{{ p.qty|number_format(0, ',', ' ') }}</b>
+                        <small>{{ p.out
+                            ? (translations.ws_out_label | default('rupture'))
+                            : (translations.ws_in_stock | default('en stock')) }}</small>
+                    {% endif %}
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% endif %}

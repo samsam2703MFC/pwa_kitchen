@@ -5,16 +5,9 @@
 {% block page_heading %}
     <div class="page-heading">
         <h3>{{ translations.knowledge_overview|default('Knowledge') }}</h3>
-        <p class="text-subtitle text-muted">{{ translations.knowledge_overview_subtitle|default('Przegląd dostępnych zasobów wiedzy w firmie') }}</p>
+        <p class="text-subtitle text-muted">{{ translations.knowledge_overview_subtitle|default("Parcourez les ressources de connaissances de l'entreprise - produits et sous-recettes.") }}</p>
 
         {# Breadcrumb to show user's location #}
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ ROOT }}">{{ translations.home|default('Home') }}</a></li>
-                <li class="breadcrumb-item">{{ translations.knowledge|default('Knowledge') }}</li>
-                <li class="breadcrumb-item active" aria-current="page">{{ translations.knowledge_overview|default('Overview') }}</li>
-            </ol>
-        </nav>
     </div>
 {% endblock %}
 
@@ -34,27 +27,17 @@
                 <div class="card-body">
                     <div class="row g-4">
 
-                        <div class="col-12 col-lg-6">
-                            <a href="{{ ROOT }}/knowledge/recipes" class="card border-2 border-primary shadow-sm h-100 text-decoration-none hover-lift">
-                                <div class="card-body p-4">
-                                    <div class="d-flex gap-3 align-items-start mb-3">
-                                        <div class="avatar avatar-xl">
-                                            <span class="avatar-content bg-primary">
-                                                <i class="bi bi-book fs-3 text-white"></i>
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <h4 class="mb-2 text-dark">{{ translations.subrecipes }}</h4>
-                                            <p class="text-muted mb-0">{{ translations.subrecipes_subtitle }}</p>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-center text-primary">
-                                        <span class="fw-semibold">{{ translations.go_to_subrecipes|default('Go to subrecipes') }}</span>
-                                        <i class="bi bi-arrow-right ms-2"></i>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
+                        {# ── La carte « Sous-recettes » a été retirée ──
+                           Elle pointait sur /knowledge/recipes, une URL sans
+                           route : le clic rendait une page blanche. Et la route
+                           n'aurait rien réparé — knowledge/recipe/overview.twig
+                           est un fichier vide.
+
+                           Le contrôleur, le service et le dépôt des sous-recettes
+                           restent en place, prêts à servir : il manque l'écran.
+                           Tant qu'il manque, mieux vaut ne rien promettre que
+                           d'ouvrir sur du vide. Remettre la carte le jour où le
+                           gabarit existe, avec la route dans KnowledgeRoutes. #}
 
                         <div class="col-12 col-lg-6">
                             <a href="{{ ROOT }}/knowledge/products" class="card border-2 border-success shadow-sm h-100 text-decoration-none hover-lift">

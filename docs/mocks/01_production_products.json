@@ -1,0 +1,208 @@
+[
+  {
+    "id_product": 6700106,
+    "name": "Croissant pur beurre",
+    "id_category": 12,
+    "category_name": "Viennoiserie",
+    "periods": [
+      "morning",
+      "noon"
+    ],
+    "batch_size": 24,
+    "unit_name": "pc",
+    "production_lead_minutes": 40,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": "r2://products/6700106/main.jpg"
+  },
+  {
+    "id_product": 6700110,
+    "name": "Pain au chocolat",
+    "id_category": 12,
+    "category_name": "Viennoiserie",
+    "periods": [
+      "morning",
+      "noon"
+    ],
+    "batch_size": 24,
+    "unit_name": "pc",
+    "production_lead_minutes": 40,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": "r2://products/6700110/main.jpg"
+  },
+  {
+    "id_product": 6700120,
+    "name": "Baguette tradition",
+    "id_category": 14,
+    "category_name": "Boulangerie",
+    "periods": [
+      "morning",
+      "noon",
+      "afternoon"
+    ],
+    "batch_size": 12,
+    "unit_name": "pc",
+    "production_lead_minutes": 20,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700130,
+    "name": "Tarte au citron meringuée",
+    "id_category": 16,
+    "category_name": "Pâtisserie",
+    "periods": [
+      "noon",
+      "afternoon"
+    ],
+    "batch_size": 6,
+    "unit_name": "pc",
+    "production_lead_minutes": 0,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": "r2://products/6700130/main.jpg"
+  },
+  {
+    "id_product": 6700140,
+    "name": "Macaron pistache",
+    "id_category": 16,
+    "category_name": "Pâtisserie",
+    "periods": [
+      "afternoon"
+    ],
+    "unit_name": "pc",
+    "production_lead_minutes": 0,
+    "is_active": true,
+    "is_pdb": false,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700150,
+    "name": "Bûche de Noël",
+    "id_category": 16,
+    "category_name": "Pâtisserie",
+    "periods": [
+      "afternoon"
+    ],
+    "batch_size": 4,
+    "unit_name": "pc",
+    "production_lead_minutes": 0,
+    "is_active": false,
+    "is_pdb": false,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700160,
+    "name": "Sandwich club",
+    "id_category": 18,
+    "category_name": "Traiteur",
+    "periods": [
+      "noon"
+    ],
+    "batch_size": 10,
+    "unit_name": "pc",
+    "production_lead_minutes": 0,
+    "is_active": true,
+    "is_pdb": false,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700190,
+    "name": "Chausson aux pommes",
+    "id_category": 12,
+    "category_name": "Viennoiserie",
+    "periods": [
+      "morning",
+      "noon"
+    ],
+    "batch_size": 18,
+    "unit_name": "pc",
+    "production_lead_minutes": 20,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700200,
+    "name": "Pain céréales",
+    "id_category": 14,
+    "category_name": "Boulangerie",
+    "periods": [
+      "morning",
+      "noon",
+      "afternoon"
+    ],
+    "batch_size": 10,
+    "unit_name": "pc",
+    "production_lead_minutes": 30,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700210,
+    "name": "Éclair chocolat",
+    "id_category": 16,
+    "category_name": "Pâtisserie",
+    "periods": [
+      "morning",
+      "noon"
+    ],
+    "batch_size": 12,
+    "unit_name": "pc",
+    "production_lead_minutes": 20,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700220,
+    "name": "Chouquette glacée",
+    "id_category": 16,
+    "category_name": "Pâtisserie",
+    "periods": [
+      "morning",
+      "noon"
+    ],
+    "batch_size": 30,
+    "unit_name": "pc",
+    "production_lead_minutes": 15,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700230,
+    "name": "Cookie chocolat",
+    "id_category": 16,
+    "category_name": "Pâtisserie",
+    "periods": [
+      "noon",
+      "afternoon"
+    ],
+    "batch_size": 20,
+    "unit_name": "pc",
+    "production_lead_minutes": 12,
+    "is_active": true,
+    "is_pdb": false,
+    "main_photo_path": null
+  },
+  {
+    "id_product": 6700240,
+    "name": "Pain de campagne",
+    "id_category": 14,
+    "category_name": "Boulangerie",
+    "periods": [
+      "morning",
+      "noon"
+    ],
+    "batch_size": 8,
+    "unit_name": "pc",
+    "production_lead_minutes": 35,
+    "is_active": true,
+    "is_pdb": true,
+    "main_photo_path": null
+  }
+]

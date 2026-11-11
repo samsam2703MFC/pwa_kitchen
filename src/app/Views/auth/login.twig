@@ -1,131 +1,29 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="{{ lang_code ?? 'fr' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ translations.supplier_portal_login_title }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    {# La version servie. Cet écran n'hérite pas de layouts/base.twig, il ne la
+       portait donc pas — et le contrôle de fin de déploiement, qui cherche cette
+       balise sur la page d'accueil (laquelle redirige ici), signalait depuis
+       toujours « version servie : absente ». Il ne vérifiait rien. #}
+    <meta name="app-build" content="{{ app_build }}">
+    {# Pas de police distante — et ici moins qu'ailleurs. C'est le premier écran
+       de la journée : treize secondes d'attente devant un formulaire vide, et
+       l'équipe conclut que la tablette est en panne. Voir layouts/base.twig. #}
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/bootstrap.css">
     <link rel="stylesheet" href="{{ ROOT }}/assets/vendors/bootstrap-icons/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ ROOT }}/assets/css/app.css">
+    <link rel="stylesheet" href="{{ ROOT }}/assets/css/atelier-theme.css">
     <style>
         html, body { height: 100%; margin: 0; }
+        /* Écran de connexion : le formulaire seul, centré.
+           La colonne de présentation qui occupait la gauche s'adressait à
+           quelqu'un qui découvre le produit — pas à une équipe de cuisine qui
+           se connecte chaque matin sur la même tablette. */
         #auth-root { min-height: 100vh; display: flex; }
-        /* ── LEWA KOLUMNA: kontekst aplikacji ── */
-        .app-brand-col {
-            width: 420px;
-            flex-shrink: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 40px 44px;
-            background:
-                radial-gradient(ellipse 900px 600px at 0% 10%, rgba(255,255,255,.04), transparent 65%),
-                linear-gradient(160deg, #0f1923 0%, #111d2b 50%, #0a1219 100%);
-            color: #fff;
-            position: relative;
-            overflow: hidden;
-        }
-        /* dekoracja tła */
-        .app-brand-col::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-            pointer-events: none;
-        }
-        .brand-top { position: relative; }
-        .brand-mid  { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; }
-        .brand-foot { position: relative; }
-        /* identyfikator aplikacji w nagłówku */
-        .app-id-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: .5rem;
-            padding: .38rem .85rem;
-            border-radius: 999px;
-            border: 1px solid rgba(255,255,255,.2);
-            background: rgba(255,255,255,.08);
-            font-size: .8rem;
-            font-weight: 700;
-            letter-spacing: .06em;
-            text-transform: uppercase;
-            color: rgba(255,255,255,.9);
-        }
-        .app-id-pill .dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: #34d399;
-            box-shadow: 0 0 6px #34d399;
-            flex-shrink: 0;
-        }
-        /* duży tytuł sekcji kuchni */
-        .kitchen-icon-wrap {
-            width: 64px; height: 64px;
-            border-radius: 18px;
-            background: rgba(255,255,255,.1);
-            border: 1px solid rgba(255,255,255,.18);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            font-size: 1.8rem;
-        }
-        .brand-headline {
-            font-size: 2rem;
-            font-weight: 800;
-            letter-spacing: -.03em;
-            line-height: 1.15;
-            margin: 0 0 10px;
-        }
-        .brand-desc {
-            color: rgba(255,255,255,.7);
-            font-size: .97rem;
-            line-height: 1.6;
-            margin: 0 0 28px;
-        }
-        /* lista możliwości */
-        .feature-list {
-            list-style: none;
-            padding: 0; margin: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .feature-list li {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-        .feature-list .fi {
-            width: 32px; height: 32px;
-            border-radius: 10px;
-            background: rgba(255,255,255,.1);
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            font-size: .95rem;
-        }
-        .feature-list .ft {
-            display: flex; flex-direction: column;
-        }
-        .feature-list .ft strong {
-            font-size: .88rem;
-            font-weight: 700;
-            color: rgba(255,255,255,.95);
-            line-height: 1.2;
-        }
-        .feature-list .ft span {
-            font-size: .78rem;
-            color: rgba(255,255,255,.55);
-            line-height: 1.4;
-        }
-        /* stopka marki */
-        .brand-foot-text {
-            font-size: .78rem;
-            color: rgba(255,255,255,.4);
-        }
-        /* ── PRAWA KOLUMNA: formularz ── */
         .auth-form-col {
             flex: 1;
             min-height: 100vh;
@@ -133,7 +31,7 @@
             align-items: center;
             justify-content: center;
             padding: 48px 24px;
-            background: #f0f2f7;
+            background: var(--c-bg);
         }
         .auth-panel {
             width: 100%;
@@ -141,31 +39,45 @@
         }
         /* nagłówek formularza */
         .auth-panel-header {
-            background: #fff;
-            border-radius: 16px 16px 0 0;
+            background: var(--c-surface);
+            border-radius: var(--r-xl) var(--r-xl) 0 0;
             padding: 22px 26px 18px;
-            border-bottom: 1px solid #e9ecef;
+            border-bottom: 1px solid var(--c-line);
         }
         .auth-panel-body {
-            background: #fff;
-            border-radius: 0 0 16px 16px;
+            background: var(--c-surface);
+            border-radius: 0 0 var(--r-xl) var(--r-xl);
             padding: 24px 26px 26px;
-            box-shadow: 0 4px 32px rgba(0,0,0,.09);
+            box-shadow: var(--sh-3);
         }
         .auth-logo-wrap {
             width: 48px; height: 48px;
             border-radius: 14px;
             overflow: hidden;
-            background: #f0f2f7;
+            background: var(--c-surface);
             flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
-            border: 1px solid #e2e6ef;
+            border: 1px solid var(--c-line-2);
         }
+        /* Le monogramme est une image transparente à marges nulles : « cover »
+           le rognerait au ras du cercle. « contain » + un peu d'air le laisse
+           respirer dans sa pastille. */
         .auth-logo-wrap img {
-            width: 100%; height: 100%; object-fit: cover;
+            width: 100%; height: 100%; object-fit: contain; padding: 7px;
         }
-        .auth-title   { font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
-        .auth-subtitle { font-size: .88rem; color: #6c757d; margin: 2px 0 0; }
+        /* Marque : lettrage commun + nom du module */
+        .auth-brand {
+            display: flex; align-items: center; gap: 10px;
+            padding-bottom: 14px; margin-bottom: 14px;
+            border-bottom: 1px solid var(--c-line);
+        }
+        .auth-brand-logo { height: 24px; width: auto; display: block; flex-shrink: 0; }
+        .auth-brand-module {
+            font-family: var(--font-display); font-size: 1rem; line-height: 1; color: var(--c-primary);
+            padding-left: 10px; border-left: 1px solid var(--c-line-2);
+        }
+        .auth-title   { font-family: var(--font-display); font-size: 1.35rem; font-weight: 400; letter-spacing: .01em; margin: 0; }
+        .auth-subtitle { font-size: .88rem; color: var(--c-muted); margin: 2px 0 0; }
         /* chip kontekstu – wyraźnie identyfikuje gdzie jest user */
         .context-badge {
             display: inline-flex;
@@ -177,14 +89,14 @@
             font-weight: 700;
             letter-spacing: .02em;
             white-space: nowrap;
-            background: #ecfdf5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
+            background: rgba(45,122,62,.1);
+            color: var(--c-vert);
+            border: 1px solid rgba(45,122,62,.28);
         }
         .context-badge .dot {
             width: 6px; height: 6px;
             border-radius: 50%;
-            background: #10b981;
+            background: var(--c-vert);
             flex-shrink: 0;
         }
         /* inputy */
@@ -198,15 +110,15 @@
             top: 50%;
             transform: translateY(-50%);
             font-size: 1rem;
-            color: #adb5bd;
+            color: var(--c-muted);
             pointer-events: none;
             z-index: 2;
         }
         .input-wrap input,
         .input-wrap select {
             padding-left: 40px;
-            border-radius: 12px;
-            border: 1.5px solid #dee2e6;
+            border-radius: var(--r-md);
+            border: 1.5px solid var(--c-line-2);
             padding-top: .85rem;
             padding-bottom: .85rem;
             font-size: .95rem;
@@ -215,8 +127,8 @@
         }
         .input-wrap input:focus,
         .input-wrap select:focus {
-            border-color: #111827;
-            box-shadow: 0 0 0 3px rgba(17,24,39,.1);
+            border-color: var(--c-secondary);
+            box-shadow: 0 0 0 3px rgba(141,29,44,.14);
         }
         .input-wrap input.is-invalid,
         .input-wrap select.is-invalid {
@@ -240,16 +152,17 @@
         .btn-login {
             width: 100%;
             padding: .9rem;
-            border-radius: 12px;
-            font-weight: 700;
+            border-radius: var(--r-md);
+            font-weight: 600;
             font-size: .97rem;
-            background: #111827;
+            background: var(--c-primary);
             color: #fff;
             border: none;
             margin-top: 6px;
+            box-shadow: 0 8px 20px -10px rgba(141,29,44,.6);
             transition: background .15s, transform .1s;
         }
-        .btn-login:hover { background: #1f2d3d; }
+        .btn-login:hover { background: var(--c-primary-hover); color: #fff; }
         .btn-login:active { transform: scale(.985); }
         /* alert błędu */
         .auth-alert-danger {
@@ -267,96 +180,30 @@
         /* stopka */
         .auth-footer-note {
             font-size: .78rem;
-            color: #9ca3af;
+            color: var(--c-muted);
             text-align: center;
             margin-top: 20px;
         }
         /* Widok mobilny */
         @media (max-width: 767.98px) {
-            #auth-root { flex-direction: column; }
-            .app-brand-col {
-                width: 100%;
-                min-height: auto;
-                padding: 24px 20px;
-            }
-            .brand-mid { margin: 20px 0; }
-            .auth-form-col { background: #fff; }
+            .auth-form-col { background: #fff; padding: 24px 18px; }
         }
     </style>
 </head>
 <body>
 <div id="auth-root">
-    {# ════════════════════════════════════════════
-       LEWA KOLUMNA — identyfikacja aplikacji
-       ════════════════════════════════════════════ #}
-    <div class="app-brand-col">
-        {# Nagłówek — identyfikacja systemu #}
-        <div class="brand-top">
-            <span class="app-id-pill">
-                <span class="dot"></span>
-                {{ translations.franchise_ecosystem }}
-            </span>
-        </div>
-        {# Główna treść #}
-        <div class="brand-mid">
-            <div class="kitchen-icon-wrap">
-                <i class="bi bi-shop-window"></i>
-            </div>
-            <h1 class="brand-headline">{{ translations.kitchen_brand_headline }}</h1>
-            <p class="brand-desc">{{ translations.kitchen_brand_subtitle }}</p>
-            <ul class="feature-list">
-                <li>
-                    <div class="fi"><i class="bi bi-list-check"></i></div>
-                    <div class="ft">
-                        <strong>{{ translations.kitchen_production }}</strong>
-                        <span>{{ translations.kitchen_production_desc }}</span>
-                    </div>
-                </li>
-                <li>
-                    <div class="fi"><i class="bi bi-journal-text"></i></div>
-                    <div class="ft">
-                        <strong>{{ translations.kitchen_cards }}</strong>
-                        <span>{{ translations.kitchen_cards_desc }}</span>
-                    </div>
-                </li>
-                <li>
-                    <div class="fi"><i class="bi bi-clipboard-check"></i></div>
-                    <div class="ft">
-                        <strong>{{ translations.kitchen_checklists }}</strong>
-                        <span>{{ translations.kitchen_checklists_desc }}</span>
-                    </div>
-                </li>
-                <li>
-                    <div class="fi"><i class="bi bi-cloud-arrow-down"></i></div>
-                    <div class="ft">
-                        <strong>{{ translations.kitchen_offline }}</strong>
-                        <span>{{ translations.kitchen_offline_desc }}</span>
-                    </div>
-                </li>
-            </ul>
-            <p class="mt-4 mb-0" style="font-size:.8rem; color:rgba(255,255,255,.4);">
-                {{ translations.kitchen_no_access_hint }}
-            </p>
-        </div>
-        {# Stopka #}
-        <div class="brand-foot">
-            <p class="brand-foot-text mb-0">
-                © {{ "now"|date("Y") }} • {{ translations.franchise_ecosystem }}
-            </p>
-        </div>
-    </div>
-    {# ════════════════════════════════════════════
-       PRAWA KOLUMNA — formularz logowania
-       ════════════════════════════════════════════ #}
     <div class="auth-form-col">
         <div class="auth-panel">
             {# Nagłówek panelu — user ZAWSZE wie gdzie jest #}
             <div class="auth-panel-header">
+                {# Lettrage de marque commun aux modules, puis le module courant —
+                   même présentation que l'écran de connexion du consultant. #}
+                <div class="auth-brand">
+                    <img src="{{ ROOT }}/assets/brand/logo.png" alt="L'Atelier" class="auth-brand-logo">
+                    <span class="auth-brand-module">{{ translations.module_name ?? 'Kitchen' }}</span>
+                </div>
                 <div class="d-flex align-items-center justify-content-between gap-3">
                     <div class="d-flex align-items-center gap-3">
-                        <div class="auth-logo-wrap">
-                            <img src="{{ ROOT }}/assets/images/main_logo.jpg" alt="Logo">
-                        </div>
                         <div>
                             <h2 class="auth-title">{{ translations.login }}</h2>
                             <p class="auth-subtitle">{{ translations.login_to_kitchen }}</p>

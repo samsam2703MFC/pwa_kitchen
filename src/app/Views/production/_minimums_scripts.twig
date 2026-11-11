@@ -1,0 +1,98 @@
+{# production/_minimums_scripts.twig — filtres du tableau, et la relance en fournées.
+
+   Deux rangées de badges qui se combinent (état ET catégorie), et un seul
+   geste : lancer une fournée pour remonter au plancher. #}
+<script>
+(function () {
+    var table = document.getElementById('minTable');
+    if (!table) return;
+
+    var ROOT = {{ ROOT | json_encode | raw }};
+    var MSG  = {
+        err: {{ (translations.board_launch_error   | default("La fournée n'a pas pu être programmée.")) | json_encode | raw }},
+        ok:  {{ (translations.board_launch_success | default('Fournée programmée : elle est passée en préparation.')) | json_encode | raw }}
+    };
+
+    var alertEl = document.getElementById('minAlert');
+    function fail(msg) {
+        if (!alertEl) { showSnack(false, msg); return; }
+        alertEl.className = 'alert alert-danger mt-3';
+        alertEl.textContent = msg;
+        alertEl.classList.remove('d-none');
+    }
+
+    // ── Filtres ──
+    // Les deux rangées se combinent : « sous le minimum » ET « en viennoiserie »
+    // est la question qu'on pose vraiment quand on est devant la vitrine.
+    var want = { flag: '', cat: '' };
+
+    function apply() {
+        var shown = 0;
+        table.querySelectorAll('tbody tr').forEach(function (tr) {
+            var ok = (!want.flag || tr.dataset.flag === want.flag)
+                  && (!want.cat  || tr.dataset.cat  === want.cat);
+            tr.hidden = !ok;
+            if (ok) shown++;
+        });
+        var none = document.getElementById('minNoMatch');
+        if (none) none.classList.toggle('d-none', shown > 0);
+    }
+
+    document.addEventListener('click', function (e) {
+        var chip = e.target.closest('.cat-filters .cat-chip');
+        if (!chip) return;
+        var bar = chip.closest('.cat-filters');
+        if ((bar.dataset.target || '') !== '#minTable') return;
+
+        bar.querySelectorAll('.cat-chip').forEach(function (c) { c.classList.toggle('is-on', c === chip); });
+        if ((bar.dataset.kind || '') === 'cat') { want.cat = chip.dataset.cat || ''; }
+        else                                    { want.flag = chip.dataset.flag || ''; }
+        apply();
+    });
+
+    // ── Pas de fournée ──
+    document.addEventListener('click', function (e) {
+        var step = e.target.closest('#minTable .mep-step');
+        if (!step) return;
+
+        var row   = step.closest('tr');
+        var input = row.querySelector('.min-qty');
+        if (!input) return;
+
+        var by = Math.max(1, parseFloat(row.dataset.batch) || 1) * (parseInt(step.dataset.step, 10) || 1);
+        input.value = String(Math.max(0, (parseFloat(input.value) || 0) + by));
+    });
+
+    // ── Lancer la fournée ──
+    // Même appel que depuis l'écran Besoins, et même suite : le serveur choisit
+    // le four et les horaires, on enchaîne sur le planning avec la fournée mise
+    // en avant plutôt que de rester sur un tableau qui ne bougera qu'au
+    // rechargement.
+    document.addEventListener('click', function (e) {
+        var go = e.target.closest('.min-go');
+        if (!go) return;
+
+        var row = go.closest('tr');
+        var qty = parseFloat(row.querySelector('.min-qty').value) || 0;
+        if (qty <= 0) return;
+
+        if (alertEl) alertEl.classList.add('d-none');
+        go.disabled = true;
+
+        fetch(ROOT + '/ajax/baking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id_product: parseInt(row.dataset.productId, 10), quantity: qty })
+        })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (res) {
+            if (!res || !res.success) { fail(MSG.err); go.disabled = false; return; }
+            showSnack(true, MSG.ok);
+            var id = res.inserted_id;
+            window.location = ROOT + '/production?view=planning' + (id > 0 ? '&focus=' + id : '');
+        })
+        .catch(function () { fail(MSG.err); go.disabled = false; });
+    });
+})();
+</script>

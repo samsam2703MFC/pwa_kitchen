@@ -1,0 +1,23 @@
+{
+  "id": 5502,
+  "id_product": 6700220,
+  "name": "Chouquette glacée",
+  "category_name": "Pâtisserie",
+  "quantity": 30,
+  "unit_name": "pc",
+  "id_oven": 1,
+  "oven_name": "Four 1 — Rotatif",
+  "temperature": 175,
+  "prep_start": "06:40",
+  "prep_minutes": 15,
+  "cook_start": "07:15",
+  "cook_minutes": 15,
+  "finish_type": "PIECE",
+  "finish_label": "Glaçage",
+  "finish_per_piece_minutes": 0.5,
+  "shelf_delay_minutes": 5,
+  "status": "FINISHING",
+  "prep_started_at": "2026-08-01 06:40:00",
+  "cook_started_at": "2026-08-01 07:15:00",
+  "finish_started_at": "2026-08-01 07:30:00"
+}

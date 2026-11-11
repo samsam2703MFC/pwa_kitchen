@@ -6,6 +6,7 @@ use App\Kitchen\core\Cookie\CookieManager;
 use App\Kitchen\app\Models\Auth\JWTModel;
 use App\Kitchen\app\Repositories\Auth\LoginRepository;
 use App\Kitchen\app\Services\Auth\JwtService;
+use App\Kitchen\core\Support\ShiftSession;
 use DateTime;
 
 class AuthService {
@@ -42,6 +43,10 @@ class AuthService {
 
 
     public function logout() {
+        // La personne en poste est un contexte distinct du compte de la
+        // tablette. En sortant du compte, on la retire aussi : sinon le
+        // prochain écran pourrait encore lui attribuer des compteurs/tâches.
+        ShiftSession::close();
         $this->cookieManager->unsetCookies();
     }
 }
