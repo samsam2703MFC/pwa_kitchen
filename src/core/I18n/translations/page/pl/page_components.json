@@ -109,5 +109,7 @@
   "photo_preview": "Podgląd",
   "camera_denied": "Brak dostępu do kamery: ",
   "file_download_error": "Nie udało się pobrać pliku.",
-  "connection_error": "Błąd połączenia."
+  "connection_error": "Błąd połączenia.",
+  "sop": "SOP · standardy",
+  "sop_subtitle": "Standardy sieci, krok po kroku, po francusku i niderlandzku"
 }

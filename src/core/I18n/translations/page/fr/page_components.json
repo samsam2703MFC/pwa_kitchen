@@ -109,5 +109,7 @@
   "photo_preview": "Aperçu",
   "camera_denied": "Caméra inaccessible : ",
   "file_download_error": "Le fichier n'a pas pu être téléchargé.",
-  "connection_error": "Erreur de connexion."
+  "connection_error": "Erreur de connexion.",
+  "sop": "SOP · standards",
+  "sop_subtitle": "Les standards du réseau, pas à pas, en FR et en NL"
 }

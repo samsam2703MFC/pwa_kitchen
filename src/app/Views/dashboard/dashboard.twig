@@ -171,6 +171,18 @@
             </div>
         </div>
 
+        {# SOP — les standards du réseau, sur la tablette Formation du cockpit
+           (GET /sop renvoie vers formation/sop/tablette.html du module Formation). #}
+        <a href="{{ ROOT }}/sop" class="dash-action">
+            <div class="dash-action-top">
+                <span class="dash-action-ic ic-ruby">{{ icons.svg('file-text', 22) }}</span>
+            </div>
+            <div class="dash-action-body">
+                <p class="dash-action-title">{{ translations.sop|default('SOP') }}</p>
+                <p class="dash-action-sub">{{ translations.sop_subtitle|default('') }}</p>
+            </div>
+        </a>
+
         {# Fiches de production #}
         <a href="{{ ROOT }}/knowledge/products" class="dash-action">
             <div class="dash-action-top">

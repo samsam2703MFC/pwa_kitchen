@@ -109,5 +109,7 @@
   "photo_preview": "Voorbeeld",
   "camera_denied": "Camera niet beschikbaar: ",
   "file_download_error": "Het bestand kon niet gedownload worden.",
-  "connection_error": "Verbindingsfout."
+  "connection_error": "Verbindingsfout.",
+  "sop": "SOP · standaarden",
+  "sop_subtitle": "De standaarden van het netwerk, stap voor stap, in FR en NL"
 }

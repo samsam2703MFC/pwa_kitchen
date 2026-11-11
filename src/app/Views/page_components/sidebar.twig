@@ -42,6 +42,13 @@
                         <span>{{ translations.knowledge }}</span>
                     </a>
                 </li>
+                {# ✓ SOP — les standards du réseau, sur la tablette Formation du cockpit #}
+                <li class="sidebar-item {{ p starts with '/sop' ? 'active' : '' }}">
+                    <a href="{{ ROOT }}/sop" class="sidebar-link">
+                        <i class="bi bi-mortarboard"></i>
+                        <span>{{ translations.sop|default('SOP') }}</span>
+                    </a>
+                </li>
                 {# ✓ CHECKLISTY #}
                 <li class="sidebar-item {{ p starts with '/checklists' ? 'active' : '' }}">
                     <a href="{{ ROOT }}/checklists" class="sidebar-link">
